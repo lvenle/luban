@@ -1,0 +1,114 @@
+{
+  "manifest": {
+    "packageVersion": "1.0",
+    "id": "todo-list",
+    "name": "待办事项工具",
+    "description": "记录任务、截止日期、优先级和完成状态。",
+    "icon": "check-square",
+    "version": "1.0.0",
+    "author": "local-user",
+    "createdBy": "ai",
+    "tags": [
+      "productivity"
+    ]
+  },
+  "schema": {
+    "entities": [
+      {
+        "id": "task",
+        "name": "任务",
+        "fields": [
+          {
+            "id": "title",
+            "label": "任务",
+            "type": "text",
+            "required": true
+          },
+          {
+            "id": "due_date",
+            "label": "截止日期",
+            "type": "date"
+          },
+          {
+            "id": "priority",
+            "label": "优先级",
+            "type": "select",
+            "options": [
+              "低",
+              "中",
+              "高"
+            ]
+          },
+          {
+            "id": "done",
+            "label": "完成状态",
+            "type": "boolean"
+          },
+          {
+            "id": "note",
+            "label": "备注",
+            "type": "textarea"
+          }
+        ]
+      }
+    ]
+  },
+  "ui": {
+    "home": {
+      "layout": "dashboard",
+      "cards": [
+        {
+          "type": "stat",
+          "title": "待办总数",
+          "entity": "task",
+          "operation": "count"
+        }
+      ]
+    },
+    "pages": [
+      {
+        "id": "task-list",
+        "title": "任务列表",
+        "type": "list",
+        "entity": "task",
+        "features": [
+          "create",
+          "edit",
+          "delete",
+          "search",
+          "export"
+        ]
+      },
+      {
+        "id": "priority-chart",
+        "title": "优先级统计",
+        "type": "chart",
+        "entity": "task",
+        "chart": {
+          "type": "bar",
+          "groupBy": "priority",
+          "value": "count"
+        }
+      }
+    ]
+  },
+  "actions": {
+    "actions": [
+      {
+        "id": "today_tasks",
+        "name": "查询今日任务",
+        "type": "data.queryRecords",
+        "input": {
+          "records": "task"
+        }
+      }
+    ]
+  },
+  "prompts": {
+    "systemPrompt": "你是待办事项助手，帮助用户安排任务。",
+    "suggestedCommands": [
+      "增加今日任务页面",
+      "增加任务标签字段"
+    ]
+  }
+}

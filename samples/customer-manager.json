@@ -1,0 +1,121 @@
+{
+  "manifest": {
+    "packageVersion": "1.0",
+    "id": "customer-manager",
+    "name": "客户管理器",
+    "description": "记录客户姓名、电话、来源、跟进状态和备注。",
+    "icon": "users",
+    "version": "1.0.0",
+    "author": "local-user",
+    "createdBy": "ai",
+    "tags": [
+      "crm"
+    ]
+  },
+  "schema": {
+    "entities": [
+      {
+        "id": "customer",
+        "name": "客户",
+        "fields": [
+          {
+            "id": "name",
+            "label": "姓名",
+            "type": "text",
+            "required": true
+          },
+          {
+            "id": "phone",
+            "label": "电话",
+            "type": "text"
+          },
+          {
+            "id": "source",
+            "label": "来源",
+            "type": "select",
+            "options": [
+              "朋友介绍",
+              "线上咨询",
+              "线下活动",
+              "其他"
+            ]
+          },
+          {
+            "id": "status",
+            "label": "跟进状态",
+            "type": "select",
+            "options": [
+              "新客户",
+              "跟进中",
+              "已成交",
+              "暂缓"
+            ]
+          },
+          {
+            "id": "note",
+            "label": "备注",
+            "type": "textarea"
+          }
+        ]
+      }
+    ]
+  },
+  "ui": {
+    "home": {
+      "layout": "dashboard",
+      "cards": [
+        {
+          "type": "stat",
+          "title": "客户总数",
+          "entity": "customer",
+          "operation": "count"
+        }
+      ]
+    },
+    "pages": [
+      {
+        "id": "customer-list",
+        "title": "客户列表",
+        "type": "list",
+        "entity": "customer",
+        "features": [
+          "create",
+          "edit",
+          "delete",
+          "search",
+          "export"
+        ]
+      },
+      {
+        "id": "status-chart",
+        "title": "状态统计",
+        "type": "chart",
+        "entity": "customer",
+        "chart": {
+          "type": "bar",
+          "groupBy": "status",
+          "value": "count"
+        }
+      }
+    ]
+  },
+  "actions": {
+    "actions": [
+      {
+        "id": "export_customers",
+        "name": "导出客户 CSV",
+        "type": "export.csv",
+        "input": {
+          "records": "customer"
+        }
+      }
+    ]
+  },
+  "prompts": {
+    "systemPrompt": "你是客户管理助手。",
+    "suggestedCommands": [
+      "增加跟进提醒日期",
+      "增加客户分级字段"
+    ]
+  }
+}
