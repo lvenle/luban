@@ -1023,6 +1023,52 @@ tbody tr:hover {
   background: #fff;
 }
 
+.table-panel .summary-row td {
+  height: 32px;
+  background: #fbfcfe;
+  color: #5f6875;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.summary-cell {
+  color: #8a94a3;
+}
+
+.numeric-summary-cell {
+  text-align: right;
+}
+
+.numeric-summary {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: #253044;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-prefix {
+  color: #8a94a3;
+  font-weight: 700;
+}
+
+.summary-empty {
+  color: #a0a7b3;
+  font-weight: 500;
+}
+
+.summary-label-cell {
+  color: #6b7280;
+}
+
+.summary-action-cell {
+  background: #fbfcfe;
+}
+
 .quick-add-row-button {
   width: auto;
   padding: 2px 10px;
@@ -1044,6 +1090,10 @@ tbody tr:hover {
 .group-row td {
   background: #f8fafc;
   font-weight: 700;
+}
+
+.summary-group-row td {
+  background: #f8fafc;
 }
 
 .group-toggle {
@@ -1082,6 +1132,35 @@ th {
   color: #5f6875;
   font-size: 13px;
   font-weight: 600;
+}
+
+.table-panel th.header-editing,
+th.header-editing {
+  padding: 0 10px 0 0;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+
+.table-panel th.header-editing .header-edit-input,
+th.header-editing .header-edit-input {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  height: 33px;
+  display: block;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 4px 8px;
+  box-shadow: none;
+  color: #202938;
+  font-weight: 600;
+}
+
+.table-panel th.header-editing .header-edit-input:focus,
+th.header-editing .header-edit-input:focus {
+  border: 0;
+  box-shadow: none;
 }
 
 .table-panel .index-cell,

@@ -881,8 +881,8 @@ function renderListPage(page) {
       let rowNumber = 1;
       for (const group of groupRecords(sortedItems, entity, listConfig.group)) {
         const collapsed = (listConfig.group.collapsed || []).includes(group.key);
-        tableBody.append(h('tr', { class: 'group-row' }, [
-          h('td', { colspan: visibleFields.length + 3 }, [
+        tableBody.append(h('tr', { class: 'group-row summary-group-row' }, [
+          h('td', { colspan: 2 }, [
             h('button', {
               class: 'ghost group-toggle',
               text: `${collapsed ? '▶' : '▼'} ${group.label} (${group.records.length})`,
@@ -894,7 +894,9 @@ function renderListPage(page) {
                 renderRuntime();
               }
             })
-          ])
+          ]),
+          ...visibleFields.map((field) => h('td', { class: summaryCellClass(field) }, [renderNumericSummary(group.records, field, '小计')])),
+          h('td', { class: 'sticky-action-cell action-cell summary-action-cell', style: actionColumnStyle(listConfig) })
         ]));
         if (!collapsed) {
           for (const record of group.records) {
@@ -904,6 +906,7 @@ function renderListPage(page) {
           }
         }
       }
+      tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计'));
       tableBody.append(renderQuickAddRow(entity, visibleFields));
       updateSelectionState();
       return;
@@ -912,6 +915,7 @@ function renderListPage(page) {
       currentRenderedIds.push(record.id);
       tableBody.append(renderRecordRow(entity, visibleFields, record, listConfig, index + 1, selectedIds, syncSelection, updateSelectionState));
     }
+    tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计'));
     tableBody.append(renderQuickAddRow(entity, visibleFields));
     updateSelectionState();
   };
@@ -1366,6 +1370,8 @@ function renderResizableHeader(entity, field, nextField, listConfig) {
 function startHeaderLabelEdit(header, entity, field) {
   const span = header.querySelector('span');
   if (!span) return;
+  const currentLabel = span.textContent || field.label;
+  header.classList.add('header-editing');
   const input = h('input', { class: 'header-edit-input', value: field.label });
   span.replaceWith(input);
   input.focus();
@@ -1376,7 +1382,10 @@ function startHeaderLabelEdit(header, entity, field) {
     done = true;
     const label = input.value.trim();
     if (save && label && label !== field.label) await updateField(entity.id, field.id, { label });
-    else renderRuntime();
+    else {
+      header.classList.remove('header-editing');
+      input.replaceWith(h('span', { text: currentLabel }));
+    }
   };
   input.addEventListener('blur', () => finish(true));
   input.addEventListener('keydown', (event) => {
@@ -1750,6 +1759,40 @@ function renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, s
       h('button', { class: 'danger', text: '删除', onclick: () => removeRecord(record.id, entity.id) })
     ])
   ]);
+}
+
+function renderSummaryRow(records, visibleFields, listConfig, label = '合计') {
+  return h('tr', { class: 'summary-row' }, [
+    h('td', { class: 'select-cell summary-label-cell' }),
+    h('td', { class: 'index-cell summary-label-cell', text: label }),
+    ...visibleFields.map((field) => h('td', { class: summaryCellClass(field), style: columnWidthStyle(listConfig, field) }, [renderNumericSummary(records, field, label)])),
+    h('td', { class: 'sticky-action-cell action-cell summary-action-cell', style: actionColumnStyle(listConfig) })
+  ]);
+}
+
+function renderNumericSummary(records, field, label = '合计') {
+  if (field.type !== 'number') return document.createTextNode('');
+  const values = records
+    .map((record) => Number(record.data?.[field.id]))
+    .filter((value) => Number.isFinite(value));
+  if (!values.length) return h('span', { class: 'summary-empty', text: '无数据' });
+  const sum = values.reduce((total, value) => total + value, 0);
+  return h('span', { class: 'numeric-summary', title: `${label}：${values.length} 个数字` }, [
+    h('span', { class: 'summary-prefix', text: 'Σ' }),
+    h('span', { text: formatNumberSummary(sum, field) })
+  ]);
+}
+
+function summaryCellClass(field) {
+  return field.type === 'number' ? 'summary-cell numeric-summary-cell' : 'summary-cell';
+}
+
+function formatNumberSummary(value, field) {
+  if (field.format === 'integer') return String(Math.round(value));
+  if (field.format === 'currency') return `¥${value.toFixed(2)}`;
+  if (field.format === 'percent') return `${(value * 100).toFixed(2)}%`;
+  if (field.format === 'decimal2') return value.toFixed(2);
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(6)));
 }
 
 function startCellEdit(cell, entity, record, field) {

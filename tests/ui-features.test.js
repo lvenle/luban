@@ -85,6 +85,9 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /quickAddRecord/);
   assert.match(appJs, /bulkDeleteRecords/);
   assert.match(appJs, /clearCurrentViewConfig/);
+  assert.match(appJs, /renderSummaryRow/);
+  assert.match(appJs, /renderNumericSummary/);
+  assert.match(appJs, /summary-group-row/);
   assert.match(appJs, /快速新增行/);
   assert.match(appJs, /批量删除/);
   assert.match(appJs, /清除视图/);
@@ -139,6 +142,9 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.image-preview-full/);
   assert.match(css, /\.file-link/);
   assert.match(css, /\.cell-link/);
+  assert.match(css, /\.summary-row/);
+  assert.match(css, /\.numeric-summary/);
+  assert.match(css, /\.summary-group-row/);
   assert.match(css, /\.context-menu/);
   assert.match(css, /\.layout-editor/);
   assert.match(css, /\.form-preview/);
