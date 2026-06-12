@@ -36,6 +36,13 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /表单视图/);
   assert.match(appJs, /ondblclick/);
   assert.match(appJs, /editable-cell/);
+  assert.match(appJs, /selected-cell/);
+  assert.match(appJs, /renderImageValue/);
+  assert.match(appJs, /image-thumb/);
+  assert.match(appJs, /openImagePreview/);
+  assert.match(appJs, /renderFileValue/);
+  assert.match(appJs, /cell-link/);
+  assert.match(appJs, /uploads/);
   assert.match(appJs, /startCellEdit/);
   assert.match(appJs, /text: '编辑'/);
   assert.match(appJs, /draggable/);
@@ -81,6 +88,16 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /快速新增行/);
   assert.match(appJs, /批量删除/);
   assert.match(appJs, /清除视图/);
+  assert.match(appJs, /renderAiPlanCard/);
+  assert.match(appJs, /requestAiPlan/);
+  assert.match(appJs, /executeAiPlan/);
+  assert.match(appJs, /确认执行/);
+  assert.match(appJs, /relation-options/);
+  assert.match(appJs, /targetEntity/);
+  assert.match(appJs, /displayField/);
+  assert.match(appJs, /renderSelectTag/);
+  assert.match(appJs, /openCreateTableModal/);
+  assert.match(appJs, /新建表/);
 });
 
 test('frontend has styles for list config, form layout, inline edit, and logs', () => {
@@ -117,10 +134,19 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.table-command-row/);
   assert.match(css, /\.quick-searches/);
   assert.match(css, /\.editable-cell/);
+  assert.match(css, /\.selected-cell/);
+  assert.match(css, /\.image-thumb/);
+  assert.match(css, /\.image-preview-full/);
+  assert.match(css, /\.file-link/);
+  assert.match(css, /\.cell-link/);
   assert.match(css, /\.context-menu/);
   assert.match(css, /\.layout-editor/);
   assert.match(css, /\.form-preview/);
   assert.match(css, /\.select-cell/);
   assert.match(css, /\.selection-label/);
   assert.match(css, /\.confirm-modal/);
+  assert.match(css, /\.select-tag/);
+  assert.match(css, /\.relation-tag/);
+  assert.match(css, /\.ai-plan-card/);
+  assert.match(css, /\.create-table-button/);
 });

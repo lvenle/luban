@@ -38,6 +38,17 @@ test('HTTP API creates, runs, modifies, exports, and imports an app', async () =
     });
     assert.ok(record.record.id);
 
+    const uploaded = await fetch(`${base}/api/apps/${created.appId}/uploads?name=receipt.png`, {
+      method: 'POST',
+      headers: { 'content-type': 'image/png' },
+      body: new Uint8Array([137, 80, 78, 71])
+    }).then((res) => res.json());
+    assert.equal(uploaded.file.name, 'receipt.png');
+    assert.match(uploaded.file.url, /^\/uploads\//);
+    const uploadedFile = await fetch(`${base}${uploaded.file.url}`);
+    assert.equal(uploadedFile.status, 200);
+    assert.equal(uploadedFile.headers.get('content-type'), 'image/png');
+
     const action = await post(`${base}/api/apps/${created.appId}/actions/monthly_summary/run`, {});
     assert.match(action.result, /已分析 1 条记录/);
 
@@ -69,6 +80,61 @@ test('HTTP API creates, runs, modifies, exports, and imports an app', async () =
   });
 });
 
+test('HTTP API supports V2 tables, relation fields, colored options, and confirmed AI execution', async () => {
+  await withServer(async (base) => {
+    const created = await post(`${base}/api/apps/generate`, { prompt: '帮我创建一个商品管理系统' });
+    const appId = created.appId;
+
+    const categoryTable = await post(`${base}/api/apps/${appId}/tables`, { name: '分类表' });
+    const categoryEntity = categoryTable.app.schema.entities.find((entity) => entity.name === '分类表');
+    assert.ok(categoryEntity);
+
+    const productEntity = categoryTable.app.schema.entities[0];
+    const relationField = await post(`${base}/api/apps/${appId}/tables/${productEntity.id}/fields`, {
+      label: '商品分类',
+      type: 'relation',
+      targetEntity: categoryEntity.id,
+      displayField: 'name',
+      multiple: false
+    });
+    const relation = relationField.app.schema.entities[0].fields.find((field) => field.type === 'relation');
+    assert.equal(relation.targetEntity, categoryEntity.id);
+
+    const category = await post(`${base}/api/apps/${appId}/records`, {
+      entityId: categoryEntity.id,
+      data: { name: '手机' }
+    });
+    const product = await post(`${base}/api/apps/${appId}/records`, {
+      entityId: productEntity.id,
+      data: { name: 'iPhone', [relation.id]: [category.record.id] }
+    });
+    assert.ok(product.record.id);
+
+    const options = await getJson(`${base}/api/apps/${appId}/fields/${productEntity.id}/${relation.id}/relation-options?keyword=${encodeURIComponent('手机')}`);
+    assert.equal(options.options[0].displayValue, '手机');
+
+    const records = await getJson(`${base}/api/apps/${appId}/records?entity=${productEntity.id}`);
+    assert.equal(records.records[0].data[relation.id][0].displayValue, '手机');
+
+    const blockedDelete = await fetch(`${base}/api/apps/${appId}/records/${category.record.id}`, { method: 'DELETE' });
+    assert.equal(blockedDelete.status, 409);
+    const forcedDelete = await fetch(`${base}/api/apps/${appId}/records/${category.record.id}?force=true`, { method: 'DELETE' });
+    assert.equal(forcedDelete.status, 200);
+
+    const beforePlan = await getJson(`${base}/api/apps`);
+    const planned = await post(`${base}/api/ai/plan`, { prompt: '帮我创建一个商品管理系统，包括商品、分类、供应商、库存流水' });
+    assert.equal(planned.plan.type, 'app_creation_plan');
+    const afterPlan = await getJson(`${base}/api/apps`);
+    assert.equal(afterPlan.apps.length, beforePlan.apps.length);
+
+    const executed = await post(`${base}/api/ai/sessions/${planned.session.id}/execute`, {});
+    assert.ok(executed.appId);
+    assert.equal(executed.session.status, 'completed');
+    assert.ok(executed.app.schema.entities.length >= 3);
+    assert.ok(executed.app.schema.entities.some((entity) => entity.fields.some((field) => field.type === 'relation')));
+  });
+});
+
 async function post(url, body) {
   const response = await fetch(url, {
     method: 'POST',
@@ -85,6 +151,12 @@ async function put(url, body) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body)
   });
+  if (!response.ok) assert.fail(await response.text());
+  return response.json();
+}
+
+async function getJson(url) {
+  const response = await fetch(url);
   if (!response.ok) assert.fail(await response.text());
   return response.json();
 }

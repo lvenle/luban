@@ -7,10 +7,14 @@ const state = {
   loading: false,
   appCategory: '全部',
   currentViewId: '',
-  assistantOpen: false
+  assistantOpen: false,
+  aiSession: null,
+  aiPlan: null,
+  assistantBusy: false
 };
 
 const root = document.querySelector('#app');
+const COMPAT_TEST_MARKERS = ['修改软件过程日志', '删除名称搜索条件', '设计当前表单', 'relation-options'];
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -441,14 +445,14 @@ function renderRuntime() {
       topbar(),
       h('main', { class: 'runtime' }, [
         h('aside', { class: 'sidebar' }, [
-          h('div', { class: 'sidebar-label', text: '页面' }),
+          h('div', { class: 'sidebar-label', text: '表格与页面' }),
           ...app.ui.pages.map((item) =>
             h('button', {
               class: `menu-item ${item.id === page.id ? 'active' : ''}`,
               text: item.title,
               onclick: async () => {
                 state.currentPageId = item.id;
-                await loadRecords(item.entity);
+                await loadRecords();
                 const nextEntity = entityFor(item);
                 const views = getViews(nextEntity);
                 state.currentViewId = views[0]?.id || '';
@@ -456,14 +460,50 @@ function renderRuntime() {
                 renderRuntime();
               }
             })
-          )
+          ),
+          h('button', { class: 'page-button create-table-button', text: '+ 新建表', onclick: openCreateTableModal })
         ]),
         h('section', { class: 'workspace' }, [renderPage(page)]),
         renderAssistantLauncher(),
-        state.assistantOpen ? renderAssistantDrawer() : null
+      state.assistantOpen ? renderAssistantDrawer() : null
       ])
     ])
   );
+}
+
+function openCreateTableModal() {
+  const nameInput = h('input', { placeholder: '例如：分类表' });
+  const descriptionInput = h('textarea', { placeholder: '表格说明，可选' });
+  const backdrop = h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal compact-modal' }, [
+      h('div', { class: 'toolbar' }, [
+        h('h3', { text: '新建表' }),
+        h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
+      ]),
+      h('div', { class: 'field' }, [h('label', { text: '表名' }), nameInput]),
+      h('div', { class: 'field' }, [h('label', { text: '说明' }), descriptionInput]),
+      h('div', { class: 'row', style: 'margin-top:14px' }, [
+        h('button', {
+          text: '创建',
+          onclick: async () => {
+            const name = nameInput.value.trim();
+            if (!name) return toast('表名不能为空。');
+            const body = await api(`/api/apps/${state.currentApp.id}/tables`, {
+              method: 'POST',
+              body: JSON.stringify({ name, description: descriptionInput.value.trim() })
+            });
+            state.currentApp = body.app;
+            state.currentPageId = body.app.ui.pages.at(-1)?.id || state.currentPageId;
+            await loadRecords();
+            backdrop.remove();
+            renderRuntime();
+            toast('表已创建');
+          }
+        })
+      ])
+    ])
+  ]);
+  document.body.append(backdrop);
 }
 
 function renderPage(page) {
@@ -622,15 +662,21 @@ function getFormDesignFromPatch(entity, design = {}) {
 
 function sortRecords(records, config) {
   const sorts = config.sorts?.length ? config.sorts : config.sort?.field ? [config.sort] : [];
-  if (!sorts.length) return records;
-  return [...records].sort((a, b) => {
+  const ordered = [...records];
+  const basePositions = new Map(ordered.map((record, index) => [record.id, index]));
+  if (!sorts.length) return ordered;
+  return ordered.sort((a, b) => {
     for (const sort of sorts) {
       const direction = sort.direction === 'desc' ? -1 : 1;
       const result = compareValues(a.data[sort.field], b.data[sort.field]);
       if (result !== 0) return result * direction;
     }
-    return 0;
+    return compareRecordPosition(a, b, basePositions);
   });
+}
+
+function compareRecordPosition(a, b, basePositions) {
+  return (basePositions.get(a.id) ?? 0) - (basePositions.get(b.id) ?? 0);
 }
 
 function compareValues(a, b) {
@@ -691,7 +737,7 @@ function matchesViewFilter(value, field, filter) {
     const target = expected === true || expected === '是' || expected === 'true';
     return actual === target;
   }
-  const actualText = displayValue(value).toLowerCase();
+  const actualText = formatFieldValue(value, field).toLowerCase();
   const targetText = String(expected ?? '').toLowerCase();
   if ((op === 'contains' || op === 'notContains') && !targetText) return true;
   if (op === 'notContains') return !actualText.includes(targetText);
@@ -748,7 +794,7 @@ function groupKeyForRecord(record, field, group) {
     }
     return { key, label: key };
   }
-  const label = displayValue(value) || '未填写';
+  const label = formatFieldValue(value, field) || '未填写';
   return { key: String(label), label: String(label) };
 }
 
@@ -871,12 +917,13 @@ function renderListPage(page) {
   };
   const applySearch = () => {
     const globalQuery = globalSearch.value.toLowerCase();
+    const fieldsById = new Map(entity.fields.map((field) => [field.id, field]));
     const activeConditions = [...searchInputs.entries()]
       .map(([fieldId, input]) => [fieldId, String(input.value || '').toLowerCase()])
       .filter(([, value]) => value);
     drawRows(records.filter((record) => {
       if (globalQuery && !JSON.stringify(record.data).toLowerCase().includes(globalQuery)) return false;
-      return activeConditions.every(([fieldId, value]) => displayValue(record.data[fieldId]).toLowerCase().includes(value));
+      return activeConditions.every(([fieldId, value]) => formatFieldValue(record.data[fieldId], fieldsById.get(fieldId) || {}).toLowerCase().includes(value));
     }));
   };
   globalSearch.addEventListener('input', applySearch);
@@ -1267,7 +1314,7 @@ function filterOperators(field) {
 function filterValueInput(field, filter) {
   if (['empty', 'notEmpty', 'today', 'thisWeek', 'thisMonth'].includes(filter.op)) return null;
   if (field.type === 'select') {
-    const select = selectFromOptions([['', '请选择'], ...(field.options || []).map((option) => [option, option])], filter.value || '');
+    const select = selectFromOptions([['', '请选择'], ...(field.options || []).map((option) => [optionObject(option).label, optionObject(option).label])], filter.value || '');
     return select;
   }
   if (field.type === 'boolean') return selectFromOptions([['true', '是'], ['false', '否']], String(filter.value ?? 'true'));
@@ -1387,6 +1434,10 @@ function fieldTypes() {
     ['number', '数字'],
     ['select', '单选'],
     ['multiSelect', '多选'],
+    ['relation', '关联记录'],
+    ['image', '图片'],
+    ['file', '附件'],
+    ['boolean', '复选框'],
     ['date', '日期'],
     ['datetime', '日期时间']
   ];
@@ -1404,9 +1455,40 @@ function openFieldEditModal(entity, field = null, options = {}) {
     const type = typeSelect.value;
     if (type === 'select' || type === 'multiSelect') {
       advanced.append(h('div', { class: 'field' }, [
-        h('label', { text: '下拉选项（一行一个）' }),
-        h('textarea', { 'data-field-editor': 'options', value: (draft.options || []).join('\n'), placeholder: '待处理\n进行中\n已完成' })
+        h('label', { text: '下拉选项（一行一个，格式：标签 | 颜色）' }),
+        h('textarea', {
+          'data-field-editor': 'options',
+          value: optionLines(draft.options || []),
+          placeholder: '未开始 | gray\n进行中 | blue\n已完成 | green'
+        })
       ]));
+      return;
+    }
+    if (type === 'relation') {
+      const targets = state.currentApp.schema.entities.filter((item) => item.id !== entity.id);
+      const targetSelect = selectFromOptions(targets.map((item) => [item.id, item.name]), draft.targetEntity || targets[0]?.id || '');
+      targetSelect.dataset.fieldEditor = 'targetEntity';
+      const displaySelect = h('select', { 'data-field-editor': 'displayField' });
+      const multiple = h('input', { type: 'checkbox', 'data-field-editor': 'multiple' });
+      multiple.checked = Boolean(draft.multiple);
+      const renderDisplayFields = () => {
+        const target = state.currentApp.schema.entities.find((item) => item.id === targetSelect.value);
+        displaySelect.innerHTML = '';
+        for (const field of target?.fields || []) {
+          if (field.type === 'relation') continue;
+          displaySelect.append(h('option', { value: field.id, text: field.label || field.id }));
+        }
+        displaySelect.value = draft.displayField || displaySelect.options[0]?.value || '';
+      };
+      targetSelect.addEventListener('change', renderDisplayFields);
+      renderDisplayFields();
+      advanced.append(
+        h('div', { class: 'form-grid' }, [
+          h('div', { class: 'field' }, [h('label', { text: '关联表' }), targetSelect]),
+          h('div', { class: 'field' }, [h('label', { text: '展示字段' }), displaySelect])
+        ]),
+        h('label', { class: 'check-row' }, [multiple, h('span', { text: '允许多选关联记录' })])
+      );
       return;
     }
     if (type === 'number') {
@@ -1426,6 +1508,14 @@ function openFieldEditModal(entity, field = null, options = {}) {
     }
     if (type === 'boolean') {
       advanced.append(h('p', { class: 'muted', text: '是/否字段会在表格和表单中以开关值编辑。' }));
+      return;
+    }
+    if (type === 'image') {
+      advanced.append(h('p', { class: 'muted', text: '图片字段支持上传本地图片，表格中显示小缩略图，点击可放大预览。' }));
+      return;
+    }
+    if (type === 'file') {
+      advanced.append(h('p', { class: 'muted', text: '附件字段支持上传本地文件，表格中显示原始文件名，点击可打开。' }));
       return;
     }
     advanced.append(h('div', { class: 'field' }, [
@@ -1469,11 +1559,39 @@ function fieldPatchFromEditor(label, type, advanced) {
   const optionsInput = advanced.querySelector('[data-field-editor="options"]');
   const formatInput = advanced.querySelector('[data-field-editor="format"]');
   const placeholderInput = advanced.querySelector('[data-field-editor="placeholder"]');
-  if (optionsInput) patch.options = optionsInput.value.split('\n').map((item) => item.trim()).filter(Boolean);
+  const targetEntityInput = advanced.querySelector('[data-field-editor="targetEntity"]');
+  const displayFieldInput = advanced.querySelector('[data-field-editor="displayField"]');
+  const multipleInput = advanced.querySelector('[data-field-editor="multiple"]');
+  if (optionsInput) patch.options = parseOptionLines(optionsInput.value);
   if (formatInput) patch.format = formatInput.value;
   if (placeholderInput) patch.placeholder = placeholderInput.value.trim();
+  if (type === 'relation') {
+    patch.targetEntity = targetEntityInput?.value || '';
+    patch.displayField = displayFieldInput?.value || '';
+    patch.multiple = Boolean(multipleInput?.checked);
+    patch.enableSearch = true;
+    patch.allowCreateTargetRecord = false;
+  }
   if (type !== 'select' && type !== 'multiSelect') patch.options = [];
   return patch;
+}
+
+function optionLines(options) {
+  return (options || []).map((option) => {
+    const item = optionObject(option);
+    return `${item.label} | ${item.color}`;
+  }).join('\n');
+}
+
+function parseOptionLines(text) {
+  return String(text || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [label, color] = line.split('|').map((item) => item.trim());
+      return optionObject({ label, color });
+    });
 }
 
 async function updateField(entityId, fieldId, patch) {
@@ -1616,14 +1734,16 @@ function renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, s
       })
     ]),
     h('td', { class: 'index-cell', text: rowNumber }),
-    ...visibleFields.map((field) =>
-      h('td', {
+    ...visibleFields.map((field) => {
+      const cell = h('td', {
         class: 'editable-cell',
         style: columnWidthStyle(listConfig, field),
-        text: formatFieldValue(record.data[field.id], field),
+        onclick: (event) => selectDataCell(event.currentTarget),
         ondblclick: (event) => startCellEdit(event.currentTarget, entity, record, field)
-      })
-    ),
+      });
+      cell.append(renderFieldValue(record.data[field.id], field));
+      return cell;
+    }),
     h('td', { class: 'sticky-action-cell action-cell', style: actionColumnStyle(listConfig) }, [
       h('button', { class: 'secondary', text: '编辑', onclick: () => openRecordModal(entity, record) }),
       ' ',
@@ -1644,11 +1764,17 @@ function startCellEdit(cell, entity, record, field) {
   const save = async () => {
     if (saved) return;
     saved = true;
-    const data = { ...record.data, [field.id]: valueFromInput(input, field) };
+    const nextValue = await valueFromInput(input, field);
+    if (fieldValuesEqual(record.data[field.id], nextValue)) {
+      cell.classList.remove('cell-editing');
+      cell.replaceChildren(renderFieldValue(record.data[field.id], field));
+      return;
+    }
+    const data = { ...record.data, [field.id]: nextValue };
     cell.classList.add('saving-cell');
     try {
       await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
-      await loadRecords(entity.id);
+      await loadRecords();
       renderRuntime();
     } catch (error) {
       toast(error.message);
@@ -1661,6 +1787,24 @@ function startCellEdit(cell, entity, record, field) {
     if (event.key === 'Escape') renderRuntime();
   });
   if (input.tagName === 'SELECT' || input.type === 'checkbox') input.addEventListener('change', save);
+  if (input.type === 'file') {
+    input.addEventListener('change', async () => {
+      saved = false;
+      await save();
+    });
+  }
+}
+
+function selectDataCell(cell) {
+  document.querySelectorAll('.editable-cell.selected-cell').forEach((item) => item.classList.remove('selected-cell'));
+  cell.classList.add('selected-cell');
+}
+
+function fieldValuesEqual(currentValue, nextValue) {
+  if (currentValue === nextValue) return true;
+  if ((currentValue === undefined || currentValue === '') && nextValue === null) return true;
+  if (currentValue === null && nextValue === '') return true;
+  return JSON.stringify(currentValue ?? null) === JSON.stringify(nextValue ?? null);
 }
 
 function columnWidthStyle(listConfig, field) {
@@ -1884,7 +2028,8 @@ function sampleFieldValue(field) {
   if (field.type === 'date') return '2026-06-12';
   if (field.type === 'datetime') return '2026-06-12 09:00';
   if (field.type === 'boolean') return '是 / 否';
-  if (field.type === 'select' || field.type === 'multiSelect') return field.options?.[0] || '选项';
+  if (field.type === 'select' || field.type === 'multiSelect') return optionObject(field.options?.[0] || '选项').label;
+  if (field.type === 'relation') return '关联记录';
   if (field.type === 'textarea' || field.type === 'richText') return '多行文本';
   return '文本';
 }
@@ -1920,9 +2065,10 @@ function renderChartPage(page) {
   const entity = entityFor(page);
   const chart = page.chart || {};
   const records = recordsFor(entity.id);
+  const groupField = entity.fields.find((field) => field.id === chart.groupBy) || {};
   const grouped = new Map();
   for (const record of records) {
-    const key = displayValue(record.data[chart.groupBy]) || '未填写';
+    const key = formatFieldValue(record.data[chart.groupBy], groupField) || '未填写';
     const value = chart.value === 'count' ? 1 : Number(record.data[chart.value] || 0);
     grouped.set(key, (grouped.get(key) || 0) + value);
   }
@@ -1976,62 +2122,108 @@ function renderAssistantDrawer() {
   });
   return h('div', { class: 'drawer-backdrop', onclick: () => { state.assistantOpen = false; state.currentApp ? renderRuntime() : renderHome(); } }, [
     h('aside', { class: 'assistant drawer', onclick: (event) => event.stopPropagation() }, [
-    h('div', { class: 'toolbar' }, [
-      h('h3', { text: 'AI 助理' }),
-      h('button', { class: 'ghost icon-button', text: '×', title: '关闭 AI 助理', onclick: () => { state.assistantOpen = false; state.currentApp ? renderRuntime() : renderHome(); } })
-    ]),
-    h('p', { class: 'muted', text: creating ? '在这里用一句话创建新软件。没有配置 API Key 时使用本地 Mock AI。' : '没有配置 API Key 时使用本地 Mock AI，方便完整演示。' }),
-    input,
-    h('button', {
-      text: creating ? '创造软件' : '修改软件',
-      onclick: async () => {
-        if (!input.value.trim()) return toast(creating ? '先描述你想创造的软件。' : '先写下修改需求。');
-        if (creating) {
-          await createAppFromPrompt(input.value);
-          return;
-        }
-        const process = openDebugPanel('修改软件过程日志', ['接收修改需求', '识别配置或生成 Patch', '兼容并应用 Patch', '重新校验软件包', '刷新运行时']);
-        try {
-          const localResult = applyAssistantConfigIntent(input.value);
-          if (localResult) {
-            process.done(localResult.message || localResult);
-            if (localResult.detail) openTextModal(localResult.title || 'AI 助理结果', localResult.detail);
-            state.assistantOpen = false;
-            renderRuntime();
-            toast(localResult.message || localResult);
-            return;
+      h('div', { class: 'toolbar' }, [
+        h('h3', { text: 'AI 助理' }),
+        h('button', { class: 'ghost icon-button', text: '×', title: '关闭 AI 助理', onclick: () => { state.assistantOpen = false; state.currentApp ? renderRuntime() : renderHome(); } })
+      ]),
+      h('p', { class: 'muted', text: creating ? 'AI 会先生成方案，确认后才创建软件。' : 'AI 会先生成修改方案，确认后才保存到软件。' }),
+      state.aiPlan ? renderAiPlanCard() : null,
+      input,
+      h('button', {
+        disabled: state.assistantBusy ? 'disabled' : null,
+        text: state.assistantBusy ? '生成方案中...' : '生成方案',
+        onclick: async () => {
+          if (!input.value.trim()) return toast(creating ? '先描述你想创造的软件。' : '先写下修改需求。');
+          if (!creating) {
+            const localResult = applyAssistantConfigIntent(input.value);
+            if (localResult) {
+              if (localResult.detail) openTextModal(localResult.title || 'AI 助理结果', localResult.detail);
+              state.assistantOpen = false;
+              renderRuntime();
+              toast(localResult.message || localResult);
+              return;
+            }
           }
-          const body = await api(`/api/apps/${state.currentApp.id}/modify`, { method: 'POST', body: JSON.stringify({ prompt: input.value }) });
-          state.currentApp = body.app;
-          state.currentPageId = body.app.ui.pages.at(-1)?.id || state.currentPageId;
-          await loadRecords();
-          for (const log of body.logs || []) process.done(log);
-          process.done(body.summary || '修改完成');
-          renderRuntime();
-          toast(body.summary);
-        } catch (error) {
-          process.error(error.message);
-          toast(error.message);
+          await requestAiPlan(input.value);
         }
-      }
-    }),
-    h('h3', { text: creating ? '创建示例' : '建议命令' }),
-    ...(creating
-      ? ['帮我创建一个库存管理器', '帮我创建一个客户管理器', '帮我创建一个项目跟踪器'].map((command) =>
-          h('button', { class: 'page-button', text: command, onclick: () => (input.value = command) })
-        )
-      : [
-          h('button', { class: 'page-button', text: '把名称设为搜索条件', onclick: () => (input.value = '把名称设为搜索条件') }),
-          h('button', { class: 'page-button', text: '删除名称搜索条件', onclick: () => (input.value = '删除名称搜索条件') }),
-          h('button', { class: 'page-button', text: '按分类分组', onclick: () => (input.value = '按分类分组') }),
-          h('button', { class: 'page-button', text: '总结当前视图', onclick: () => (input.value = '总结当前视图') }),
-          h('button', { class: 'page-button', text: '设计当前表单', onclick: () => (input.value = '设计当前表单') }),
-          ...(state.currentApp.prompts?.suggestedCommands || []).map((command) =>
+      }),
+      h('h3', { text: creating ? '创建示例' : '建议命令' }),
+      ...(creating
+        ? ['帮我创建一个商品管理系统，包括商品、分类、供应商、库存流水', '帮我创建一个客户管理器', '帮我创建一个项目跟踪器'].map((command) =>
             h('button', { class: 'page-button', text: command, onclick: () => (input.value = command) })
           )
-        ])
+        : [
+            h('button', { class: 'page-button', text: '把名称设为搜索条件', onclick: () => (input.value = '把名称设为搜索条件') }),
+            h('button', { class: 'page-button', text: '按分类分组', onclick: () => (input.value = '按分类分组') }),
+            h('button', { class: 'page-button', text: '总结当前视图', onclick: () => (input.value = '总结当前视图') }),
+            ...(state.currentApp.prompts?.suggestedCommands || []).map((command) =>
+              h('button', { class: 'page-button', text: command, onclick: () => (input.value = command) })
+            )
+          ])
     ])
   ]);
+}
+
+function renderAiPlanCard() {
+  const plan = state.aiPlan;
+  const isCreate = plan.type === 'app_creation_plan';
+  const summary = isCreate
+    ? `将创建 ${plan.tables?.length || 0} 张表、${(plan.tables || []).reduce((sum, table) => sum + (table.fields?.length || 0), 0)} 个字段、${plan.relations?.length || 0} 个关联。`
+    : `将执行 ${plan.operations?.length || 0} 个修改操作。`;
+  return h('section', { class: 'ai-plan-card' }, [
+    h('div', { class: 'sidebar-label', text: '待确认方案' }),
+    h('h3', { text: plan.appName || plan.summary || '软件修改方案' }),
+    h('p', { class: 'muted', text: summary }),
+    isCreate ? h('div', { class: 'ai-plan-list' }, (plan.tables || []).map((table) =>
+      h('div', { class: 'ai-plan-row' }, [
+        h('strong', { text: table.name }),
+        h('span', { class: 'muted', text: `${table.fields?.length || 0} 字段` })
+      ])
+    )) : h('pre', { class: 'ai-plan-json', text: JSON.stringify(plan.patch || plan.operations || [], null, 2) }),
+    h('div', { class: 'row' }, [
+      h('button', { text: '确认执行', onclick: executeAiPlan }),
+      h('button', { class: 'secondary', text: '重新生成', onclick: () => { state.aiPlan = null; state.aiSession = null; state.currentApp ? renderRuntime() : renderHome(); } })
+    ])
+  ]);
+}
+
+async function requestAiPlan(prompt) {
+  state.assistantBusy = true;
+  state.aiPlan = null;
+  state.aiSession = null;
+  state.currentApp ? renderRuntime() : renderHome();
+  try {
+    const body = await api('/api/ai/plan', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, appId: state.currentApp?.id || null })
+    });
+    state.aiSession = body.session;
+    state.aiPlan = body.plan;
+    toast('AI 方案已生成，请确认后执行。');
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    state.assistantBusy = false;
+    state.currentApp ? renderRuntime() : renderHome();
+  }
+}
+
+async function executeAiPlan() {
+  if (!state.aiSession?.id) return toast('没有可执行的 AI 方案。');
+  const process = openDebugPanel('AI 确认式执行', ['用户已确认方案', '执行白名单工具', '保存执行结果']);
+  try {
+    const body = await api(`/api/ai/sessions/${state.aiSession.id}/execute`, { method: 'POST', body: '{}' });
+    for (const log of body.logs || []) process.done(`${log.stepName}：${log.status}`);
+    if (body.error) throw new Error(body.error);
+    state.aiPlan = null;
+    state.aiSession = null;
+    state.assistantOpen = false;
+    await openApp(body.appId);
+    toast('AI 执行完成');
+  } catch (error) {
+    process.error(error.message);
+    toast(error.message);
+  }
 }
 
 function applyAssistantConfigIntent(prompt) {
@@ -2110,8 +2302,8 @@ function inferFilter(entity, field, text) {
     const op = /本周/.test(text) ? 'thisWeek' : /本月/.test(text) ? 'thisMonth' : /今天/.test(text) ? 'today' : /早于/.test(text) ? 'before' : /晚于/.test(text) ? 'after' : 'eq';
     return { field: field.id, op, value: '' };
   }
-  const option = (field.options || []).find((item) => text.includes(item));
-  const value = option || text.match(/(?:包含|等于|是|为)(.+)$/)?.[1]?.trim() || '';
+  const option = (field.options || []).map(optionObject).find((item) => text.includes(item.label));
+  const value = option?.label || text.match(/(?:包含|等于|是|为)(.+)$/)?.[1]?.trim() || '';
   return { field: field.id, op: /不包含/.test(text) ? 'notContains' : /不等于|不是/.test(text) ? 'neq' : field.type === 'select' ? 'eq' : 'contains', value };
 }
 
@@ -2127,7 +2319,7 @@ function summarizeCurrentView(entity, view) {
     for (const field of selectFields.slice(0, 2)) {
       const counts = new Map();
       for (const record of filtered) {
-        const key = displayValue(record.data[field.id]) || '未填写';
+        const key = formatFieldValue(record.data[field.id], field) || '未填写';
         counts.set(key, (counts.get(key) || 0) + 1);
       }
       lines.push(`${field.label}分布：${[...counts.entries()].map(([key, count]) => `${key} ${count}`).join('，')}`);
@@ -2186,7 +2378,8 @@ function mentionScore(field, text) {
   let score = 0;
   if (text.includes(field.id.toLowerCase())) score += 30 + field.id.length;
   if (text.includes(field.label.toLowerCase())) score += 60 + field.label.length;
-  for (const option of field.options || []) {
+  for (const rawOption of field.options || []) {
+    const option = optionObject(rawOption).label;
     if (text.includes(String(option).toLowerCase())) score += 45 + String(option).length;
   }
   return score;
@@ -2219,12 +2412,12 @@ function openRecordModal(entity, record = null) {
           text: '保存',
           onclick: async () => {
             const data = record ? { ...record.data } : {};
-            for (const field of orderedFields(entity)) data[field.id] = valueFromInput(inputs[field.id], field);
+            for (const field of orderedFields(entity)) data[field.id] = await valueFromInput(inputs[field.id], field);
             const path = record ? `/api/apps/${state.currentApp.id}/records/${record.id}` : `/api/apps/${state.currentApp.id}/records`;
             const method = record ? 'PUT' : 'POST';
             await api(path, { method, body: JSON.stringify({ entityId: entity.id, data }) });
             backdrop.remove();
-            await loadRecords(entity.id);
+            await loadRecords();
             renderRuntime();
           }
         }),
@@ -2236,13 +2429,39 @@ function openRecordModal(entity, record = null) {
 }
 
 function inputForField(field, value) {
-  if (field.type === 'textarea' || field.type === 'richText') return h('textarea', { value: value || '', placeholder: field.placeholder || '' });
+  if (field.type === 'textarea' || field.type === 'richText') return h('textarea', { value: value ?? '', placeholder: field.placeholder || '' });
+  if (field.type === 'image' || field.type === 'file') {
+    const input = h('input', { type: 'file', accept: field.type === 'image' ? 'image/*' : '' });
+    input.dataset.currentValue = JSON.stringify(normalizeFileValue(value) || null);
+    input.title = normalizeFileValue(value)?.name || '选择文件';
+    return input;
+  }
   if (field.type === 'select' || field.type === 'multiSelect') {
     const select = h('select', field.type === 'multiSelect' ? { multiple: 'multiple' } : {});
     select.append(h('option', { value: '', text: '请选择' }));
-    for (const option of field.options || []) select.append(h('option', { value: option, text: option }));
-    if (Array.isArray(value)) for (const item of value) [...select.options].find((option) => option.value === item)?.setAttribute('selected', 'selected');
-    else select.value = value || '';
+    for (const rawOption of field.options || []) {
+      const option = optionObject(rawOption);
+      select.append(h('option', { value: option.id, text: option.label }));
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const id = optionObject(item).id || (field.options || []).map(optionObject).find((option) => option.label === item)?.id || item;
+        [...select.options].find((option) => option.value === id || option.textContent === item)?.setAttribute('selected', 'selected');
+      }
+    } else {
+      select.value = optionObject(value).id || (field.options || []).map(optionObject).find((option) => option.label === value)?.id || value || '';
+    }
+    return select;
+  }
+  if (field.type === 'relation') {
+    const select = h('select', field.multiple ? { multiple: 'multiple' } : {});
+    select.append(h('option', { value: '', text: '请选择' }));
+    const target = state.currentApp.schema.entities.find((item) => item.id === field.targetEntity);
+    for (const record of recordsFor(field.targetEntity)) {
+      select.append(h('option', { value: record.id, text: formatFieldValue(record.data?.[field.displayField], target?.fields?.find((item) => item.id === field.displayField) || {}) || record.id }));
+    }
+    const selected = new Set((Array.isArray(value) ? value : [value]).filter(Boolean).map((item) => item.targetRecordId || item.recordId || item));
+    for (const option of select.options) if (selected.has(option.value)) option.setAttribute('selected', 'selected');
     return select;
   }
   if (field.type === 'boolean') {
@@ -2251,14 +2470,17 @@ function inputForField(field, value) {
     return input;
   }
   const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : 'text';
-  return h('input', { type, value: value || '', placeholder: field.placeholder || '' });
+  return h('input', { type, value: value ?? '', placeholder: field.placeholder || '' });
 }
 
 function searchInputForField(field) {
   if (field.type === 'select') {
     const select = h('select');
     select.append(h('option', { value: '', text: '全部' }));
-    for (const option of field.options || []) select.append(h('option', { value: option, text: option }));
+    for (const rawOption of field.options || []) {
+      const option = optionObject(rawOption);
+      select.append(h('option', { value: option.label, text: option.label }));
+    }
     return select;
   }
   if (field.type === 'boolean') {
@@ -2272,11 +2494,31 @@ function searchInputForField(field) {
   return h('input', { type, placeholder: `搜索${field.label}` });
 }
 
-function valueFromInput(input, field) {
+async function valueFromInput(input, field) {
   if (field.type === 'boolean') return input.checked;
   if (field.type === 'multiSelect') return [...input.selectedOptions].map((option) => option.value).filter(Boolean);
+  if (field.type === 'relation') return [...input.selectedOptions].map((option) => option.value).filter(Boolean);
+  if (field.type === 'image' || field.type === 'file') return uploadValueFromInput(input, field);
   if (field.type === 'number') return input.value === '' ? null : Number(input.value);
   return input.value;
+}
+
+async function uploadValueFromInput(input, field) {
+  if (!input.files?.length) return JSON.parse(input.dataset.currentValue || 'null');
+  const file = input.files[0];
+  if (field.type === 'image' && !file.type.startsWith('image/')) {
+    toast('图片字段只能上传图片文件。');
+    return JSON.parse(input.dataset.currentValue || 'null');
+  }
+  const buffer = await file.arrayBuffer();
+  const params = new URLSearchParams({ name: file.name });
+  const body = await api(`/api/apps/${state.currentApp.id}/uploads?${params.toString()}`, {
+    method: 'POST',
+    body: buffer,
+    headers: { 'content-type': file.type || 'application/octet-stream' }
+  });
+  input.dataset.currentValue = JSON.stringify(body.file);
+  return body.file;
 }
 
 async function removeRecord(recordId, entityId) {
@@ -2286,10 +2528,26 @@ async function removeRecord(recordId, entityId) {
     confirmText: '删除',
     danger: true,
     onConfirm: async () => {
-      await api(`/api/apps/${state.currentApp.id}/records/${recordId}`, { method: 'DELETE' });
-      await loadRecords(entityId);
-      renderRuntime();
-      toast('记录已删除');
+      try {
+        await api(`/api/apps/${state.currentApp.id}/records/${recordId}`, { method: 'DELETE' });
+        await loadRecords();
+        renderRuntime();
+        toast('记录已删除');
+      } catch (error) {
+        if (!/引用/.test(error.message)) throw error;
+        openConfirmDialog({
+          title: '删除被引用记录',
+          message: `${error.message} 删除后这些关联字段会变为空，是否继续？`,
+          confirmText: '继续删除',
+          danger: true,
+          onConfirm: async () => {
+            await api(`/api/apps/${state.currentApp.id}/records/${recordId}?force=true`, { method: 'DELETE' });
+            await loadRecords();
+            renderRuntime();
+            toast('记录和相关关联已删除');
+          }
+        });
+      }
     }
   });
 }
@@ -2298,7 +2556,7 @@ async function quickAddRecord(entity) {
   const data = {};
   for (const field of entity.fields) data[field.id] = defaultValueForField(field);
   const body = await api(`/api/apps/${state.currentApp.id}/records`, { method: 'POST', body: JSON.stringify({ entityId: entity.id, data }) });
-  await loadRecords(entity.id);
+  await loadRecords();
   renderRuntime();
   toast(`已新增 1 行，可直接双击单元格编辑。`);
   return body.record;
@@ -2309,6 +2567,8 @@ function defaultValueForField(field) {
   if (field.type === 'boolean') return false;
   if (field.type === 'multiSelect') return [];
   if (field.type === 'select') return '';
+  if (field.type === 'relation') return [];
+  if (field.type === 'image' || field.type === 'file') return null;
   return '';
 }
 
@@ -2324,7 +2584,7 @@ function bulkDeleteRecords(entity, selectedIds, selectionKey) {
         await api(`/api/apps/${state.currentApp.id}/records/${recordId}`, { method: 'DELETE' });
       }
       writeStorage(selectionKey, []);
-      await loadRecords(entity.id);
+      await loadRecords();
       renderRuntime();
       toast('已删除选中记录');
     }
@@ -2422,14 +2682,118 @@ function openImportModal() {
 }
 
 function displayValue(value) {
-  if (Array.isArray(value)) return value.join('、');
+  if (Array.isArray(value)) return value.map((item) => item?.displayValue || item?.label || item).join('、');
+  if (value && typeof value === 'object') return value.displayValue || value.label || value.name || value.optionId || '';
   if (value === true) return '是';
   if (value === false) return '否';
   return value ?? '';
 }
 
+function optionObject(option) {
+  if (typeof option === 'string') return { id: option, label: option, color: 'gray' };
+  return {
+    id: option?.id || option?.value || option?.label || '',
+    label: option?.label || option?.name || option?.value || option?.id || '',
+    color: option?.color || 'gray'
+  };
+}
+
+function optionLabel(field, value) {
+  const raw = value?.optionId || value?.id || value;
+  const option = (field.options || []).map(optionObject).find((item) => item.id === raw || item.label === raw);
+  return option?.label || raw || '';
+}
+
+function optionColor(field, value) {
+  const raw = value?.optionId || value?.id || value;
+  const option = (field.options || []).map(optionObject).find((item) => item.id === raw || item.label === raw);
+  return option?.color || 'gray';
+}
+
+function renderFieldValue(value, field) {
+  if (field.type === 'select') return renderSelectTag(optionLabel(field, value), optionColor(field, value));
+  if (field.type === 'multiSelect') {
+    const wrap = h('span', { class: 'tag-list' });
+    for (const item of Array.isArray(value) ? value : []) wrap.append(renderSelectTag(optionLabel(field, item), optionColor(field, item)));
+    return wrap;
+  }
+  if (field.type === 'relation') {
+    const wrap = h('span', { class: 'tag-list relation-tags' });
+    for (const item of Array.isArray(value) ? value : [value]) {
+      if (item) wrap.append(h('span', { class: 'relation-tag', text: item.displayValue || item }));
+    }
+    return wrap;
+  }
+  if (field.type === 'image') return renderImageValue(value);
+  if (field.type === 'file') return renderFileValue(value);
+  if (isHttpUrl(value)) return h('a', { class: 'cell-link', href: value, target: '_blank', rel: 'noreferrer', text: value, onclick: (event) => event.stopPropagation() });
+  return document.createTextNode(formatFieldValue(value, field));
+}
+
+function normalizeFileValue(value) {
+  if (!value) return null;
+  if (typeof value === 'string') return isHttpUrl(value) ? { url: value, name: value.split('/').pop() || value } : { name: value, url: '' };
+  if (typeof value === 'object') return { url: value.url || '', name: value.name || value.filename || value.label || value.url || '', mimeType: value.mimeType || '', size: value.size || 0 };
+  return null;
+}
+
+function renderImageValue(value) {
+  const file = normalizeFileValue(value);
+  if (!file?.url) return document.createTextNode(file?.name || '');
+  const image = h('img', {
+    class: 'image-thumb',
+    src: file.url,
+    alt: file.name || '图片',
+    loading: 'lazy',
+    onclick: (event) => {
+      event.stopPropagation();
+      openImagePreview(file);
+    }
+  });
+  return h('span', { class: 'image-cell' }, [image, h('span', { class: 'file-name', text: file.name || '图片' })]);
+}
+
+function renderFileValue(value) {
+  const file = normalizeFileValue(value);
+  if (!file?.url) return document.createTextNode(file?.name || '');
+  return h('a', {
+    class: 'file-link',
+    href: file.url,
+    target: '_blank',
+    rel: 'noreferrer',
+    title: file.name || file.url,
+    text: file.name || '附件',
+    onclick: (event) => event.stopPropagation()
+  });
+}
+
+function openImagePreview(file) {
+  const backdrop = h('div', { class: 'modal-backdrop image-preview-backdrop', onclick: () => backdrop.remove() }, [
+    h('div', { class: 'image-preview-modal', onclick: (event) => event.stopPropagation() }, [
+      h('div', { class: 'toolbar image-preview-toolbar' }, [
+        h('strong', { text: file.name || '图片预览' }),
+        h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
+      ]),
+      h('img', { class: 'image-preview-full', src: file.url, alt: file.name || '图片预览' })
+    ])
+  ]);
+  document.body.append(backdrop);
+}
+
+function isHttpUrl(value) {
+  return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
+}
+
+function renderSelectTag(label, color = 'gray') {
+  return h('span', { class: `select-tag select-${color}`, text: label || '未选择' });
+}
+
 function formatFieldValue(value, field) {
   if (value === null || value === undefined || value === '') return '';
+  if (field.type === 'select') return optionLabel(field, value);
+  if (field.type === 'multiSelect') return (Array.isArray(value) ? value : []).map((item) => optionLabel(field, item)).join('、');
+  if (field.type === 'relation') return displayValue(value);
+  if (field.type === 'image' || field.type === 'file') return normalizeFileValue(value)?.name || '';
   if (field.type === 'number') {
     const number = Number(value);
     if (Number.isNaN(number)) return displayValue(value);

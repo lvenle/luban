@@ -5,11 +5,12 @@ export async function runAction(app, actionId) {
   if (!action) throw new Error('找不到 Action。');
   const entityId = action.input?.records || app.schema.entities[0]?.id;
   const records = entityId ? listRecords(app.id, { entityId }) : [];
+  const entity = app.schema.entities.find((item) => item.id === entityId);
   switch (action.type) {
     case 'data.queryRecords':
       return { type: 'json', result: records };
     case 'export.csv':
-      return { type: 'text', result: toCsv(records) };
+      return { type: 'text', result: toCsv(records, entity) };
     case 'export.json':
       return { type: 'json', result: records };
     case 'export.markdown':
@@ -32,13 +33,39 @@ function generateMockText(action, records) {
   return `已分析 ${records.length} 条记录。整体数据已经保存，可继续补充记录或增加统计页面。`;
 }
 
-export function toCsv(records) {
-  const keys = [...new Set(records.flatMap((record) => Object.keys(record.data)))];
-  const lines = [keys.join(',')];
+export function toCsv(records, entity = null) {
+  const fields = entity?.fields?.length
+    ? entity.fields
+    : [...new Set(records.flatMap((record) => Object.keys(record.data)))].map((id) => ({ id, label: id }));
+  const lines = [fields.map((field) => csvEscape(field.label || field.id)).join(',')];
   for (const record of records) {
-    lines.push(keys.map((key) => csvEscape(record.data[key])).join(','));
+    lines.push(fields.map((field) => csvEscape(displayExportValue(record.data[field.id], field))).join(','));
   }
   return lines.join('\n');
+}
+
+function displayExportValue(value, field = {}) {
+  if (field.type === 'select') return optionLabel(field, value);
+  if (field.type === 'multiSelect') return (Array.isArray(value) ? value : []).map((item) => optionLabel(field, item)).join('、');
+  if (field.type === 'relation') return (Array.isArray(value) ? value : [value]).filter(Boolean).map((item) => item.displayValue || item).join('、');
+  if (field.type === 'image' || field.type === 'file') return fileLabel(value);
+  if (Array.isArray(value)) return value.join('、');
+  if (value && typeof value === 'object') return value.displayValue || value.label || value.optionId || '';
+  if (typeof value === 'boolean') return value ? '是' : '否';
+  return value ?? '';
+}
+
+function fileLabel(value) {
+  if (!value) return '';
+  if (Array.isArray(value)) return value.map(fileLabel).filter(Boolean).join('、');
+  if (typeof value === 'object') return value.name || value.filename || value.label || value.url || '';
+  return value;
+}
+
+function optionLabel(field, value) {
+  const raw = value?.optionId || value?.id || value;
+  const option = (field.options || []).find((item) => item.id === raw || item.label === raw);
+  return option?.label || raw || '';
 }
 
 function csvEscape(value) {
@@ -53,7 +80,7 @@ function toMarkdown(records) {
     .map((record, index) => {
       const lines = [`## 记录 ${index + 1}`];
       for (const [key, value] of Object.entries(record.data)) {
-        lines.push(`- ${key}: ${value ?? ''}`);
+        lines.push(`- ${key}: ${displayExportValue(value)}`);
       }
       return lines.join('\n');
     })

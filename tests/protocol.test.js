@@ -111,3 +111,52 @@ test('normalizes JSON Patch style model operations', () => {
   });
   assert.ok(next.schema.entities[0].fields.some((field) => field.id === 'follow_remind_date' && field.type === 'date'));
 });
+
+test('normalizes colored options and relation fields', () => {
+  const pkg = preparePackage({
+    manifest: { name: '商品管理系统' },
+    schema: {
+      entities: [
+        {
+          id: 'product',
+          name: '商品',
+          fields: [
+            { id: 'name', label: '名称', type: 'text' },
+            { id: 'status', label: '状态', type: 'select', options: ['在售', { label: '停售', color: 'gray' }] },
+            { id: 'category', label: '分类', type: 'relation', targetEntity: 'category', displayField: 'name' }
+          ]
+        },
+        { id: 'category', name: '分类', fields: [{ id: 'name', label: '分类名称', type: 'text' }] }
+      ]
+    },
+    ui: { pages: [{ id: 'product-list', title: '商品列表', type: 'list', entity: 'product' }] },
+    actions: { actions: [] }
+  });
+  const status = pkg.schema.entities[0].fields.find((field) => field.id === 'status');
+  assert.deepEqual(Object.keys(status.options[0]), ['id', 'label', 'color']);
+  assert.equal(status.options[0].label, '在售');
+  const relation = pkg.schema.entities[0].fields.find((field) => field.id === 'category');
+  assert.equal(relation.type, 'relation');
+  assert.equal(relation.targetEntity, 'category');
+  assert.equal(relation.displayField, 'name');
+});
+
+test('rejects invalid relation target', () => {
+  assert.throws(() => preparePackage({
+    manifest: { name: '坏关系' },
+    schema: {
+      entities: [
+        {
+          id: 'product',
+          name: '商品',
+          fields: [
+            { id: 'name', label: '名称', type: 'text' },
+            { id: 'category', label: '分类', type: 'relation', targetEntity: 'missing', displayField: 'name' }
+          ]
+        }
+      ]
+    },
+    ui: { pages: [{ id: 'product-list', title: '商品列表', type: 'list', entity: 'product' }] },
+    actions: { actions: [] }
+  }), /关联字段/);
+});

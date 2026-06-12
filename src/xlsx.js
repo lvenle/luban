@@ -40,7 +40,7 @@ export function recordsToXlsx(records, entity) {
     : [...new Set(records.flatMap((record) => Object.keys(record.data || {})))].map((id) => ({ id, label: id }));
   const rows = [
     fields.map((field) => field.label || field.id),
-    ...records.map((record) => fields.map((field) => displayExportValue(record.data?.[field.id])))
+    ...records.map((record) => fields.map((field) => displayExportValue(record.data?.[field.id], field)))
   ];
   return createZip([
     {
@@ -78,8 +78,26 @@ export function recordsToXlsx(records, entity) {
   ]);
 }
 
-function displayExportValue(value) {
+function displayExportValue(value, field = {}) {
+  if (field.type === 'select') return optionLabel(field, value);
+  if (field.type === 'multiSelect') return (Array.isArray(value) ? value : []).map((item) => optionLabel(field, item)).join('、');
+  if (field.type === 'relation') return (Array.isArray(value) ? value : [value]).filter(Boolean).map((item) => item.displayValue || item).join('、');
+  if (field.type === 'image' || field.type === 'file') return fileLabel(value);
   if (Array.isArray(value)) return value.join('、');
+  if (value && typeof value === 'object') return value.displayValue || value.label || value.optionId || '';
   if (typeof value === 'boolean') return value ? '是' : '否';
   return value ?? '';
+}
+
+function fileLabel(value) {
+  if (!value) return '';
+  if (Array.isArray(value)) return value.map(fileLabel).filter(Boolean).join('、');
+  if (typeof value === 'object') return value.name || value.filename || value.label || value.url || '';
+  return value;
+}
+
+function optionLabel(field, value) {
+  const raw = value?.optionId || value?.id || value;
+  const option = (field.options || []).find((item) => item.id === raw || item.label === raw);
+  return option?.label || raw || '';
 }

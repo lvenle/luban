@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
-import { createAppFromPackage, createRecord, exportAppPayload, listRecords, resetDbForTests } from '../src/db.js';
+import { createAppFromPackage, createRecord, exportAppPayload, listRecords, resetDbForTests, updateRecord } from '../src/db.js';
 import { runAction } from '../src/actions.js';
 import { createBudgetPackage } from '../src/samplePackages.js';
 
@@ -38,4 +38,30 @@ test('exports app structure by default', () => {
   const payload = exportAppPayload(app.id);
   assert.equal(payload.manifest.id, 'budget-book');
   assert.equal(payload.sampleData, undefined);
+});
+
+test('record no-op updates keep updatedAt stable', () => {
+  const dbPath = join(process.cwd(), 'data', 'test-noop-update.sqlite');
+  rmSync(dbPath, { force: true });
+  resetDbForTests(dbPath);
+  const app = createAppFromPackage(createBudgetPackage());
+  const record = createRecord(app.id, 'transaction', { type: '支出', amount: 42, category: '餐饮' });
+  const updated = updateRecord(record.id, { type: '支出', amount: 42, category: '餐饮' });
+
+  assert.equal(updated.updatedAt, record.updatedAt);
+  assert.deepEqual(updated.data, record.data);
+});
+
+test('record updates do not change default list order', () => {
+  const dbPath = join(process.cwd(), 'data', 'test-update-order.sqlite');
+  rmSync(dbPath, { force: true });
+  resetDbForTests(dbPath);
+  const app = createAppFromPackage(createBudgetPackage());
+  const first = createRecord(app.id, 'transaction', { type: '支出', amount: 1, category: '餐饮' });
+  const second = createRecord(app.id, 'transaction', { type: '支出', amount: 2, category: '交通' });
+
+  updateRecord(first.id, { type: '支出', amount: 100, category: '餐饮' });
+  const records = listRecords(app.id, { entityId: 'transaction' });
+
+  assert.deepEqual(records.map((record) => record.id), [first.id, second.id]);
 });

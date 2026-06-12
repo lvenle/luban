@@ -9,10 +9,13 @@ export const FIELD_TYPES = new Set([
   'select',
   'multiSelect',
   'boolean',
+  'relation',
   'image',
   'file',
   'richText'
 ]);
+
+export const SELECT_COLORS = ['gray', 'blue', 'green', 'red', 'orange', 'yellow', 'purple', 'cyan', 'pink'];
 
 export const PAGE_TYPES = new Set(['list', 'form', 'detail', 'dashboard', 'chart', 'editor']);
 
@@ -73,7 +76,11 @@ export function normalizePackage(pkg) {
       field.label = field.label || field.displayName || field.name || field.id;
       field.type = normalizeFieldType(field.type || 'text');
       if (field.type === 'select' || field.type === 'multiSelect') {
-        field.options = normalizeOptions(field.options || []);
+        field.options = normalizeOptions(field.options || field.config?.options || []);
+        field.config = { ...(field.config || {}), options: field.options };
+      }
+      if (field.type === 'relation') {
+        normalizeRelationField(field);
       }
     }
   }
@@ -154,6 +161,9 @@ function normalizeFieldType(type) {
     enum: 'select',
     bool: 'boolean',
     checkbox: 'boolean',
+    long_text: 'textarea',
+    multi_select: 'multiSelect',
+    multiselect: 'multiSelect',
     integer: 'number',
     float: 'number',
     decimal: 'number',
@@ -185,12 +195,57 @@ function normalizeActionType(type) {
   return map[value] || value;
 }
 
-function normalizeOptions(options) {
+export function normalizeOptions(options) {
   return options.map((option) => {
-    if (typeof option === 'string') return option;
-    if (option && typeof option === 'object') return option.label || option.name || option.value || JSON.stringify(option);
-    return String(option);
+    if (typeof option === 'string') return optionObject(option);
+    if (option && typeof option === 'object') {
+      return optionObject(option.label || option.name || option.value || option.id || JSON.stringify(option), option);
+    }
+    return optionObject(String(option));
   });
+}
+
+function optionObject(label, option = {}) {
+  const cleanLabel = String(label || '').trim() || '未命名';
+  const rawId = normalizeFieldId(option.id || option.value || cleanLabel, 'opt');
+  return {
+    id: rawId === 'opt' ? `opt_${Math.abs(hashText(cleanLabel)).toString(36)}` : rawId,
+    label: cleanLabel,
+    color: SELECT_COLORS.includes(option.color) ? option.color : defaultOptionColor(cleanLabel)
+  };
+}
+
+function defaultOptionColor(label) {
+  if (/完成|成功|正常|已成交|已通过|充足/.test(label)) return 'green';
+  if (/进行|处理中|审核|跟进|运输|计划/.test(label)) return 'blue';
+  if (/取消|失败|拒绝|异常|阻塞|逾期|失效/.test(label)) return 'red';
+  if (/高|重要|重点|需/.test(label)) return 'orange';
+  if (/中|一般/.test(label)) return 'yellow';
+  if (/低|暂缓|未/.test(label)) return 'gray';
+  return SELECT_COLORS[Math.abs(hashText(label)) % SELECT_COLORS.length];
+}
+
+function hashText(text) {
+  let hash = 0;
+  for (const char of String(text)) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return hash;
+}
+
+function normalizeRelationField(field) {
+  const config = { ...(field.config || {}) };
+  field.targetEntity = normalizeFieldId(field.targetEntity || field.targetTableId || config.targetEntity || config.targetTableId, 'entity');
+  field.displayField = normalizeFieldId(field.displayField || field.displayFieldId || config.displayField || config.displayFieldId, 'field');
+  field.multiple = Boolean(field.multiple ?? config.multiple);
+  field.allowCreateTargetRecord = Boolean(field.allowCreateTargetRecord ?? config.allowCreateTargetRecord);
+  field.enableSearch = field.enableSearch ?? config.enableSearch ?? true;
+  field.config = {
+    ...config,
+    targetEntity: field.targetEntity,
+    displayField: field.displayField,
+    multiple: field.multiple,
+    allowCreateTargetRecord: field.allowCreateTargetRecord,
+    enableSearch: field.enableSearch
+  };
 }
 
 export function validatePackage(pkg) {
@@ -202,6 +257,7 @@ export function validatePackage(pkg) {
     errors.push('schema.entities 至少需要一个实体。');
   }
   const entityIds = new Set();
+  const entities = pkg?.schema?.entities || [];
   for (const entity of pkg?.schema?.entities || []) {
     if (!entity.id) errors.push('entity.id 必填。');
     if (entityIds.has(entity.id)) errors.push(`实体 ID 重复：${entity.id}`);
@@ -217,6 +273,22 @@ export function validatePackage(pkg) {
       if (!FIELD_TYPES.has(field.type)) errors.push(`字段 ${field.id} 类型不支持：${field.type}`);
       if ((field.type === 'select' || field.type === 'multiSelect') && !Array.isArray(field.options)) {
         errors.push(`字段 ${field.id} 的 options 必须是数组。`);
+      }
+      if (field.type === 'select' || field.type === 'multiSelect') {
+        for (const option of field.options || []) {
+          if (!option?.id || !option?.label) errors.push(`字段 ${field.id} 的选项必须包含 id 和 label。`);
+          if (!SELECT_COLORS.includes(option?.color)) errors.push(`字段 ${field.id} 的选项颜色不支持：${option?.color}`);
+        }
+      }
+    }
+  }
+  for (const entity of entities) {
+    for (const field of entity.fields || []) {
+      if (field.type !== 'relation') continue;
+      const target = entities.find((item) => item.id === field.targetEntity);
+      if (!field.targetEntity || !target) errors.push(`关联字段 ${field.id} 引用了不存在的目标表：${field.targetEntity || ''}`);
+      if (!field.displayField || (target && !target.fields?.some((item) => item.id === field.displayField))) {
+        errors.push(`关联字段 ${field.id} 引用了不存在的展示字段：${field.displayField || ''}`);
       }
     }
   }
@@ -363,6 +435,7 @@ function normalizePatchPayload(operation) {
     if (next.field.type === 'select' || next.field.type === 'multiSelect') {
       next.field.options = normalizeOptions(next.field.options || next.field.values || []);
     }
+    if (next.field.type === 'relation') normalizeRelationField(next.field);
   }
   if (next.fieldId) next.fieldId = normalizeFieldId(next.fieldId, 'field');
 
