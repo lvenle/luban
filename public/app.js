@@ -1665,12 +1665,31 @@ function renderOptionEditor(options = []) {
 }
 
 function optionEditorRow(option) {
-  const colorSelect = selectFromOptions(OPTION_COLORS.map((color) => [color, colorLabel(color)]), option.color || 'gray');
-  colorSelect.dataset.optionColor = 'true';
+  const initialColor = option.color || 'gray';
   const row = h('div', { class: 'option-editor-row' }, [
     h('span', { class: 'option-drag', text: '⋮⋮', title: '拖动排序稍后开放' }),
-    h('span', { class: `option-color-dot select-${option.color || 'gray'}` }),
-    colorSelect,
+    h('span', { class: `option-color-dot select-${initialColor}` }),
+    h('div', { class: 'option-color-picker' }, [
+      h('button', {
+        class: 'option-color-current ghost',
+        type: 'button',
+        'data-option-color': initialColor,
+        style: `background: var(--select-${initialColor}-bg)`,
+        text: colorLabel(initialColor),
+        onclick: () => toggleColorPicker(row)
+      }),
+      h('div', { class: 'option-color-dropdown hidden' }, 
+        OPTION_COLORS.map(color => 
+          h('button', {
+            class: 'option-color-option ghost',
+            type: 'button',
+            style: `background: var(--select-${color}-bg)`,
+            text: colorLabel(color),
+            onclick: () => selectOptionColor(row, color)
+          })
+        )
+      )
+    ]),
     h('input', { class: 'option-label-input', value: option.label || '', placeholder: '选项名称', 'data-option-label': 'true' }),
     h('button', {
       class: 'ghost option-remove',
@@ -1680,11 +1699,31 @@ function optionEditorRow(option) {
       onclick: () => row.remove()
     })
   ]);
-  colorSelect.addEventListener('change', () => {
-    const dot = row.querySelector('.option-color-dot');
-    if (dot) dot.className = `option-color-dot select-${colorSelect.value}`;
-  });
   return row;
+}
+
+function toggleColorPicker(row) {
+  const dropdown = row.querySelector('.option-color-dropdown');
+  document.querySelectorAll('.option-color-dropdown:not(.hidden)').forEach(el => el.classList.add('hidden'));
+  dropdown.classList.toggle('hidden');
+  const handleClickOutside = (event) => {
+    if (!dropdown.contains(event.target) && !row.querySelector('.option-color-current').contains(event.target)) {
+      dropdown.classList.add('hidden');
+      document.removeEventListener('click', handleClickOutside);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', handleClickOutside), 0);
+}
+
+function selectOptionColor(row, color) {
+  const dropdown = row.querySelector('.option-color-dropdown');
+  const dot = row.querySelector('.option-color-dot');
+  const current = row.querySelector('.option-color-current');
+  dot.className = `option-color-dot select-${color}`;
+  current.style.background = `var(--select-${color}-bg)`;
+  current.text = colorLabel(color);
+  current.dataset.optionColor = color;
+  dropdown.classList.add('hidden');
 }
 
 function collectOptionEditorValues(root) {
