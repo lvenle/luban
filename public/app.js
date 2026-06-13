@@ -412,6 +412,11 @@ async function createAppFromPrompt(prompt) {
 }
 
 function renderRuntime() {
+  // 保存表格滚动位置
+  const tableWrap = document.querySelector('.table-wrap');
+  const savedScrollTop = tableWrap?.scrollTop || 0;
+  const savedScrollLeft = tableWrap?.scrollLeft || 0;
+  
   const app = state.currentApp;
   const page = app.ui.pages.find((item) => item.id === state.currentPageId) || app.ui.pages[0];
   state.currentPageId = page?.id || state.currentPageId;
@@ -445,6 +450,17 @@ function renderRuntime() {
       ])
     ])
   );
+
+  // 恢复表格滚动位置
+  if (savedScrollTop > 0 || savedScrollLeft > 0) {
+    setTimeout(() => {
+      const newTableWrap = document.querySelector('.table-wrap');
+      if (newTableWrap) {
+        newTableWrap.scrollTop = savedScrollTop;
+        newTableWrap.scrollLeft = savedScrollLeft;
+      }
+    }, 0);
+  }
 }
 
 function openCreateTableModal() {
