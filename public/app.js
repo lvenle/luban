@@ -125,35 +125,7 @@ function writeStorage(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-function openDebugPanel(title, steps) {
-  const list = h('div', { class: 'process-log' });
-  const panel = h('section', { class: 'debug-panel' }, [
-    h('div', { class: 'debug-head' }, [
-      h('div', {}, [h('div', { class: 'sidebar-label', text: '调试区域' }), h('h3', { text: title })]),
-      h('button', { class: 'ghost icon-button', text: '×', title: '关闭调试区域', onclick: () => panel.remove() })
-    ]),
-    h('p', { class: 'muted', text: '这里展示 AI 计划、执行进度和完成情况。' }),
-    list
-  ]);
-  document.querySelectorAll('.debug-panel').forEach((item) => item.remove());
-  document.body.append(panel);
-  const entries = [];
-  const add = (message, status = 'running') => {
-    const item = h('div', { class: `log-item ${status}` }, [
-      h('span', { class: 'log-dot' }),
-      h('span', { text: `${new Date().toLocaleTimeString()} ${message}` })
-    ]);
-    entries.push(item);
-    list.append(item);
-    return item;
-  };
-  steps.forEach((step) => add(`计划：${step}`, 'running'));
-  return {
-    close: () => panel.remove(),
-    done: (message) => add(message, 'done'),
-    error: (message) => add(message, 'error')
-  };
-}
+
 
 async function loadApps() {
   const body = await api('/api/apps');
@@ -430,15 +402,11 @@ async function saveCurrentPackage(mutator) {
 }
 
 async function createAppFromPrompt(prompt) {
-  const process = openDebugPanel('新增软件过程日志', ['接收需求', '请求 AI 或本地生成器', '校验软件包协议', '安装软件到 SQLite']);
   try {
     const body = await api('/api/apps/generate', { method: 'POST', body: JSON.stringify({ prompt }) });
-    for (const log of body.logs || []) process.done(log);
-    process.done(`完成：已创建 ${body.app?.name || '新软件'}`);
-    state.assistantOpen = false;
     await openApp(body.appId);
+    toast(`已创建 ${body.app?.name || '新软件'}`);
   } catch (error) {
-    process.error(error.message);
     toast(error.message);
   }
 }
@@ -2985,7 +2953,6 @@ async function cancelAiSession() {
 async function executeAiPlan() {
   if (state.aiLocalPlan) return executeAiLocalPlan();
   if (!state.aiSession?.id) return toast('没有可执行的 AI 方案。');
-  const process = openDebugPanel('AI 确认式执行', ['用户已确认方案', '执行白名单工具', '保存执行结果']);
   pushAssistantMessage({
     role: 'assistant',
     title: 'Tool 执行进度',
@@ -2995,7 +2962,6 @@ async function executeAiPlan() {
   state.currentApp ? renderRuntime() : renderHome();
   try {
     const body = await api(`/api/ai/sessions/${state.aiSession.id}/execute`, { method: 'POST', body: '{}' });
-    for (const log of body.logs || []) process.done(`${log.stepName}：${log.status}`);
     if (body.error) throw new Error(body.error);
     pushAssistantMessage({
       role: 'assistant',
@@ -3017,7 +2983,6 @@ async function executeAiPlan() {
     renderRuntime();
     toast('AI 执行完成');
   } catch (error) {
-    process.error(error.message);
     pushAssistantMessage({ role: 'assistant', title: '执行失败', text: error.message });
     state.assistantBusy = false;
     state.currentApp ? renderRuntime() : renderHome();

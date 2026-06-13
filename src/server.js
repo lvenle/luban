@@ -306,6 +306,10 @@ async function handleAiApi(req, res, method, parts) {
     updateAiSession(session.id, { status: 'planning' });
     addAiExecutionLog(session.id, '生成执行方案', 'running', { input: { intent: agentTurn.intent } });
     const settings = getSetting('ai') || {};
+    const usingMock = !settings?.apiKey;
+    if (usingMock) {
+      addAiExecutionLog(session.id, '本地模式', 'success', { warning: '未设置 API Key，使用本地 Mock 生成器。请在设置中配置 API Key 以获得真实 AI 响应。' });
+    }
     const planningPrompt = buildPlanningPrompt(body.prompt || '', {
       app,
       session: getAiSession(session.id),
@@ -314,9 +318,13 @@ async function handleAiApi(req, res, method, parts) {
     });
     const plan = await generatePlanFromPrompt(planningPrompt, settings, app ? getPackageFromApp(app) : null);
     addAiExecutionLog(session.id, '生成执行方案', 'success', { output: { summary: describePlan(plan) } });
-    addAiMessage(session.id, 'assistant', describePlan(plan), plan);
+    let planDescription = describePlan(plan);
+    if (usingMock) {
+      planDescription += `\n\n⚠️ 本地模式：此方案由本地 Mock 生成器提供，请在设置中配置 API Key 以获得真实 AI 响应。`;
+    }
+    addAiMessage(session.id, 'assistant', planDescription, plan);
     const nextSession = updateAiSession(session.id, { status: 'waiting_confirmation', currentPlan: plan });
-    sendJson(res, 200, { session: nextSession, state: 'CONFIRM', intent: agentTurn.intent, plan, context: agentTurn.context });
+    sendJson(res, 200, { session: nextSession, state: 'CONFIRM', intent: agentTurn.intent, plan, context: agentTurn.context, usingMock });
     return;
   }
 

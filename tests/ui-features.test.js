@@ -6,9 +6,6 @@ const appJs = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8')
 const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 
 test('frontend exposes required runtime configuration features', () => {
-  assert.match(appJs, /新增软件过程日志/);
-  assert.match(appJs, /修改软件过程日志/);
-  assert.match(appJs, /openDebugPanel/);
   assert.match(appJs, /appCategory/);
   assert.match(appJs, /card-menu/);
   assert.match(appJs, /clickable-card/);
@@ -101,6 +98,7 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /renderSelectTag/);
   assert.match(appJs, /openCreateTableModal/);
   assert.match(appJs, /新建表/);
+  assert.match(appJs, /deleteField/);
 });
 
 test('frontend has styles for list config, form layout, inline edit, and logs', () => {
@@ -113,7 +111,6 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.query-zone/);
   assert.match(css, /\.assistant-fab/);
   assert.match(css, /\.drawer-backdrop/);
-  assert.match(css, /\.debug-panel/);
   assert.match(css, /\.table-wrap/);
   assert.match(css, /\.sticky-action-cell/);
   assert.match(css, /\.action-cell/);
@@ -157,4 +154,5 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.ai-clarify-card/);
   assert.match(css, /\.ai-plan-card/);
   assert.match(css, /\.create-table-button/);
+  assert.match(css, /\.context-menu-sep/);
 });

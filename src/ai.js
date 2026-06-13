@@ -349,7 +349,15 @@ function firstEntity(pkg) {
 
 function mockPatch(prompt, pkg) {
   const text = String(prompt || '');
-  const entity = firstEntity(pkg);
+  // 智能选择表：如果用户提到表名，选对应的表，否则选第一个表
+  let entity = null;
+  for (const candidate of pkg.schema.entities) {
+    if (text.includes(candidate.name) || text.includes(candidate.id)) {
+      entity = candidate.id;
+      break;
+    }
+  }
+  if (!entity) entity = firstEntity(pkg);
   const entityDef = pkg.schema.entities.find((item) => item.id === entity) || pkg.schema.entities[0];
   if (text.includes('旅游')) {
     return {
@@ -467,14 +475,20 @@ function mockPatch(prompt, pkg) {
 }
 
 function inferRequestedField(text) {
-  const match = text.match(/(?:增加|添加|新增)(?:一个)?(.+?)(?:字段|日期|时间|功能)?$/);
+  // 更精确地匹配，支持各种句式
+  const match = text.match(/(?:增加|添加|新增|加入|新建|创建)(?:\s*一个)?(?:个)?(?:\s*字段|字段)?\s*(.+?)(?:\s*(?:字段|列|属性))?$|(?:加|增加|添加|新增|加入)\s*(.+?)(?:\s*(?:到|在))?(?:\s*(?:表|里面|中))?$/);
   if (!match) return null;
-  const raw = match[1].replace(/功能$/, '').trim();
+  const raw = (match[1] || match[2] || '').trim();
   if (!raw) return null;
-  const label = raw.endsWith('日期') || raw.endsWith('时间') ? raw : raw.replace(/字段$/, '');
+  const label = raw;
   const type = inferFieldType(label);
+  // 确保id干净，不会产生乱码
+  let id = translateKnownField(label);
+  if (id === label) {
+    id = normalizeFieldId(label, fallbackFieldId(label, type));
+  }
   return {
-    id: normalizeFieldId(translateKnownField(label), fallbackFieldId(label, type)),
+    id,
     label,
     type,
     options: inferFieldOptions(label)
