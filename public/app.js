@@ -189,7 +189,7 @@ function topbar() {
       inRuntime ? renderTopbarAppInfo(state.currentApp) : null
     ]),
     h('div', { class: 'top-actions' }, [
-      h('button', { class: 'secondary', text: 'AI 助理', onclick: () => { ensureAssistantConversation(); state.assistantOpen = !state.assistantOpen; state.currentApp ? renderRuntime() : renderHome(); } }),
+      h('button', { class: 'secondary', text: 'AI 助理', onclick: () => { state.assistantBusy = false; ensureAssistantConversation(); state.assistantOpen = !state.assistantOpen; state.currentApp ? renderRuntime() : renderHome(); } }),
       inRuntime ? null : h('button', { class: 'secondary', text: '我的软件', onclick: goHome }),
       inRuntime ? null : h('button', { class: 'secondary', text: '导入 .sgpkg', onclick: openImportModal }),
       h('button', { class: 'secondary', text: '设置', onclick: openSettingsModal })
@@ -3195,9 +3195,11 @@ function executeAiLocalPlan() {
     state.aiSession = null;
     if (result?.detail) openTextModal(result.title || 'AI 助理结果', result.detail);
     state.assistantOpen = false;
+    state.assistantBusy = false;
     renderRuntime();
     toast(result?.message || plan.summary || '本地交互方案已执行。');
   } catch (error) {
+    state.assistantBusy = false;
     toast(error.message);
   }
 }
