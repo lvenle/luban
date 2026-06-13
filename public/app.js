@@ -21,7 +21,10 @@ const state = {
 
 const root = document.querySelector('#app');
 const COMPAT_TEST_MARKERS = ['修改软件过程日志', '删除名称搜索条件', '设计当前表单', 'relation-options'];
-const OPTION_COLORS = ['gray', 'blue', 'green', 'red', 'orange', 'yellow', 'purple', 'cyan', 'pink'];
+const OPTION_COLORS = [
+  'gray', 'blue', 'green', 'red', 'orange', 'yellow', 
+  'purple', 'cyan', 'pink', 'indigo', 'teal', 'lime', 'amber'
+];
 let activeCellChoiceController = null;
 
 async function api(path, options = {}) {
@@ -1704,7 +1707,11 @@ function colorLabel(color) {
     yellow: '黄色',
     purple: '紫色',
     cyan: '青色',
-    pink: '粉色'
+    pink: '粉色',
+    indigo: '靛蓝',
+    teal: '蓝绿',
+    lime: '青柠',
+    amber: '琥珀'
   };
   return labels[color] || color;
 }

@@ -2399,6 +2399,10 @@ button.assistant-send {
 .select-purple { background: #f3e8ff; color: #7e22ce; border-color: #e9d5ff; }
 .select-cyan { background: #cffafe; color: #0e7490; border-color: #a5f3fc; }
 .select-pink { background: #fce7f3; color: #be185d; border-color: #fbcfe8; }
+.select-indigo { background: #e0e7ff; color: #4338ca; border-color: #c7d2fe; }
+.select-teal { background: #ccfbf1; color: #0f766e; border-color: #99f6e4; }
+.select-lime { background: #d9f99d; color: #3f6212; border-color: #bef264; }
+.select-amber { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
 
 .relation-tag {
   background: #f8fafc;
