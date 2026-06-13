@@ -1674,19 +1674,21 @@ function optionEditorRow(option) {
         class: 'option-color-current ghost',
         type: 'button',
         'data-option-color': initialColor,
-        style: `background: var(--select-${initialColor}-bg)`,
-        text: colorLabel(initialColor),
         onclick: () => toggleColorPicker(row)
-      }),
+      }, [
+        h('span', { class: `option-color-dot select-${initialColor}` }),
+        h('span', { text: colorLabel(initialColor) })
+      ]),
       h('div', { class: 'option-color-dropdown hidden' }, 
         OPTION_COLORS.map(color => 
           h('button', {
             class: 'option-color-option ghost',
             type: 'button',
-            style: `background: var(--select-${color}-bg)`,
-            text: colorLabel(color),
             onclick: () => selectOptionColor(row, color)
-          })
+          }, [
+            h('span', { class: `option-color-dot select-${color}` }),
+            h('span', { text: colorLabel(color) })
+          ])
         )
       )
     ]),
@@ -1718,11 +1720,12 @@ function toggleColorPicker(row) {
 function selectOptionColor(row, color) {
   const dropdown = row.querySelector('.option-color-dropdown');
   const dot = row.querySelector('.option-color-dot');
-  const current = row.querySelector('.option-color-current');
+  const currentDot = row.querySelector('.option-color-current .option-color-dot');
+  const currentText = row.querySelector('.option-color-current span:nth-child(2)');
   dot.className = `option-color-dot select-${color}`;
-  current.style.background = `var(--select-${color}-bg)`;
-  current.text = colorLabel(color);
-  current.dataset.optionColor = color;
+  currentDot.className = `option-color-dot select-${color}`;
+  currentText.textContent = colorLabel(color);
+  row.querySelector('.option-color-current').dataset.optionColor = color;
   dropdown.classList.add('hidden');
 }
 
