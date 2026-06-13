@@ -1444,7 +1444,9 @@ function openHeaderContextMenu(event, entity, field, listConfig) {
     h('button', { class: 'ghost-menu', text: '分组', onclick: () => { setListConfig(entity, { ...listConfig, group: { field: field.id, mode: 'value', collapsed: [] } }); closeContextMenu(); renderRuntime(); } }),
     h('button', { class: 'ghost-menu', text: '筛选', onclick: () => { ensureFilterForField(entity, field.id, listConfig); closeContextMenu(); } }),
     h('button', { class: 'ghost-menu', text: '向左插入列', onclick: () => { insertField(entity, field, 'left'); closeContextMenu(); } }),
-    h('button', { class: 'ghost-menu', text: '向右插入列', onclick: () => { insertField(entity, field, 'right'); closeContextMenu(); } })
+    h('button', { class: 'ghost-menu', text: '向右插入列', onclick: () => { insertField(entity, field, 'right'); closeContextMenu(); } }),
+    h('div', { class: 'context-menu-sep' }),
+    h('button', { class: 'danger ghost-menu', text: '删除字段', onclick: () => { deleteField(entity, field); closeContextMenu(); } })
   ]);
   document.body.append(menu);
   setTimeout(() => document.addEventListener('click', closeContextMenu, { once: true }), 0);
@@ -1776,6 +1778,28 @@ async function duplicateField(entity, field) {
 
 async function insertField(entity, nearField, side) {
   openFieldEditModal(entity, null, { nearField, side });
+}
+
+function deleteField(entity, field) {
+  if ((entity.fields || []).length <= 1) return toast('至少保留一个字段。');
+  openConfirmDialog({
+    title: '删除字段',
+    message: `确定删除字段「${field.label}」？字段中的数据将永久丢失。`,
+    confirmText: '删除',
+    danger: true,
+    onConfirm: async () => {
+      try {
+        await api(`/api/apps/${state.currentApp.id}/fields/${entity.id}/${field.id}`, { method: 'DELETE' });
+        const config = getListConfig(entity);
+        const visibleFields = (config.visibleFields || []).filter((id) => id !== field.id);
+        setListConfig(entity, { ...config, visibleFields });
+        toast('字段已删除');
+        renderRuntime();
+      } catch (error) {
+        toast(error.message);
+      }
+    }
+  });
 }
 
 function uniqueFieldId(entity, base) {
