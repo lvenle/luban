@@ -189,6 +189,7 @@ function topbar() {
       inRuntime ? renderTopbarAppInfo(state.currentApp) : null
     ]),
     h('div', { class: 'top-actions' }, [
+      h('button', { class: 'secondary', text: 'AI 助理', onclick: () => { ensureAssistantConversation(); state.assistantOpen = !state.assistantOpen; state.currentApp ? renderRuntime() : renderHome(); } }),
       inRuntime ? null : h('button', { class: 'secondary', text: '我的软件', onclick: goHome }),
       inRuntime ? null : h('button', { class: 'secondary', text: '导入 .sgpkg', onclick: openImportModal }),
       h('button', { class: 'secondary', text: '设置', onclick: openSettingsModal })
@@ -285,7 +286,6 @@ function renderHome() {
         ]),
         cards
       ]),
-      renderAssistantLauncher(),
       state.assistantOpen ? renderAssistantDrawer() : null
     ])
   );
@@ -448,7 +448,6 @@ function renderRuntime() {
           h('button', { class: 'page-button create-table-button', text: '+ 新建表', onclick: openCreateTableModal })
         ]),
         h('section', { class: 'workspace' }, [renderPage(page)]),
-        renderAssistantLauncher(),
       state.assistantOpen ? renderAssistantDrawer() : null
       ])
     ])
@@ -462,6 +461,14 @@ function renderRuntime() {
         newTableWrap.scrollTop = savedScrollTop;
         newTableWrap.scrollLeft = savedScrollLeft;
       }
+    }, 0);
+  }
+
+  // AI 聊天消息自动滚动到底部
+  if (state.assistantOpen) {
+    setTimeout(() => {
+      const messages = document.querySelector('.assistant-messages');
+      if (messages) messages.scrollTop = messages.scrollHeight;
     }, 0);
   }
 }
@@ -2572,18 +2579,6 @@ function renderEditorPage(page) {
     ]),
     renderListPage({ ...page, type: 'list' })
   ]);
-}
-
-function renderAssistantLauncher() {
-  return h('button', {
-    class: 'assistant-fab',
-    text: state.currentApp ? 'AI 助理' : '创造软件',
-    onclick: () => {
-      ensureAssistantConversation();
-      state.assistantOpen = true;
-      state.currentApp ? renderRuntime() : renderHome();
-    }
-  });
 }
 
 function renderAssistantDrawer() {

@@ -25,7 +25,7 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /writeRoute/);
   assert.match(appJs, /URLSearchParams/);
   assert.match(appJs, /createAppFromPrompt/);
-  assert.match(appJs, /创造软件/);
+  assert.match(appJs, /AI 助理/);
   assert.match(appJs, /saveAppMetadata/);
   assert.match(appJs, /topbar-app-info/);
   assert.match(appJs, /inlineEditableText/);
