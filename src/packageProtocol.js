@@ -170,7 +170,10 @@ function normalizeFieldType(type) {
     integer: 'number',
     float: 'number',
     decimal: 'number',
-    markdown: 'richText'
+    markdown: 'richText',
+    reference: 'relation',
+    link: 'relation',
+    ref: 'relation'
   };
   return map[value] || value;
 }
@@ -236,7 +239,7 @@ function hashText(text) {
 
 function normalizeRelationField(field) {
   const config = { ...(field.config || {}) };
-  field.targetEntity = normalizeFieldId(field.targetEntity || field.targetTableId || config.targetEntity || config.targetTableId, 'entity');
+  field.targetEntity = normalizeFieldId(field.targetEntity || field.targetTableId || config.targetEntity || config.targetTableId || config.targetEntityId, 'entity');
   field.displayField = normalizeFieldId(field.displayField || field.displayFieldId || config.displayField || config.displayFieldId, 'field');
   field.multiple = Boolean(field.multiple ?? config.multiple);
   field.allowCreateTargetRecord = Boolean(field.allowCreateTargetRecord ?? config.allowCreateTargetRecord);
@@ -361,6 +364,12 @@ function normalizePatchOperation(operation, pkg) {
 function normalizeJsonPatchOperation(operation, pkg) {
   const verb = String(operation.op).toLowerCase();
   const path = String(operation.path || '');
+
+  const entityRootMatch = path.match(/^\/schema\/entities(?:\/(\d+|-|\w+))?$/);
+  if (entityRootMatch && verb === 'add' && operation.value) {
+    return normalizePatchPayload({ op: 'addEntity', entity: operation.value });
+  }
+
   const fieldMatch = path.match(/^\/schema\/entities\/(\d+)\/fields(?:\/(\d+|-))?$/);
   if (fieldMatch) {
     const entity = pkg.schema.entities[Number(fieldMatch[1])];
@@ -441,6 +450,23 @@ function normalizePatchPayload(operation) {
     if (next.field.type === 'relation') normalizeRelationField(next.field);
   }
   if (next.fieldId) next.fieldId = normalizeFieldId(next.fieldId, 'field');
+
+  if (next.entity && typeof next.entity === 'object') {
+    next.entity.id = normalizeFieldId(next.entity.id || next.entity.name, 'entity');
+    next.entity.name ||= next.entity.displayName || next.entity.id;
+    next.entity.description ||= '';
+    if (Array.isArray(next.entity.fields)) {
+      for (const field of next.entity.fields) {
+        field.id = normalizeFieldId(field.id || field.label || field.name, 'field');
+        field.label ||= field.displayName || field.name || field.id;
+        field.type = normalizeFieldType(field.type || 'text');
+        if (field.type === 'relation') normalizeRelationField(field);
+        if (field.type === 'select' || field.type === 'multiSelect') {
+          field.options = normalizeOptions(field.options || field.values || []);
+        }
+      }
+    }
+  }
 
   if (next.page) {
     next.page.id = slugify(next.page.id || next.page.name || next.page.title || next.page.displayName || 'page', 'page');
