@@ -10,11 +10,19 @@ const state = {
   assistantOpen: false,
   aiSession: null,
   aiPlan: null,
+  aiLocalPlan: null,
+  aiClarification: null,
+  aiIntent: '',
+  aiChatMessages: [],
+  assistantContextKey: '',
+  assistantDraft: '',
   assistantBusy: false
 };
 
 const root = document.querySelector('#app');
 const COMPAT_TEST_MARKERS = ['修改软件过程日志', '删除名称搜索条件', '设计当前表单', 'relation-options'];
+const OPTION_COLORS = ['gray', 'blue', 'green', 'red', 'orange', 'yellow', 'purple', 'cyan', 'pink'];
+let activeCellChoiceController = null;
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -1086,15 +1094,42 @@ function renderViewBar(entity, currentView) {
 }
 
 function renderViewMenu(entity) {
-  return bindFloatingMenu(h('details', { class: 'view-menu', onclick: (event) => event.stopPropagation() }, [
-    h('summary', { title: '视图操作' }, '⋮'),
-    h('div', { class: 'view-menu-popover' }, [
-      h('button', { class: 'ghost-menu', text: '复制', onclick: () => cloneView(entity) }),
-      h('button', { class: 'ghost-menu', text: '重命名', onclick: () => renameView(entity) }),
-      h('button', { class: 'ghost-menu', text: '清除视图设置', onclick: () => clearCurrentViewConfig(entity) }),
-      h('button', { class: 'ghost-menu danger-text', text: '删除', onclick: () => deleteView(entity) })
-    ])
-  ]));
+  return h('button', {
+    class: 'view-menu-trigger',
+    title: '视图操作',
+    onclick: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openViewMenu(event.currentTarget, entity);
+    }
+  }, '⋮');
+}
+
+function openViewMenu(trigger, entity) {
+  closeFloatingMenus();
+  document.querySelector('.view-menu-popover')?.remove();
+  const menu = h('div', { class: 'view-menu-popover floating-view-menu' }, [
+    h('button', { class: 'ghost-menu', text: '复制', onclick: () => { closeViewMenu(); cloneView(entity); } }),
+    h('button', { class: 'ghost-menu', text: '重命名', onclick: () => { closeViewMenu(); renameView(entity); } }),
+    h('button', { class: 'ghost-menu', text: '清除视图设置', onclick: () => { closeViewMenu(); clearCurrentViewConfig(entity); } }),
+    h('button', { class: 'ghost-menu danger-text', text: '删除', onclick: () => { closeViewMenu(); deleteView(entity); } })
+  ]);
+  document.body.append(menu);
+  positionViewMenu(trigger, menu);
+  setTimeout(() => document.addEventListener('click', closeViewMenu, { once: true }), 0);
+}
+
+function positionViewMenu(trigger, menu) {
+  const rect = trigger.getBoundingClientRect();
+  const width = Math.max(menu.offsetWidth, 128);
+  const left = Math.min(window.innerWidth - width - 8, Math.max(8, rect.right + 6));
+  const top = Math.min(window.innerHeight - menu.offsetHeight - 8, Math.max(8, rect.top));
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function closeViewMenu() {
+  document.querySelector('.view-menu-popover')?.remove();
 }
 
 function startViewNameEdit(button, entity, view) {
@@ -1343,6 +1378,10 @@ function renderResizableHeader(entity, field, nextField, listConfig) {
     {
       class: 'resizable-column',
       style: `width:${width}px; min-width:${width}px`,
+      onclick: (event) => {
+        if (event.target?.classList?.contains('resize-edge')) return;
+        selectColumnHeader(header);
+      },
       ondblclick: (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1415,6 +1454,12 @@ function closeContextMenu() {
   document.querySelector('.context-menu')?.remove();
 }
 
+function selectColumnHeader(header) {
+  document.querySelectorAll('th.selected-column-header').forEach((item) => item.classList.remove('selected-column-header'));
+  document.querySelectorAll('.editable-cell.selected-cell').forEach((item) => item.classList.remove('selected-cell'));
+  header.classList.add('selected-column-header');
+}
+
 function setFieldSort(entity, fieldId, direction, listConfig) {
   setListConfig(entity, { ...listConfig, sorts: [{ field: fieldId, direction }] });
   renderRuntime();
@@ -1456,21 +1501,16 @@ function openFieldEditModal(entity, field = null, options = {}) {
   const editing = Boolean(field);
   const draft = field ? structuredClone(field) : { id: uniqueFieldId(entity, 'new_field'), label: '新字段', type: 'text' };
   if (!draft.options && draft.values) draft.options = draft.values;
-  const labelInput = h('input', { value: draft.label || '' });
+  const labelInput = h('input', { value: draft.label || '', placeholder: '请输入字段标题' });
   const typeSelect = selectFromOptions(fieldTypes(), draft.type || 'text');
-  const advanced = h('div', { class: 'field-advanced' });
+  const advanced = h('div', { class: 'field-advanced field-popover-section' });
+  const typeLabel = h('span', { class: 'field-type-current', text: fieldTypeLabel(typeSelect.value) });
   const renderAdvanced = () => {
     advanced.innerHTML = '';
     const type = typeSelect.value;
+    typeLabel.textContent = fieldTypeLabel(type);
     if (type === 'select' || type === 'multiSelect') {
-      advanced.append(h('div', { class: 'field' }, [
-        h('label', { text: '下拉选项（一行一个，格式：标签 | 颜色）' }),
-        h('textarea', {
-          'data-field-editor': 'options',
-          value: optionLines(draft.options || []),
-          placeholder: '未开始 | gray\n进行中 | blue\n已完成 | green'
-        })
-      ]));
+      advanced.append(renderOptionEditor(draft.options || []));
       return;
     }
     if (type === 'relation') {
@@ -1492,18 +1532,21 @@ function openFieldEditModal(entity, field = null, options = {}) {
       targetSelect.addEventListener('change', renderDisplayFields);
       renderDisplayFields();
       advanced.append(
-        h('div', { class: 'form-grid' }, [
-          h('div', { class: 'field' }, [h('label', { text: '关联表' }), targetSelect]),
-          h('div', { class: 'field' }, [h('label', { text: '展示字段' }), displaySelect])
+        h('div', { class: 'field-popover-subtitle', text: '关联设置' }),
+        h('div', { class: 'field-setting-list' }, [
+          h('label', { class: 'field-setting-row' }, [h('span', { text: '关联表' }), targetSelect]),
+          h('label', { class: 'field-setting-row' }, [h('span', { text: '展示字段' }), displaySelect])
         ]),
-        h('label', { class: 'check-row' }, [multiple, h('span', { text: '允许多选关联记录' })])
+        h('label', { class: 'field-setting-check' }, [multiple, h('span', { text: '允许多选关联记录' })])
       );
       return;
     }
     if (type === 'number') {
       const format = selectFromOptions([['plain', '普通数字'], ['integer', '整数'], ['decimal2', '保留 2 位小数'], ['currency', '金额'], ['percent', '百分比']], draft.format || 'plain');
       format.dataset.fieldEditor = 'format';
-      advanced.append(h('div', { class: 'field' }, [h('label', { text: '数字格式' }), format]));
+      advanced.append(h('div', { class: 'field-setting-list' }, [
+        h('label', { class: 'field-setting-row' }, [h('span', { text: '数字格式' }), format])
+      ]));
       return;
     }
     if (type === 'date' || type === 'datetime') {
@@ -1512,42 +1555,55 @@ function openFieldEditModal(entity, field = null, options = {}) {
         : [['yyyy-mm-dd hh:mm', '2026-06-12 09:00'], ['yyyy/mm/dd hh:mm', '2026/06/12 09:00']],
       draft.format || (type === 'date' ? 'yyyy-mm-dd' : 'yyyy-mm-dd hh:mm'));
       format.dataset.fieldEditor = 'format';
-      advanced.append(h('div', { class: 'field' }, [h('label', { text: '日期格式' }), format]));
+      advanced.append(h('div', { class: 'field-setting-list' }, [
+        h('label', { class: 'field-setting-row' }, [h('span', { text: '日期格式' }), format])
+      ]));
       return;
     }
     if (type === 'boolean') {
-      advanced.append(h('p', { class: 'muted', text: '是/否字段会在表格和表单中以开关值编辑。' }));
+      advanced.append(h('p', { class: 'field-help', text: '是/否字段会在表格和表单中以开关值编辑。' }));
       return;
     }
     if (type === 'image') {
-      advanced.append(h('p', { class: 'muted', text: '图片字段支持上传本地图片，表格中显示小缩略图，点击可放大预览。' }));
+      advanced.append(h('p', { class: 'field-help', text: '图片字段支持上传本地图片，表格中显示小缩略图，点击可放大预览。' }));
       return;
     }
     if (type === 'file') {
-      advanced.append(h('p', { class: 'muted', text: '附件字段支持上传本地文件，表格中显示原始文件名，点击可打开。' }));
+      advanced.append(h('p', { class: 'field-help', text: '附件字段支持上传本地文件，表格中显示原始文件名，点击可打开。' }));
       return;
     }
-    advanced.append(h('div', { class: 'field' }, [
-      h('label', { text: '输入提示' }),
-      h('input', { 'data-field-editor': 'placeholder', value: draft.placeholder || '', placeholder: '填写时展示的提示文字' })
+    advanced.append(h('div', { class: 'field-setting-list' }, [
+      h('label', { class: 'field-setting-row' }, [
+        h('span', { text: '输入提示' }),
+        h('input', { 'data-field-editor': 'placeholder', value: draft.placeholder || '', placeholder: '填写时展示的提示文字' })
+      ])
     ]));
   };
   typeSelect.addEventListener('change', renderAdvanced);
   renderAdvanced();
   const backdrop = h('div', { class: 'modal-backdrop' }, [
-    h('div', { class: 'modal compact-modal' }, [
-      h('div', { class: 'toolbar' }, [
-        h('h3', { text: editing ? '编辑字段' : '新增字段' }),
-        h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
+    h('div', { class: 'modal field-settings-modal' }, [
+      h('div', { class: 'field-settings-head' }, [
+        h('h3', { text: editing ? '编辑字段' : '添加字段' }),
+        h('button', { class: 'ghost icon-button', text: '×', title: '关闭字段设置', onclick: () => backdrop.remove() })
       ]),
-      h('div', { class: 'form-grid' }, [
-        h('div', { class: 'field' }, [h('label', { text: '字段名称' }), labelInput]),
-        h('div', { class: 'field' }, [h('label', { text: '字段类型' }), typeSelect])
+      h('div', { class: 'field-popover-section' }, [
+        h('label', { class: 'field-popover-label', text: '标题' }),
+        labelInput
+      ]),
+      h('div', { class: 'field-popover-section' }, [
+        h('label', { class: 'field-popover-label', text: '字段类型' }),
+        h('label', { class: 'field-type-picker' }, [
+          typeLabel,
+          typeSelect,
+          h('span', { class: 'field-type-arrow', text: '›' })
+        ])
       ]),
       advanced,
-      h('div', { class: 'row', style: 'margin-top:12px' }, [
+      h('div', { class: 'field-settings-footer' }, [
+        h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
         h('button', {
-          text: '保存',
+          text: '确定',
           onclick: async () => {
             const label = labelInput.value.trim();
             if (!label) return toast('字段名称不能为空。');
@@ -1561,17 +1617,20 @@ function openFieldEditModal(entity, field = null, options = {}) {
     ])
   ]);
   document.body.append(backdrop);
+  setTimeout(() => {
+    labelInput.focus();
+    labelInput.select();
+  }, 0);
 }
 
 function fieldPatchFromEditor(label, type, advanced) {
   const patch = { label, type };
-  const optionsInput = advanced.querySelector('[data-field-editor="options"]');
   const formatInput = advanced.querySelector('[data-field-editor="format"]');
   const placeholderInput = advanced.querySelector('[data-field-editor="placeholder"]');
   const targetEntityInput = advanced.querySelector('[data-field-editor="targetEntity"]');
   const displayFieldInput = advanced.querySelector('[data-field-editor="displayField"]');
   const multipleInput = advanced.querySelector('[data-field-editor="multiple"]');
-  if (optionsInput) patch.options = parseOptionLines(optionsInput.value);
+  if (type === 'select' || type === 'multiSelect') patch.options = collectOptionEditorValues(advanced);
   if (formatInput) patch.format = formatInput.value;
   if (placeholderInput) patch.placeholder = placeholderInput.value.trim();
   if (type === 'relation') {
@@ -1583,6 +1642,85 @@ function fieldPatchFromEditor(label, type, advanced) {
   }
   if (type !== 'select' && type !== 'multiSelect') patch.options = [];
   return patch;
+}
+
+function fieldTypeLabel(type) {
+  return fieldTypes().find(([value]) => value === type)?.[1] || type || '文本';
+}
+
+function renderOptionEditor(options = []) {
+  const list = h('div', { class: 'option-editor-list', 'data-field-editor': 'options-list' });
+  const addRow = (option = {}) => {
+    const normalized = optionObject(option);
+    list.append(optionEditorRow(normalized));
+  };
+  const source = options.length ? options : ['选项 1', '选项 2'];
+  source.forEach(addRow);
+  const addButton = h('button', {
+    class: 'option-add-button',
+    type: 'button',
+    text: '+ 添加选项',
+    onclick: () => addRow({ label: `选项 ${list.children.length + 1}` })
+  });
+  return h('div', { class: 'option-editor' }, [
+    h('div', { class: 'option-editor-head' }, [
+      h('span', { text: '下拉选项内容' }),
+      h('label', { class: 'option-reference' }, [h('input', { type: 'checkbox' }), h('span', { text: '引用选项' })])
+    ]),
+    h('div', { class: 'option-editor-toolbar' }, [
+      addButton,
+      h('button', { class: 'ghost option-ai-button', type: 'button', text: 'AI 生成选项', onclick: () => toast('AI 生成选项稍后开放。') })
+    ]),
+    list
+  ]);
+}
+
+function optionEditorRow(option) {
+  const colorSelect = selectFromOptions(OPTION_COLORS.map((color) => [color, colorLabel(color)]), option.color || 'gray');
+  colorSelect.dataset.optionColor = 'true';
+  const row = h('div', { class: 'option-editor-row' }, [
+    h('span', { class: 'option-drag', text: '⋮⋮', title: '拖动排序稍后开放' }),
+    h('span', { class: `option-color-dot select-${option.color || 'gray'}` }),
+    colorSelect,
+    h('input', { class: 'option-label-input', value: option.label || '', placeholder: '选项名称', 'data-option-label': 'true' }),
+    h('button', {
+      class: 'ghost option-remove',
+      type: 'button',
+      text: '×',
+      title: '删除选项',
+      onclick: () => row.remove()
+    })
+  ]);
+  colorSelect.addEventListener('change', () => {
+    const dot = row.querySelector('.option-color-dot');
+    if (dot) dot.className = `option-color-dot select-${colorSelect.value}`;
+  });
+  return row;
+}
+
+function collectOptionEditorValues(root) {
+  return [...root.querySelectorAll('.option-editor-row')]
+    .map((row) => ({
+      label: row.querySelector('[data-option-label]')?.value.trim(),
+      color: row.querySelector('[data-option-color]')?.value || 'gray'
+    }))
+    .filter((option) => option.label)
+    .map(optionObject);
+}
+
+function colorLabel(color) {
+  const labels = {
+    gray: '灰色',
+    blue: '蓝色',
+    green: '绿色',
+    red: '红色',
+    orange: '橙色',
+    yellow: '黄色',
+    purple: '紫色',
+    cyan: '青色',
+    pink: '粉色'
+  };
+  return labels[color] || color;
 }
 
 function optionLines(options) {
@@ -1778,7 +1916,7 @@ function renderNumericSummary(records, field, label = '合计') {
   if (!values.length) return h('span', { class: 'summary-empty', text: '无数据' });
   const sum = values.reduce((total, value) => total + value, 0);
   return h('span', { class: 'numeric-summary', title: `${label}：${values.length} 个数字` }, [
-    h('span', { class: 'summary-prefix', text: 'Σ' }),
+    h('span', { class: 'summary-prefix', text: '¥' }),
     h('span', { text: formatNumberSummary(sum, field) })
   ]);
 }
@@ -1797,6 +1935,10 @@ function formatNumberSummary(value, field) {
 
 function startCellEdit(cell, entity, record, field) {
   if (cell.classList.contains('cell-editing')) return;
+  if (field.type === 'select' || field.type === 'multiSelect' || field.type === 'relation') {
+    openCellChoiceDropdown(cell, record, field);
+    return;
+  }
   cell.classList.add('cell-editing');
   const input = inputForField(field, record.data[field.id]);
   cell.innerHTML = '';
@@ -1840,7 +1982,197 @@ function startCellEdit(cell, entity, record, field) {
 
 function selectDataCell(cell) {
   document.querySelectorAll('.editable-cell.selected-cell').forEach((item) => item.classList.remove('selected-cell'));
+  document.querySelectorAll('th.selected-column-header').forEach((item) => item.classList.remove('selected-column-header'));
   cell.classList.add('selected-cell');
+}
+
+function openCellChoiceDropdown(cell, record, field) {
+  closeCellChoiceDropdown();
+  selectDataCell(cell);
+  cell.classList.add('cell-editing');
+  const multiple = field.type === 'multiSelect' || (field.type === 'relation' && field.multiple);
+  const currentValues = currentCellChoiceValues(record.data[field.id], field);
+  const choices = cellChoiceOptions(field);
+  const list = h('div', { class: 'cell-choice-list' }, choices.map((option) => {
+    const selected = currentValues.has(option.id) || currentValues.has(option.label);
+    const row = h('button', {
+      class: `cell-choice-row ${selected ? 'selected' : ''}`,
+      type: 'button',
+      'data-choice-option': option.id,
+      'data-choice-selected': selected ? 'true' : 'false',
+      onclick: async (event) => {
+        event.preventDefault();
+        if (multiple) {
+          const nextSelected = event.currentTarget.dataset.choiceSelected !== 'true';
+          event.currentTarget.dataset.choiceSelected = nextSelected ? 'true' : 'false';
+          event.currentTarget.classList.toggle('selected', nextSelected);
+          menu.dataset.dirty = 'true';
+          renderCellChoiceEditor(cell, record, field, menu, choices);
+          return;
+        }
+        menu.querySelectorAll('[data-choice-option]').forEach((item) => {
+          item.dataset.choiceSelected = 'false';
+          item.classList.remove('selected');
+        });
+        event.currentTarget.dataset.choiceSelected = 'true';
+        event.currentTarget.classList.add('selected');
+        await saveCellChoiceDropdown(record, field, menu);
+      }
+    }, [
+      h('span', { class: `cell-choice-pill select-${option.color || 'gray'}`, text: option.label })
+    ]);
+    return row;
+  }));
+  const menu = h('div', { class: 'cell-choice-dropdown' }, [
+    choices.length ? null : h('div', { class: 'cell-choice-empty', text: '暂无可选记录' }),
+    list
+  ]);
+  menu.dataset.dirty = 'false';
+  cell.replaceChildren();
+  renderCellChoiceEditor(cell, record, field, menu, choices);
+  document.body.append(menu);
+  positionCellChoiceDropdown(cell, menu);
+  menu.querySelector('.cell-choice-row')?.focus();
+
+  menu.addEventListener('keydown', async (event) => {
+    if (event.key === 'Enter' && !event.target?.closest?.('.cell-choice-row')) await saveCellChoiceDropdown(record, field, menu);
+    if (event.key === 'Escape') {
+      closeCellChoiceDropdown();
+      renderRuntime();
+    }
+  });
+  const outsideController = new AbortController();
+  menu._outsideController = outsideController;
+  activeCellChoiceController = outsideController;
+  setTimeout(() => {
+    if (!document.body.contains(menu) || outsideController.signal.aborted) return;
+    const closeOnOutside = async (event) => {
+      if (menu.contains(event.target) || cell.contains(event.target)) return;
+      if (menu.dataset.dirty === 'true') {
+        await saveCellChoiceDropdown(record, field, menu);
+        return;
+      }
+      closeCellChoiceDropdown();
+      renderRuntime();
+    };
+    document.addEventListener('pointerdown', closeOnOutside, { capture: true, signal: outsideController.signal });
+  }, 0);
+}
+
+function renderCellChoiceEditor(cell, record, field, menu, choices) {
+  const selectedIds = selectedCellChoiceIds(menu);
+  const selectedOptions = choices.filter((option) => selectedIds.includes(option.id));
+  const tags = h('div', { class: 'cell-choice-editor-tags' }, selectedOptions.map((option) =>
+    h('span', { class: `cell-choice-editor-pill select-${option.color || 'gray'}` }, [
+      h('span', { text: option.label }),
+      h('button', {
+        class: 'cell-choice-pill-remove',
+        type: 'button',
+        text: '×',
+        title: '移除',
+        onclick: async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const row = [...menu.querySelectorAll('[data-choice-option]')]
+            .find((item) => item.dataset.choiceOption === String(option.id));
+          if (row) {
+            row.dataset.choiceSelected = 'false';
+            row.classList.remove('selected');
+          }
+          menu.dataset.dirty = 'true';
+          if (field.type === 'select' || (field.type === 'relation' && !field.multiple)) {
+            await saveCellChoiceDropdown(record, field, menu);
+            return;
+          }
+          renderCellChoiceEditor(cell, record, field, menu, choices);
+        }
+      })
+    ])
+  ));
+  const editor = h('div', { class: 'cell-choice-editor' }, [
+    tags,
+    h('span', { class: 'cell-choice-editor-arrow', text: '⌄' })
+  ]);
+  cell.replaceChildren(editor);
+}
+
+function selectedCellChoiceIds(menu) {
+  return [...menu.querySelectorAll('[data-choice-option]')]
+    .filter((option) => option.dataset.choiceSelected === 'true')
+    .map((option) => option.dataset.choiceOption);
+}
+
+function cellChoiceOptions(field) {
+  if (field.type === 'relation') {
+    const target = state.currentApp.schema.entities.find((item) => item.id === field.targetEntity);
+    return recordsFor(field.targetEntity).map((record) => ({
+      id: record.id,
+      label: relationDisplayValue(field, target, record) || record.id
+    }));
+  }
+  return (field.options || []).map((rawOption) => {
+    const option = optionObject(rawOption);
+    return { id: option.id, label: option.label, color: option.color };
+  });
+}
+
+function currentCellChoiceValues(value, field) {
+  const rawCurrent = field.type === 'multiSelect' || field.type === 'relation'
+    ? (Array.isArray(value) ? value : [value])
+    : [value];
+  return new Set(rawCurrent.filter(Boolean).flatMap((item) => {
+    if (field.type === 'relation') {
+      const id = item.targetRecordId || item.recordId || item;
+      return [id, item.displayValue].filter(Boolean);
+    }
+    const option = optionObject(item);
+    return [option.id, option.label, item];
+  }));
+}
+
+async function saveCellChoiceDropdown(record, field, menu) {
+  if (!menu || menu.dataset.saving === 'true') return;
+  menu.dataset.saving = 'true';
+  menu._outsideController?.abort();
+  if (activeCellChoiceController === menu._outsideController) activeCellChoiceController = null;
+  const selected = selectedCellChoiceIds(menu);
+  const nextValue = field.type === 'multiSelect' || field.type === 'relation' ? selected : selected[0] || '';
+  closeCellChoiceDropdown();
+  if (fieldValuesEqual(record.data[field.id], nextValue)) {
+    renderRuntime();
+    return;
+  }
+  const data = { ...record.data, [field.id]: nextValue };
+  try {
+    await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
+    await loadRecords();
+    renderRuntime();
+  } catch (error) {
+    toast(error.message);
+    renderRuntime();
+  }
+}
+
+function positionCellChoiceDropdown(cell, menu) {
+  const rect = cell.getBoundingClientRect();
+  const menuWidth = Math.max(rect.width, 180);
+  const left = Math.min(window.innerWidth - menuWidth - 8, Math.max(8, rect.left));
+  const top = rect.bottom + 4;
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  menu.style.minWidth = `${menuWidth}px`;
+  menu.style.maxWidth = `${Math.min(320, window.innerWidth - 16)}px`;
+  menu.style.maxHeight = `${Math.max(120, window.innerHeight - top - 12)}px`;
+}
+
+function closeCellChoiceDropdown() {
+  activeCellChoiceController?.abort();
+  activeCellChoiceController = null;
+  document.querySelectorAll('.cell-choice-dropdown').forEach((menu) => {
+    menu._outsideController?.abort();
+    menu.remove();
+  });
+  document.querySelectorAll('.cell-editing').forEach((item) => item.classList.remove('cell-editing'));
 }
 
 function fieldValuesEqual(currentValue, nextValue) {
@@ -2150,6 +2482,7 @@ function renderAssistantLauncher() {
     class: 'assistant-fab',
     text: state.currentApp ? 'AI 助理' : '创造软件',
     onclick: () => {
+      ensureAssistantConversation();
       state.assistantOpen = true;
       state.currentApp ? renderRuntime() : renderHome();
     }
@@ -2158,57 +2491,198 @@ function renderAssistantLauncher() {
 
 function renderAssistantDrawer() {
   const creating = !state.currentApp;
+  ensureAssistantConversation();
   const input = h('textarea', {
+    value: state.assistantDraft,
     placeholder: creating
-      ? '一句话描述你想创造的软件，例如：帮我创建一个库存管理器，记录物品名称、分类、数量、位置和补货状态。'
-      : '想怎么改这个软件？例如：增加旅游预算功能'
+      ? '描述你想创建的软件，例如：我想做一个进销存系统...'
+      : '描述你想修改当前软件的内容，例如：给客户表增加客户等级...',
+    rows: '2',
+    oninput: (event) => (state.assistantDraft = event.currentTarget.value),
+    onkeydown: (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        submitAssistantPrompt(input.value);
+      }
+    }
   });
+  const primaryText = state.assistantBusy ? '...' : '↵';
+  const quickCommands = creating
+    ? ['创建一个CRM', '创建进销存系统', '加客户和回款', '确认创建']
+    : ['增加合同表', '客户表增加等级', '订单关联客户', '确认执行'];
   return h('div', { class: 'drawer-backdrop', onclick: () => { state.assistantOpen = false; state.currentApp ? renderRuntime() : renderHome(); } }, [
     h('aside', { class: 'assistant drawer', onclick: (event) => event.stopPropagation() }, [
-      h('div', { class: 'toolbar' }, [
-        h('h3', { text: 'AI 助理' }),
+      h('div', { class: 'assistant-head' }, [
+        h('div', {}, [
+          h('h3', { text: 'AI Builder' }),
+          h('p', { class: 'muted', text: creating ? 'Create Mode · 先规划，确认后创建' : `Modify Mode · 正在读取「${state.currentApp.name}」上下文` })
+        ]),
         h('button', { class: 'ghost icon-button', text: '×', title: '关闭 AI 助理', onclick: () => { state.assistantOpen = false; state.currentApp ? renderRuntime() : renderHome(); } })
       ]),
-      h('p', { class: 'muted', text: creating ? 'AI 会先生成方案，确认后才创建软件。' : 'AI 会先生成修改方案，确认后才保存到软件。' }),
-      state.aiPlan ? renderAiPlanCard() : null,
-      input,
-      h('button', {
-        disabled: state.assistantBusy ? 'disabled' : null,
-        text: state.assistantBusy ? '生成方案中...' : '生成方案',
-        onclick: async () => {
-          if (!input.value.trim()) return toast(creating ? '先描述你想创造的软件。' : '先写下修改需求。');
-          if (!creating) {
-            const localResult = applyAssistantConfigIntent(input.value);
-            if (localResult) {
-              if (localResult.detail) openTextModal(localResult.title || 'AI 助理结果', localResult.detail);
-              state.assistantOpen = false;
-              renderRuntime();
-              toast(localResult.message || localResult);
-              return;
+      h('div', { class: 'assistant-messages' }, state.aiChatMessages.map(renderAssistantMessage)),
+      h('div', { class: 'assistant-input' }, [
+        h('div', { class: 'assistant-quick' }, quickCommands.map((command) =>
+          h('button', {
+            class: 'assistant-chip',
+            text: command,
+            onclick: () => {
+              state.assistantDraft = command;
+              input.value = command;
+              if (/^确认/.test(command)) executeAiPlan();
             }
-          }
-          await requestAiPlan(input.value);
-        }
-      }),
-      h('h3', { text: creating ? '创建示例' : '建议命令' }),
-      ...(creating
-        ? ['帮我创建一个商品管理系统，包括商品、分类、供应商、库存流水', '帮我创建一个客户管理器', '帮我创建一个项目跟踪器'].map((command) =>
-            h('button', { class: 'page-button', text: command, onclick: () => (input.value = command) })
-          )
-        : [
-            h('button', { class: 'page-button', text: '把名称设为搜索条件', onclick: () => (input.value = '把名称设为搜索条件') }),
-            h('button', { class: 'page-button', text: '按分类分组', onclick: () => (input.value = '按分类分组') }),
-            h('button', { class: 'page-button', text: '总结当前视图', onclick: () => (input.value = '总结当前视图') }),
-            ...(state.currentApp.prompts?.suggestedCommands || []).map((command) =>
-              h('button', { class: 'page-button', text: command, onclick: () => (input.value = command) })
-            )
-          ])
+          })
+        )),
+        h('div', { class: 'assistant-input-row' }, [
+          input,
+          h('button', {
+            class: 'assistant-send',
+            disabled: state.assistantBusy ? 'disabled' : null,
+            text: primaryText,
+            title: '发送',
+            onclick: () => submitAssistantPrompt(input.value)
+          })
+        ])
+      ])
     ])
   ]);
 }
 
-function renderAiPlanCard() {
-  const plan = state.aiPlan;
+function ensureAssistantConversation() {
+  const contextKey = state.currentApp ? `modify:${state.currentApp.id}` : 'create';
+  if (state.assistantContextKey === contextKey && state.aiChatMessages.length) return;
+  state.assistantContextKey = contextKey;
+  state.aiSession = null;
+  state.aiPlan = null;
+  state.aiLocalPlan = null;
+  state.aiClarification = null;
+  state.aiIntent = '';
+  state.assistantDraft = '';
+  state.aiChatMessages = [assistantIntroMessage()];
+}
+
+function assistantIntroMessage() {
+  const creating = !state.currentApp;
+  return {
+    role: 'assistant',
+    title: creating ? '我会先理解你的创建需求' : '我会基于当前软件修改',
+    text: creating
+      ? '告诉我你想创建的软件和核心流程。我会先输出方案卡片，不会直接创建。'
+      : `我已加载当前软件上下文：${describeCurrentAppContext()}。你只需要说想怎么改，我会先给 Schema Diff 预览。`
+  };
+}
+
+function describeCurrentAppContext() {
+  const tables = state.currentApp?.schema?.entities || [];
+  if (!tables.length) return '暂无表结构';
+  return tables.slice(0, 4).map((table) => table.name).join('、') + (tables.length > 4 ? ` 等 ${tables.length} 张表` : '');
+}
+
+function pushAssistantMessage(message) {
+  state.aiChatMessages.push(message);
+}
+
+function replaceAssistantThinking(message) {
+  const index = state.aiChatMessages.findIndex((item) => item.type === 'thinking');
+  if (index >= 0) state.aiChatMessages.splice(index, 1, message);
+  else pushAssistantMessage(message);
+}
+
+function renderAssistantMessage(message) {
+  const isUser = message.role === 'user';
+  return h('div', { class: `assistant-msg ${isUser ? 'user' : 'ai'}` }, [
+    h('div', { class: `assistant-avatar ${isUser ? 'user' : 'ai'}`, text: isUser ? '我' : 'AI' }),
+    h('div', { class: `assistant-bubble ${message.type === 'thinking' ? 'streaming' : ''}` }, [
+      message.title ? h('div', { class: 'assistant-bubble-title', text: message.title }) : null,
+      message.text ? h('div', { text: message.text }) : null,
+      message.clarification ? renderAiClarificationCard(message.clarification) : null,
+      message.plan ? renderAiPlanCard(message.plan) : null,
+      message.localPlan ? renderAiLocalPlanCard(message.localPlan) : null,
+      message.logs ? renderAiToolProgress(message.logs) : null
+    ])
+  ]);
+}
+
+function submitAssistantPrompt(rawValue) {
+  const prompt = String(rawValue || '').trim();
+  const creating = !state.currentApp;
+  if (!prompt) return toast(creating ? '先描述你想创造的软件。' : '先写下修改需求。');
+  pushAssistantMessage({ role: 'user', text: prompt });
+  state.assistantDraft = '';
+  if ((state.aiPlan || state.aiLocalPlan) && state.aiSession?.status === 'waiting_confirmation' && !/^确认/.test(prompt)) {
+    if (state.aiLocalPlan) {
+      state.assistantDraft = prompt;
+      reviseAiPlan();
+      return;
+    }
+    reviseAiPlanWithPrompt(prompt);
+    return;
+  }
+  if (/^确认/.test(prompt) && (state.aiPlan || state.aiLocalPlan)) {
+    executeAiPlan();
+    return;
+  }
+  if (!creating) {
+    const localResult = applyAssistantConfigIntent(prompt);
+    if (localResult) {
+      state.aiLocalPlan = localResult;
+      state.aiPlan = null;
+      state.aiClarification = null;
+      state.aiIntent = 'LocalInteraction';
+      state.aiSession = {
+        id: 'local',
+        status: 'waiting_confirmation',
+        logs: [{ stepName: '识别本地交互操作', status: 'success', toolName: localResult.operation?.kind || '' }]
+      };
+      pushAssistantMessage({ role: 'assistant', title: '本地交互方案', localPlan: localResult });
+      renderRuntime();
+      toast('已生成本地交互方案，请确认后执行。');
+      return;
+    }
+  }
+  requestAiPlan(prompt);
+}
+
+function renderAiSessionStatus() {
+  if (!state.aiSession) return null;
+  const statusMap = {
+    understanding: '理解需求',
+    clarifying: '等待补充',
+    planning: '生成方案',
+    waiting_confirmation: '等待确认',
+    executing: '执行中',
+    completed: '已完成',
+    failed: '执行失败',
+    cancelled: '已取消'
+  };
+  const logs = state.aiSession.logs || [];
+  return h('section', { class: 'ai-status-card' }, [
+    h('div', { class: 'sidebar-label', text: state.aiIntent ? `意图：${state.aiIntent}` : 'AI 状态' }),
+    h('div', { class: 'ai-state-row' }, [
+      h('strong', { text: statusMap[state.aiSession.status] || state.aiSession.status || '处理中' }),
+      h('span', { class: 'muted', text: `${logs.length} 条日志` })
+    ]),
+    logs.length ? h('div', { class: 'ai-mini-log' }, logs.slice(-4).map((log) =>
+      h('div', { class: `ai-mini-log-row ${log.status}` }, [
+        h('span', { class: 'log-dot' }),
+        h('span', { text: `${log.stepName}${log.toolName ? ` · ${log.toolName}` : ''}` })
+      ])
+    )) : h('p', { class: 'muted', text: '我会按理解、澄清、规划、确认、执行来推进。' })
+  ]);
+}
+
+function renderAiClarificationCard(clarification = state.aiClarification) {
+  const questions = clarification?.questions || [];
+  return h('section', { class: 'ai-clarify-card' }, [
+    h('div', { class: 'sidebar-label', text: '需要补充' }),
+    h('h3', { text: '先确认几个关键点' }),
+    h('p', { class: 'muted', text: clarification?.guidance || '信息还不够，我不会直接执行。' }),
+    h('ul', {}, questions.map((question) => h('li', { text: question })))
+  ]);
+}
+
+function renderAiPlanCard(sourcePlan = null) {
+  const plan = sourcePlan || state.aiPlan || state.aiLocalPlan;
+  if (plan.type === 'local_interaction_plan') return renderAiLocalPlanCard(plan);
   const isCreate = plan.type === 'app_creation_plan';
   const summary = isCreate
     ? `将创建 ${plan.tables?.length || 0} 张表、${(plan.tables || []).reduce((sum, table) => sum + (table.fields?.length || 0), 0)} 个字段、${plan.relations?.length || 0} 个关联。`
@@ -2217,54 +2691,330 @@ function renderAiPlanCard() {
     h('div', { class: 'sidebar-label', text: '待确认方案' }),
     h('h3', { text: plan.appName || plan.summary || '软件修改方案' }),
     h('p', { class: 'muted', text: summary }),
-    isCreate ? h('div', { class: 'ai-plan-list' }, (plan.tables || []).map((table) =>
-      h('div', { class: 'ai-plan-row' }, [
-        h('strong', { text: table.name }),
-        h('span', { class: 'muted', text: `${table.fields?.length || 0} 字段` })
-      ])
-    )) : h('pre', { class: 'ai-plan-json', text: JSON.stringify(plan.patch || plan.operations || [], null, 2) }),
+    isCreate ? renderCreationPlanPreview(plan) : renderModificationPlanPreview(plan),
     h('div', { class: 'row' }, [
       h('button', { text: '确认执行', onclick: executeAiPlan }),
-      h('button', { class: 'secondary', text: '重新生成', onclick: () => { state.aiPlan = null; state.aiSession = null; state.currentApp ? renderRuntime() : renderHome(); } })
+      h('button', { class: 'secondary', text: '按输入修改方案', onclick: reviseAiPlan }),
+      h('button', { class: 'secondary', text: '取消', onclick: cancelAiSession })
     ])
   ]);
+}
+
+function renderAiLocalPlanCard(plan) {
+  return h('section', { class: 'ai-plan-card' }, [
+    h('div', { class: 'sidebar-label', text: '待确认方案' }),
+    h('h3', { text: plan.summary || '本地交互方案' }),
+    h('p', { class: 'muted', text: plan.description || '确认后才会更新当前界面或展示分析结果。' }),
+    plan.preview ? h('pre', { class: 'ai-plan-json', text: plan.preview }) : null,
+    h('div', { class: 'row' }, [
+      h('button', { text: '确认执行', onclick: executeAiPlan }),
+      h('button', { class: 'secondary', text: '按输入修改方案', onclick: reviseAiPlan }),
+      h('button', { class: 'secondary', text: '取消', onclick: cancelAiSession })
+    ])
+  ]);
+}
+
+function renderCreationPlanPreview(plan) {
+  const tableNames = new Map((plan.tables || []).map((table) => [table.tempId || table.id || table.name, table.name]));
+  const fieldNames = new Map((plan.tables || []).flatMap((table) =>
+    (table.fields || []).map((field) => [`${table.tempId || table.id || table.name}:${field.tempId || field.id || field.name || field.label}`, field.name || field.label || field.id])
+  ));
+  return h('div', { class: 'ai-plan-preview' }, [
+    h('div', { class: 'ai-plan-summary' }, [
+      renderPlanMetric(plan.tables?.length || 0, '数据表'),
+      renderPlanMetric((plan.tables || []).reduce((sum, table) => sum + (table.fields?.length || 0), 0), '字段'),
+      renderPlanMetric(plan.relations?.length || 0, '关联'),
+      renderPlanMetric(0, '删除数据')
+    ]),
+    h('div', { class: 'ai-diff-list' }, (plan.tables || []).slice(0, 6).map((table) =>
+      h('div', { class: 'ai-diff add' }, [
+        h('div', { class: 'ai-diff-title', text: `+ ${table.name}` }),
+        table.description ? h('p', { class: 'muted', text: table.description }) : null,
+        h('ul', { class: 'ai-field-list' }, (table.fields || []).slice(0, 6).map((field) =>
+          h('li', { text: `${field.name || field.label || field.id}｜${field.type || 'text'}` })
+        ))
+      ])
+    )),
+    plan.relations?.length ? h('div', { class: 'ai-diff relation' }, [
+      h('div', { class: 'ai-diff-title', text: '+ 主要关联关系' }),
+      ...plan.relations.slice(0, 6).map((relation) =>
+        h('div', { text: `${tableNames.get(relation.sourceTableTempId) || relation.sourceTableTempId}.${relation.fieldName || relation.fieldTempId || '关联字段'} → ${tableNames.get(relation.targetTableTempId) || relation.targetTableTempId}.${fieldNames.get(`${relation.targetTableTempId}:${relation.targetDisplayFieldTempId}`) || relation.targetDisplayFieldTempId}` })
+      )
+    ]) : null
+  ]);
+}
+
+function renderModificationPlanPreview(plan) {
+  const operations = plan.operations || plan.patch?.operations || [];
+  return h('div', { class: 'ai-plan-preview' }, [
+    h('div', { class: 'ai-plan-summary' }, [
+      renderPlanMetric(operations.filter((op) => /add|create/i.test(operationType(op))).length, '新增'),
+      renderPlanMetric(operations.filter((op) => /update|modify|rename/i.test(operationType(op))).length, '修改'),
+      renderPlanMetric(operations.filter((op) => /delete|remove/i.test(operationType(op))).length, '删除'),
+      renderPlanMetric(0, '删除数据')
+    ]),
+    operations.length ? h('div', { class: 'ai-diff-list' }, operations.slice(0, 8).map((operation) =>
+      h('div', { class: `ai-diff ${diffClassForOperation(operation)}` }, [
+        h('div', { class: 'ai-diff-title', text: operationLabel(operation) }),
+        h('pre', { class: 'ai-plan-json', text: JSON.stringify(operation, null, 2) })
+      ])
+    )) : h('div', { class: 'ai-diff modify' }, [
+      h('div', { class: 'ai-diff-title', text: plan.summary || '修改软件' }),
+      h('p', { class: 'muted', text: '确认后会在当前软件结构上应用这次修改。' })
+    ]),
+    h('div', { class: 'ai-diff danger' }, [
+      h('div', { class: 'ai-diff-title', text: '数据影响' }),
+      h('div', { text: '不会直接删除已有记录；涉及字段类型变化时，以 Patch 校验结果为准。' })
+    ])
+  ]);
+}
+
+function renderPlanMetric(value, label) {
+  return h('div', { class: 'ai-plan-metric' }, [
+    h('strong', { text: value }),
+    h('span', { text: label })
+  ]);
+}
+
+function diffClassForOperation(operation) {
+  const type = operationType(operation).toLowerCase();
+  if (/delete|remove/.test(type)) return 'danger';
+  if (/relation/.test(type)) return 'relation';
+  if (/update|modify|rename/.test(type)) return 'modify';
+  return 'add';
+}
+
+function operationType(operation) {
+  return String(operation?.type || operation?.op || '');
+}
+
+function operationLabel(operation) {
+  const type = operationType(operation);
+  const labels = {
+    addField: '+ 新增字段',
+    addEntity: '+ 新增表',
+    addPage: '+ 新增页面',
+    addAction: '+ 新增动作',
+    updateField: '~ 修改字段',
+    updateEntity: '~ 修改表',
+    updatePage: '~ 修改页面',
+    removeField: '- 删除字段',
+    removeEntity: '- 删除表'
+  };
+  return operation?.summary || labels[type] || type || '修改操作';
+}
+
+function renderAiToolProgress(logs = []) {
+  return h('section', { class: 'ai-tool-card' }, [
+    h('div', { class: 'sidebar-label', text: 'Tool 执行进度' }),
+    ...logs.map((log) =>
+      h('div', { class: `ai-tool-line ${log.status || ''}` }, [
+        h('span', { class: log.status === 'running' ? 'tool-spin' : 'tool-check', text: log.status === 'running' ? '' : statusIcon(log.status) }),
+        h('span', { text: `${log.toolName || log.stepName || 'tool'}：${log.stepName || log.status || '处理中'}` })
+      ])
+    )
+  ]);
+}
+
+function statusIcon(status) {
+  if (status === 'failed' || status === 'error') return '!';
+  if (status === 'cancelled') return '-';
+  return '✓';
 }
 
 async function requestAiPlan(prompt) {
   state.assistantBusy = true;
   state.aiPlan = null;
-  state.aiSession = null;
+  state.aiLocalPlan = null;
+  state.aiClarification = null;
+  state.assistantDraft = prompt;
+  pushAssistantMessage({
+    role: 'assistant',
+    type: 'thinking',
+    title: state.currentApp ? '我会基于当前软件修改' : '我先理解你的需求',
+    text: state.currentApp ? '正在读取当前软件结构并生成修改方案。' : '正在判断业务场景、核心流程和需要确认的信息。'
+  });
   state.currentApp ? renderRuntime() : renderHome();
   try {
     const body = await api('/api/ai/plan', {
       method: 'POST',
-      body: JSON.stringify({ prompt, appId: state.currentApp?.id || null })
+      body: JSON.stringify({ prompt, appId: state.currentApp?.id || null, sessionId: state.aiSession?.id || null })
     });
     state.aiSession = body.session;
+    state.aiIntent = body.intent || state.aiIntent;
+    state.aiClarification = body.clarification || null;
     state.aiPlan = body.plan;
-    toast('AI 方案已生成，请确认后执行。');
+    if (body.clarification) {
+      replaceAssistantThinking({
+        role: 'assistant',
+        title: `需要确认 ${body.clarification.questions?.length || 1} 个问题`,
+        text: body.clarification.guidance || '信息还不够，我不会直接执行。',
+        clarification: body.clarification
+      });
+    } else {
+      replaceAssistantThinking({
+        role: 'assistant',
+        title: body.plan?.type === 'app_creation_plan' ? '应用创建方案' : 'Schema Diff 修改预览',
+        plan: body.plan
+      });
+    }
+    toast(body.clarification ? 'AI 需要你补充几个关键点。' : 'AI 方案已生成，请确认后执行。');
   } catch (error) {
+    replaceAssistantThinking({ role: 'assistant', title: '生成方案失败', text: error.message });
     toast(error.message);
   } finally {
     state.assistantBusy = false;
+    state.assistantDraft = '';
+    state.currentApp ? renderRuntime() : renderHome();
+  }
+}
+
+async function reviseAiPlan() {
+  if (state.aiLocalPlan) {
+    const plan = applyAssistantConfigIntent(state.assistantDraft.trim());
+    if (!plan) return toast('这条输入无法生成本地交互方案。');
+    state.aiLocalPlan = plan;
+    state.aiSession = {
+      id: 'local',
+      status: 'waiting_confirmation',
+      logs: [{ stepName: '重新生成本地交互方案', status: 'success', toolName: plan.operation?.kind || '' }]
+    };
+    renderRuntime();
+    toast('本地交互方案已更新。');
+    return;
+  }
+  if (!state.aiSession?.id) return toast('没有可修改的 AI 方案。');
+  const prompt = state.assistantDraft.trim();
+  if (!prompt) return toast('先写下你想怎么改方案。');
+  pushAssistantMessage({ role: 'user', text: prompt });
+  await reviseAiPlanWithPrompt(prompt);
+}
+
+async function reviseAiPlanWithPrompt(prompt) {
+  state.assistantBusy = true;
+  state.assistantDraft = prompt;
+  pushAssistantMessage({
+    role: 'assistant',
+    type: 'thinking',
+    title: '正在更新方案',
+    text: '我会保留已确认的上下文，只按你的补充意见重新规划。'
+  });
+  state.currentApp ? renderRuntime() : renderHome();
+  try {
+    const body = await api(`/api/ai/sessions/${state.aiSession.id}/revise`, {
+      method: 'POST',
+      body: JSON.stringify({ prompt })
+    });
+    state.aiSession = body.session;
+    state.aiPlan = body.plan;
+    state.aiClarification = null;
+    replaceAssistantThinking({
+      role: 'assistant',
+      title: '已更新修改方案',
+      plan: body.plan
+    });
+    toast('方案已按你的意见更新。');
+  } catch (error) {
+    replaceAssistantThinking({ role: 'assistant', title: '更新方案失败', text: error.message });
+    toast(error.message);
+  } finally {
+    state.assistantBusy = false;
+    state.assistantDraft = '';
+    state.currentApp ? renderRuntime() : renderHome();
+  }
+}
+
+async function cancelAiSession() {
+  if (!state.aiSession?.id) {
+    state.aiPlan = null;
+    state.aiLocalPlan = null;
+    state.aiClarification = null;
+    pushAssistantMessage({ role: 'assistant', title: '已取消', text: '当前方案已清空，可以重新描述你的需求。' });
+    state.currentApp ? renderRuntime() : renderHome();
+    return;
+  }
+  if (state.aiLocalPlan || state.aiSession.id === 'local') {
+    state.aiSession = null;
+    state.aiPlan = null;
+    state.aiLocalPlan = null;
+    state.aiClarification = null;
+    pushAssistantMessage({ role: 'assistant', title: '已取消', text: '本地交互方案已取消。' });
+    state.currentApp ? renderRuntime() : renderHome();
+    toast('本地交互方案已取消。');
+    return;
+  }
+  try {
+    const body = await api(`/api/ai/sessions/${state.aiSession.id}/cancel`, { method: 'POST', body: '{}' });
+    state.aiSession = body.session;
+    state.aiPlan = null;
+    state.aiLocalPlan = null;
+    state.aiClarification = null;
+    pushAssistantMessage({ role: 'assistant', title: '已取消', text: 'AI 会话已取消。' });
+    toast('AI 会话已取消。');
+  } catch (error) {
+    toast(error.message);
+  } finally {
     state.currentApp ? renderRuntime() : renderHome();
   }
 }
 
 async function executeAiPlan() {
+  if (state.aiLocalPlan) return executeAiLocalPlan();
   if (!state.aiSession?.id) return toast('没有可执行的 AI 方案。');
   const process = openDebugPanel('AI 确认式执行', ['用户已确认方案', '执行白名单工具', '保存执行结果']);
+  pushAssistantMessage({
+    role: 'assistant',
+    title: 'Tool 执行进度',
+    logs: [{ stepName: '用户已确认方案', status: 'success' }, { stepName: '执行白名单工具', status: 'running' }]
+  });
+  state.assistantBusy = true;
+  state.currentApp ? renderRuntime() : renderHome();
   try {
     const body = await api(`/api/ai/sessions/${state.aiSession.id}/execute`, { method: 'POST', body: '{}' });
     for (const log of body.logs || []) process.done(`${log.stepName}：${log.status}`);
     if (body.error) throw new Error(body.error);
+    pushAssistantMessage({
+      role: 'assistant',
+      title: '执行完成',
+      text: `已${state.aiPlan?.type === 'app_creation_plan' ? '创建' : '更新'}「${body.app?.name || '软件'}」。`,
+      logs: body.logs || []
+    });
+    const messages = [...state.aiChatMessages];
     state.aiPlan = null;
-    state.aiSession = null;
-    state.assistantOpen = false;
+    state.aiLocalPlan = null;
+    state.aiClarification = null;
+    state.assistantDraft = '';
+    state.aiSession = body.session;
     await openApp(body.appId);
+    state.aiChatMessages = messages;
+    state.assistantContextKey = state.currentApp ? `modify:${state.currentApp.id}` : state.assistantContextKey;
+    state.assistantOpen = true;
+    state.assistantBusy = false;
+    renderRuntime();
     toast('AI 执行完成');
   } catch (error) {
     process.error(error.message);
+    pushAssistantMessage({ role: 'assistant', title: '执行失败', text: error.message });
+    state.assistantBusy = false;
+    state.currentApp ? renderRuntime() : renderHome();
+    toast(error.message);
+  }
+}
+
+function executeAiLocalPlan() {
+  const plan = state.aiLocalPlan;
+  if (!plan) return toast('没有可执行的本地方案。');
+  try {
+    const result = executeAssistantConfigPlan(plan);
+    state.aiPlan = null;
+    state.aiLocalPlan = null;
+    state.aiClarification = null;
+    state.aiSession = null;
+    if (result?.detail) openTextModal(result.title || 'AI 助理结果', result.detail);
+    state.assistantOpen = false;
+    renderRuntime();
+    toast(result?.message || plan.summary || '本地交互方案已执行。');
+  } catch (error) {
     toast(error.message);
   }
 }
@@ -2275,52 +3025,86 @@ function applyAssistantConfigIntent(prompt) {
   const config = getListConfig(entity);
   const text = String(prompt || '');
   const field = findFieldMention(entity, prompt);
-  if (/表单|录入/.test(text) && /设计|优化|生成|推荐/.test(text)) return designCurrentForm(entity, text);
-  if (/总结|解释|分析/.test(text)) return summarizeCurrentView(entity, config);
+  if (/表单|录入/.test(text) && /设计|优化|生成|推荐/.test(text)) {
+    const preview = designCurrentForm(entity, text.replace(/应用|保存|使用/g, ''));
+    return localPlan('优化当前表单', '确认后将应用推荐的字段顺序、必填项和默认值。', preview.detail, { kind: 'designForm', entityId: entity.id, text: `${text} 应用` });
+  }
+  if (/总结|解释|分析/.test(text)) {
+    const preview = summarizeCurrentView(entity, config);
+    return localPlan(preview.message, '确认后会打开当前视图的分析摘要。', preview.detail, { kind: 'summarizeView', entityId: entity.id, viewId: config.id });
+  }
   if (/创建|新建/.test(text) && text.includes('视图')) {
     const name = extractViewName(text) || 'AI 视图';
     const patch = inferViewPatch(entity, text);
-    createView(entity, name, patch);
-    return `已创建视图「${name}」。`;
+    return localPlan(`创建视图「${name}」`, '确认后会新增一个本地视图配置。', JSON.stringify({ name, ...patch }, null, 2), { kind: 'createView', entityId: entity.id, name, patch });
   }
   if (field && /分组/.test(text)) {
     const mode = /按月|本月|月份/.test(text) ? 'month' : /按周|本周/.test(text) ? 'week' : /按天|今天/.test(text) ? 'day' : 'value';
     if (/取消|删除|移除|去掉/.test(text)) {
-      setListConfig(entity, { ...config, group: null });
-      return '已取消当前视图分组。';
+      return localPlan('取消当前视图分组', `确认后移除当前视图的分组设置。`, `分组：${config.group?.field || '无'} -> 无`, { kind: 'setGroup', entityId: entity.id, group: null });
     }
-    setListConfig(entity, { ...config, group: { field: field.id, mode, collapsed: [] } });
-    return `已按「${field.label}」分组。`;
+    return localPlan(`按「${field.label}」分组`, '确认后更新当前视图分组设置。', `字段：${field.label}\n模式：${mode}`, { kind: 'setGroup', entityId: entity.id, group: { field: field.id, mode, collapsed: [] } });
   }
   if (field && /排序|升序|降序/.test(text)) {
     const direction = /降序|倒序|从大到小|从晚到早/.test(text) ? 'desc' : 'asc';
     if (/取消|删除|移除|去掉/.test(text)) {
-      setListConfig(entity, { ...config, sorts: (config.sorts || []).filter((sort) => sort.field !== field.id) });
-      return `已删除「${field.label}」排序。`;
+      return localPlan(`删除「${field.label}」排序`, '确认后更新当前视图排序规则。', JSON.stringify((config.sorts || []).filter((sort) => sort.field !== field.id), null, 2), { kind: 'setSorts', entityId: entity.id, sorts: (config.sorts || []).filter((sort) => sort.field !== field.id) });
     }
-    setListConfig(entity, { ...config, sorts: [{ field: field.id, direction }, ...(config.sorts || []).filter((sort) => sort.field !== field.id)] });
-    return `已按「${field.label}」${direction === 'desc' ? '降序' : '升序'}排序。`;
+    const sorts = [{ field: field.id, direction }, ...(config.sorts || []).filter((sort) => sort.field !== field.id)];
+    return localPlan(`按「${field.label}」${direction === 'desc' ? '降序' : '升序'}排序`, '确认后更新当前视图排序规则。', JSON.stringify(sorts, null, 2), { kind: 'setSorts', entityId: entity.id, sorts });
   }
   if (field && (/筛选|过滤/.test(text) || text.includes('视图'))) {
     const nextFilter = inferFilter(entity, field, text);
     if (/取消|删除|移除|去掉/.test(text)) {
-      setListConfig(entity, { ...config, filters: (config.filters || []).filter((filter) => filter.field !== field.id) });
-      return `已删除「${field.label}」筛选。`;
+      const filters = (config.filters || []).filter((filter) => filter.field !== field.id);
+      return localPlan(`删除「${field.label}」筛选`, '确认后更新当前视图筛选条件。', JSON.stringify(filters, null, 2), { kind: 'setFilters', entityId: entity.id, filters });
     }
-    setListConfig(entity, { ...config, filters: [...(config.filters || []).filter((filter) => filter.field !== field.id), nextFilter] });
-    return `已添加「${field.label}」筛选。`;
+    const filters = [...(config.filters || []).filter((filter) => filter.field !== field.id), nextFilter];
+    return localPlan(`添加「${field.label}」筛选`, '确认后更新当前视图筛选条件。', JSON.stringify(filters, null, 2), { kind: 'setFilters', entityId: entity.id, filters });
   }
   if (!field || !text.includes('搜索条件')) return null;
   const remove = /删除|移除|取消|去掉/.test(text);
   const nextSearchFields = new Set(config.searchFields || []);
   if (remove) {
     nextSearchFields.delete(field.id);
-    setListConfig(entity, { ...config, searchFields: [...nextSearchFields] });
-    return `已从查询条件中删除「${field.label}」。`;
+    return localPlan(`从查询条件中删除「${field.label}」`, '确认后更新当前视图搜索条件。', [...nextSearchFields].join('、') || '无搜索字段', { kind: 'setSearchFields', entityId: entity.id, searchFields: [...nextSearchFields] });
   }
   nextSearchFields.add(field.id);
-  setListConfig(entity, { ...config, searchFields: [...nextSearchFields] });
-  return `已将「${field.label}」设为查询条件。`;
+  return localPlan(`将「${field.label}」设为查询条件`, '确认后更新当前视图搜索条件。', [...nextSearchFields].join('、'), { kind: 'setSearchFields', entityId: entity.id, searchFields: [...nextSearchFields] });
+}
+
+function localPlan(summary, description, preview, operation) {
+  return { type: 'local_interaction_plan', summary, description, preview, operation };
+}
+
+function executeAssistantConfigPlan(plan) {
+  const operation = plan.operation || {};
+  const page = state.currentApp.ui.pages.find((item) => item.id === state.currentPageId) || state.currentApp.ui.pages[0];
+  const entity = state.currentApp.schema.entities.find((item) => item.id === operation.entityId) || entityFor(page);
+  const config = getListConfig(entity);
+  if (operation.kind === 'summarizeView') return summarizeCurrentView(entity, config);
+  if (operation.kind === 'designForm') return designCurrentForm(entity, operation.text || '应用');
+  if (operation.kind === 'createView') {
+    createView(entity, operation.name, operation.patch || {});
+    return { message: `已创建视图「${operation.name}」。` };
+  }
+  if (operation.kind === 'setGroup') {
+    setListConfig(entity, { ...config, group: operation.group });
+    return { message: operation.group ? '已更新当前视图分组。' : '已取消当前视图分组。' };
+  }
+  if (operation.kind === 'setSorts') {
+    setListConfig(entity, { ...config, sorts: operation.sorts || [] });
+    return { message: '已更新当前视图排序。' };
+  }
+  if (operation.kind === 'setFilters') {
+    setListConfig(entity, { ...config, filters: operation.filters || [] });
+    return { message: '已更新当前视图筛选。' };
+  }
+  if (operation.kind === 'setSearchFields') {
+    setListConfig(entity, { ...config, searchFields: operation.searchFields || [] });
+    return { message: '已更新当前视图查询条件。' };
+  }
+  throw new Error('不支持的本地交互方案。');
 }
 
 function extractViewName(text) {
@@ -2501,7 +3285,7 @@ function inputForField(field, value) {
     select.append(h('option', { value: '', text: '请选择' }));
     const target = state.currentApp.schema.entities.find((item) => item.id === field.targetEntity);
     for (const record of recordsFor(field.targetEntity)) {
-      select.append(h('option', { value: record.id, text: formatFieldValue(record.data?.[field.displayField], target?.fields?.find((item) => item.id === field.displayField) || {}) || record.id }));
+      select.append(h('option', { value: record.id, text: relationDisplayValue(field, target, record) || record.id }));
     }
     const selected = new Set((Array.isArray(value) ? value : [value]).filter(Boolean).map((item) => item.targetRecordId || item.recordId || item));
     for (const option of select.options) if (selected.has(option.value)) option.setAttribute('selected', 'selected');
@@ -2730,6 +3514,30 @@ function displayValue(value) {
   if (value === true) return '是';
   if (value === false) return '否';
   return value ?? '';
+}
+
+function relationDisplayValue(relation, targetEntity, record) {
+  if (!record) return '';
+  const displayField = resolveRelationDisplayField(relation, targetEntity, record.data || {});
+  const value = displayField ? record.data?.[displayField.id] : Object.values(record.data || {}).find(hasDisplayValue);
+  return displayValue(value) || record.id;
+}
+
+function resolveRelationDisplayField(relation, targetEntity, data = {}) {
+  const fields = (targetEntity?.fields || []).filter((field) => field.type !== 'relation');
+  const configured = fields.find((field) => field.id === relation?.displayField);
+  if (configured && hasDisplayValue(data[configured.id])) return configured;
+  const preferred = fields.find((field) => ['name', 'title'].includes(field.id) && hasDisplayValue(data[field.id]));
+  if (preferred) return preferred;
+  const labelPreferred = fields.find((field) => /名称|标题|姓名|名字|name|title/i.test(`${field.label || ''} ${field.id || ''}`) && hasDisplayValue(data[field.id]));
+  if (labelPreferred) return labelPreferred;
+  const textField = fields.find((field) => ['text', 'textarea', 'richText', 'select'].includes(field.type) && hasDisplayValue(data[field.id]));
+  if (textField) return textField;
+  return fields.find((field) => hasDisplayValue(data[field.id])) || configured || fields[0] || null;
+}
+
+function hasDisplayValue(value) {
+  return !(value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0));
 }
 
 function optionObject(option) {

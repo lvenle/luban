@@ -88,13 +88,18 @@ test('HTTP API supports V2 tables, relation fields, colored options, and confirm
     const categoryTable = await post(`${base}/api/apps/${appId}/tables`, { name: '分类表' });
     const categoryEntity = categoryTable.app.schema.entities.find((entity) => entity.name === '分类表');
     assert.ok(categoryEntity);
+    await post(`${base}/api/apps/${appId}/tables/${categoryEntity.id}/fields`, {
+      id: 'category_code',
+      label: '分类编码',
+      type: 'text'
+    });
 
     const productEntity = categoryTable.app.schema.entities[0];
     const relationField = await post(`${base}/api/apps/${appId}/tables/${productEntity.id}/fields`, {
       label: '商品分类',
       type: 'relation',
       targetEntity: categoryEntity.id,
-      displayField: 'name',
+      displayField: 'category_code',
       multiple: false
     });
     const relation = relationField.app.schema.entities[0].fields.find((field) => field.type === 'relation');
@@ -132,6 +137,32 @@ test('HTTP API supports V2 tables, relation fields, colored options, and confirm
     assert.equal(executed.session.status, 'completed');
     assert.ok(executed.app.schema.entities.length >= 3);
     assert.ok(executed.app.schema.entities.some((entity) => entity.fields.some((field) => field.type === 'relation')));
+  });
+});
+
+test('AI agent clarifies vague requests before planning or execution', async () => {
+  await withServer(async (base) => {
+    const before = await getJson(`${base}/api/apps`);
+    const clarified = await post(`${base}/api/ai/plan`, { prompt: '帮我创建一个系统' });
+
+    assert.equal(clarified.state, 'CLARIFY');
+    assert.equal(clarified.session.status, 'clarifying');
+    assert.ok(clarified.clarification.questions.length >= 1);
+    assert.equal(clarified.plan, undefined);
+
+    const afterClarify = await getJson(`${base}/api/apps`);
+    assert.equal(afterClarify.apps.length, before.apps.length);
+
+    const planned = await post(`${base}/api/ai/plan`, {
+      sessionId: clarified.session.id,
+      prompt: '用于管理客户线索，记录客户名称、联系方式、跟进状态和下一次跟进日期'
+    });
+    assert.equal(planned.state, 'CONFIRM');
+    assert.equal(planned.session.status, 'waiting_confirmation');
+    assert.equal(planned.plan.type, 'app_creation_plan');
+
+    const cancelled = await post(`${base}/api/ai/sessions/${planned.session.id}/cancel`, {});
+    assert.equal(cancelled.session.status, 'cancelled');
   });
 });
 

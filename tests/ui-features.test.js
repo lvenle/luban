@@ -153,6 +153,8 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.confirm-modal/);
   assert.match(css, /\.select-tag/);
   assert.match(css, /\.relation-tag/);
+  assert.match(css, /\.ai-status-card/);
+  assert.match(css, /\.ai-clarify-card/);
   assert.match(css, /\.ai-plan-card/);
   assert.match(css, /\.create-table-button/);
 });

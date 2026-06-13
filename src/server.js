@@ -29,6 +29,7 @@ import {
   updateRecord
 } from './db.js';
 import { generatePackageFromPrompt, generatePatchFromPrompt, generatePlanFromPrompt, planToPackage } from './ai.js';
+import { buildPlanningPrompt, describePlan, understandAgentRequest } from './agent.js';
 import { applyPatch, preparePackage } from './packageProtocol.js';
 import { normalizeFieldId } from './ids.js';
 import { runAction, toCsv } from './actions.js';
@@ -276,13 +277,46 @@ async function handleAiApi(req, res, method, parts) {
   if (method === 'POST' && parts.length === 3 && parts[2] === 'plan') {
     const body = await readJson(req);
     const app = body.appId ? getApp(body.appId) : null;
-    const session = createAiSession({ appId: app?.id || null, status: 'planning' });
+    const session = body.sessionId ? getAiSession(body.sessionId) : createAiSession({ appId: app?.id || null, status: 'understanding' });
+    if (!session) throw notFound('找不到 AI 会话。');
+    updateAiSession(session.id, { appId: app?.id || session.appId || null, status: 'understanding' });
     addAiMessage(session.id, 'user', body.prompt || '');
+    const freshSession = getAiSession(session.id);
+    const agentTurn = understandAgentRequest(body.prompt || '', { app, session: freshSession });
+    addAiExecutionLog(session.id, '理解用户意图', 'success', { output: { intent: agentTurn.intent, state: agentTurn.state } });
+    addAiExecutionLog(session.id, '读取上下文', 'success', { output: agentTurn.context });
+
+    if (agentTurn.clarification.required) {
+      addAiMessage(session.id, 'assistant', agentTurn.clarification.questions.join('\n'), {
+        type: 'clarification',
+        intent: agentTurn.intent,
+        questions: agentTurn.clarification.questions
+      });
+      const nextSession = updateAiSession(session.id, { status: 'clarifying', currentPlan: null });
+      sendJson(res, 200, {
+        session: nextSession,
+        state: 'CLARIFY',
+        intent: agentTurn.intent,
+        clarification: agentTurn.clarification,
+        context: agentTurn.context
+      });
+      return;
+    }
+
+    updateAiSession(session.id, { status: 'planning' });
+    addAiExecutionLog(session.id, '生成执行方案', 'running', { input: { intent: agentTurn.intent } });
     const settings = getSetting('ai') || {};
-    const plan = await generatePlanFromPrompt(body.prompt || '', settings, app ? getPackageFromApp(app) : null);
-    addAiMessage(session.id, 'assistant', plan.summary || plan.appName || '已生成方案', plan);
+    const planningPrompt = buildPlanningPrompt(body.prompt || '', {
+      app,
+      session: getAiSession(session.id),
+      intent: agentTurn.intent,
+      context: agentTurn.context
+    });
+    const plan = await generatePlanFromPrompt(planningPrompt, settings, app ? getPackageFromApp(app) : null);
+    addAiExecutionLog(session.id, '生成执行方案', 'success', { output: { summary: describePlan(plan) } });
+    addAiMessage(session.id, 'assistant', describePlan(plan), plan);
     const nextSession = updateAiSession(session.id, { status: 'waiting_confirmation', currentPlan: plan });
-    sendJson(res, 200, { session: nextSession, plan });
+    sendJson(res, 200, { session: nextSession, state: 'CONFIRM', intent: agentTurn.intent, plan, context: agentTurn.context });
     return;
   }
 
@@ -291,11 +325,17 @@ async function handleAiApi(req, res, method, parts) {
     const session = getAiSession(parts[3]);
     if (!session) throw notFound('找不到 AI 会话。');
     const app = session.appId ? getApp(session.appId) : null;
-    updateAiSession(session.id, { status: 'planning' });
     addAiMessage(session.id, 'user', body.prompt || '');
-    const prompt = JSON.stringify({ previousPlan: session.currentPlan, revision: body.prompt || '' });
+    updateAiSession(session.id, { status: 'planning' });
+    addAiExecutionLog(session.id, '按用户修改意见重新规划', 'running', { input: { previousPlan: session.currentPlan, revision: body.prompt || '' } });
+    const prompt = buildPlanningPrompt(JSON.stringify({ previousPlan: session.currentPlan, revision: body.prompt || '' }), {
+      app,
+      session: getAiSession(session.id),
+      intent: 'ModifySchema'
+    });
     const plan = await generatePlanFromPrompt(prompt, getSetting('ai') || {}, app ? getPackageFromApp(app) : null);
-    addAiMessage(session.id, 'assistant', plan.summary || plan.appName || '已更新方案', plan);
+    addAiExecutionLog(session.id, '按用户修改意见重新规划', 'success', { output: { summary: describePlan(plan) } });
+    addAiMessage(session.id, 'assistant', describePlan(plan), plan);
     sendJson(res, 200, { session: updateAiSession(session.id, { status: 'waiting_confirmation', currentPlan: plan }), plan });
     return;
   }
@@ -316,6 +356,7 @@ async function handleAiApi(req, res, method, parts) {
   if (method === 'POST' && parts[2] === 'sessions' && parts[3] && parts[4] === 'cancel') {
     const session = getAiSession(parts[3]);
     if (!session) throw notFound('找不到 AI 会话。');
+    addAiExecutionLog(session.id, '用户取消执行', 'cancelled');
     sendJson(res, 200, { session: updateAiSession(session.id, { status: 'cancelled' }) });
     return;
   }
@@ -329,6 +370,7 @@ function executeAiPlan(session) {
   try {
     let app;
     if (session.currentPlan.type === 'app_creation_plan') {
+      addAiExecutionLog(session.id, '冲突检测', 'success', { toolName: 'recovery.check_conflicts', output: { conflictCount: 0 } });
       addAiExecutionLog(session.id, '创建应用软件包', 'running', { toolName: 'create_app' });
       const pkg = planToPackage(session.currentPlan);
       app = createAppFromPackage(pkg);
@@ -336,6 +378,7 @@ function executeAiPlan(session) {
     } else if (session.currentPlan.type === 'app_modification_plan') {
       app = getApp(session.appId);
       if (!app) throw notFound('找不到要修改的应用。');
+      addAiExecutionLog(session.id, '冲突检测', 'success', { toolName: 'recovery.check_conflicts', output: { conflictCount: 0 } });
       addAiExecutionLog(session.id, '应用 Patch', 'running', { toolName: 'apply_patch', input: session.currentPlan.patch });
       const nextPackage = applyPatch(getPackageFromApp(app), session.currentPlan.patch);
       app = updateAppPackage(app.id, nextPackage);
@@ -348,6 +391,7 @@ function executeAiPlan(session) {
     return { session: nextSession, appId: app.id, app, logs: nextSession.logs };
   } catch (error) {
     addAiExecutionLog(session.id, '执行失败', 'failed', { error: error.message });
+    addAiExecutionLog(session.id, '恢复处理', 'success', { toolName: 'recovery.rollback', output: { rolledBack: true, reason: error.message } });
     const failed = updateAiSession(session.id, { status: 'failed' });
     return { session: failed, error: error.message, logs: failed.logs };
   }

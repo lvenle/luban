@@ -349,7 +349,7 @@ export function listRelationOptions(appId, sourceEntityId, fieldId, keyword = ''
   return records
     .map((record) => ({
       recordId: record.id,
-      displayValue: displayRecordValue(record.data?.[field.displayField], field)
+      displayValue: relationDisplayValue(app, field, record)
     }))
     .filter((option) => !q || option.displayValue.toLowerCase().includes(q));
 }
@@ -565,7 +565,7 @@ function hydrateRelationValues(appId, records) {
     const target = targetRecords.get(row.targetRecordId);
     grouped.get(key).push({
       targetRecordId: row.targetRecordId,
-      displayValue: displayRecordValue(target?.data?.[field?.displayField], field)
+      displayValue: relationDisplayValue(app, field, target)
     });
   }
   return records.map((record) => {
@@ -602,7 +602,7 @@ function recordsByIds(ids) {
 
 function displayTargetRecord(app, field, targetRecordId) {
   const target = getRecord(targetRecordId);
-  return displayRecordValue(target?.data?.[field.displayField], field);
+  return relationDisplayValue(app, field, target);
 }
 
 function displayRecordValue(value) {
@@ -611,6 +611,35 @@ function displayRecordValue(value) {
   if (value === true) return '是';
   if (value === false) return '否';
   return String(value ?? '');
+}
+
+function relationDisplayValue(app, field, targetRecord) {
+  if (!targetRecord) return '';
+  const targetEntity = app?.schema?.entities?.find((entity) => entity.id === field?.targetEntity);
+  const displayField = resolveRelationDisplayField(targetEntity, field, targetRecord.data || {});
+  const value = displayField ? targetRecord.data?.[displayField.id] : firstRecordValue(targetRecord.data || {});
+  return displayRecordValue(value) || targetRecord.id;
+}
+
+function resolveRelationDisplayField(targetEntity, relation, data = {}) {
+  const fields = (targetEntity?.fields || []).filter((field) => field.type !== 'relation');
+  const configured = fields.find((field) => field.id === relation?.displayField);
+  if (configured && hasDisplayValue(data[configured.id])) return configured;
+  const preferred = fields.find((field) => ['name', 'title'].includes(field.id) && hasDisplayValue(data[field.id]));
+  if (preferred) return preferred;
+  const labelPreferred = fields.find((field) => /名称|标题|姓名|名字|name|title/i.test(`${field.label || ''} ${field.id || ''}`) && hasDisplayValue(data[field.id]));
+  if (labelPreferred) return labelPreferred;
+  const textField = fields.find((field) => ['text', 'textarea', 'richText', 'select'].includes(field.type) && hasDisplayValue(data[field.id]));
+  if (textField) return textField;
+  return fields.find((field) => hasDisplayValue(data[field.id])) || configured || fields[0] || null;
+}
+
+function hasDisplayValue(value) {
+  return !(value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0));
+}
+
+function firstRecordValue(data = {}) {
+  return Object.values(data).find(hasDisplayValue);
 }
 
 function entityFields(app, entityId) {
