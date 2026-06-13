@@ -16,8 +16,8 @@ export const FIELD_TYPES = new Set([
 ]);
 
 export const SELECT_COLORS = [
-  'gray', 'blue', 'green', 'red', 'orange', 'yellow', 
-  'purple', 'cyan', 'pink', 'indigo', 'teal', 'lime', 'amber'
+  'gray', 'red', 'orange', 'yellow', 'lime', 'green', 
+  'cyan', 'blue', 'purple', 'pink'
 ];
 
 export const PAGE_TYPES = new Set(['list', 'form', 'detail', 'dashboard', 'chart', 'editor']);
