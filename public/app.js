@@ -2980,9 +2980,15 @@ function describeOperation(operation) {
 const STATUS_LABELS = { success: '已完成', running: '进行中', failed: '失败', error: '失败', cancelled: '已取消' };
 
 function renderAiToolProgress(logs = []) {
+  // 每个步骤只显示最新状态，去掉旧状态
+  const latest = new Map();
+  for (const log of logs) {
+    latest.set(log.stepName, log);
+  }
+  const deduped = [...latest.values()];
   return h('section', { class: 'ai-tool-card' }, [
     h('div', { class: 'sidebar-label', text: '执行进度' }),
-    ...logs.map((log) =>
+    ...deduped.map((log) =>
       h('div', { class: `ai-tool-line ${log.status || ''}` }, [
         h('span', { class: log.status === 'running' ? 'tool-spin' : 'tool-check', text: log.status === 'running' ? '' : statusIcon(log.status) }),
         h('span', { text: `${log.stepName || '执行'}${log.toolName ? `（${log.toolName}）` : ''}：${STATUS_LABELS[log.status] || log.status || '处理中'}` })
