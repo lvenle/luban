@@ -1943,7 +1943,7 @@ thead .sticky-action-cell {
 .option-editor-row {
   position: relative;
   display: grid;
-  grid-template-columns: 18px 22px 1fr 28px;
+  grid-template-columns: 18px 22px 120px 1fr 28px;
   align-items: center;
   gap: 8px;
 }
