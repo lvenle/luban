@@ -348,7 +348,15 @@ function firstEntity(pkg) {
 }
 
 function mockPatch(prompt, pkg) {
-  const text = String(prompt || '');
+  // 提取实际用户输入：如果 prompt 是 JSON，只取 request 部分
+  let text = String(prompt || '');
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed.request) {
+      text = parsed.request;
+    }
+  } catch {}
+  
   // 智能选择表：如果用户提到表名，选对应的表，否则选第一个表
   let entity = null;
   for (const candidate of pkg.schema.entities) {
@@ -476,17 +484,33 @@ function mockPatch(prompt, pkg) {
 
 function inferRequestedField(text) {
   // 更精确地匹配，支持各种句式
-  const match = text.match(/(?:增加|添加|新增|加入|新建|创建)(?:\s*一个)?(?:个)?(?:\s*字段|字段)?\s*(.+?)(?:\s*(?:字段|列|属性))?$|(?:加|增加|添加|新增|加入)\s*(.+?)(?:\s*(?:到|在))?(?:\s*(?:表|里面|中))?$/);
+  const patterns = [
+    /(?:增加|添加|新增|加入|新建|创建)(?:\s*一个)?(?:个)?(?:\s*字段|字段)?\s*(.+?)(?:\s*(?:字段|列|属性))?$/,
+    /(?:加|增加|添加|新增|加入)\s*(.+?)(?:\s*(?:到|在))?(?:\s*(?:表|里面|中))?$/,
+  ];
+  
+  let match = null;
+  for (const pattern of patterns) {
+    match = text.match(pattern);
+    if (match) break;
+  }
+  
   if (!match) return null;
   const raw = (match[1] || match[2] || '').trim();
   if (!raw) return null;
-  const label = raw;
+  
+  // 清理掉可能残留的JSON痕迹
+  let label = raw.replace(/[{}\[\]"']/g, '').trim();
+  if (!label) return null;
+  
   const type = inferFieldType(label);
+  
   // 确保id干净，不会产生乱码
   let id = translateKnownField(label);
   if (id === label) {
     id = normalizeFieldId(label, fallbackFieldId(label, type));
   }
+  
   return {
     id,
     label,

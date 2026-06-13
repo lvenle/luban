@@ -199,7 +199,17 @@ export function createCrmPackage() {
 }
 
 export function pickSamplePackage(prompt) {
-  const text = String(prompt || '').toLowerCase();
+  let text = String(prompt || '');
+  // 提取实际用户输入：如果 prompt 是 JSON，只取 request 部分
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed.request) {
+      text = parsed.request;
+    }
+  } catch {}
+  
+  text = text.toLowerCase();
+  
   if (text.includes('公众号') || text.includes('文章') || text.includes('写作')) return createArticlePackage();
   const scenario = bestScenarioMatch(text);
   if (scenario) return createScenarioPackage(scenario);
