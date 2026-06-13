@@ -2977,13 +2977,15 @@ function describeOperation(operation) {
   return operation.summary || operationLabel(operation) || '执行配置更新';
 }
 
+const STATUS_LABELS = { success: '已完成', running: '进行中', failed: '失败', error: '失败', cancelled: '已取消' };
+
 function renderAiToolProgress(logs = []) {
   return h('section', { class: 'ai-tool-card' }, [
-    h('div', { class: 'sidebar-label', text: 'Tool 执行进度' }),
+    h('div', { class: 'sidebar-label', text: '执行进度' }),
     ...logs.map((log) =>
       h('div', { class: `ai-tool-line ${log.status || ''}` }, [
         h('span', { class: log.status === 'running' ? 'tool-spin' : 'tool-check', text: log.status === 'running' ? '' : statusIcon(log.status) }),
-        h('span', { text: `${log.toolName || log.stepName || 'tool'}：${log.stepName || log.status || '处理中'}` })
+        h('span', { text: `${log.stepName || '执行'}${log.toolName ? `（${log.toolName}）` : ''}：${STATUS_LABELS[log.status] || log.status || '处理中'}` })
       ])
     )
   ]);
@@ -3134,22 +3136,20 @@ async function cancelAiSession() {
 async function executeAiPlan() {
   if (state.aiLocalPlan) return executeAiLocalPlan();
   if (!state.aiSession?.id) return toast('没有可执行的 AI 方案。');
-  pushAssistantMessage({
-    role: 'assistant',
-    title: 'Tool 执行进度',
-    logs: [{ stepName: '用户已确认方案', status: 'success' }, { stepName: '执行白名单工具', status: 'running' }]
-  });
+  updateAssistantProgress('Tool 执行进度', [
+    { stepName: '用户已确认', status: 'success' },
+    { stepName: '执行中', status: 'running' }
+  ]);
   state.assistantBusy = true;
   state.currentApp ? renderRuntime() : renderHome();
   try {
     const body = await api(`/api/ai/sessions/${state.aiSession.id}/execute`, { method: 'POST', body: '{}' });
     if (body.error) throw new Error(body.error);
-    pushAssistantMessage({
-      role: 'assistant',
-      title: '执行完成',
-      text: `已${state.aiPlan?.type === 'app_creation_plan' ? '创建' : '更新'}「${body.app?.name || '软件'}」。`,
-      logs: body.logs || []
-    });
+    const summary = `已${state.aiPlan?.type === 'app_creation_plan' ? '创建' : '更新'}「${body.app?.name || '软件'}」`;
+    updateAssistantProgress('Tool 执行进度', (body.logs || []).map((log) => ({
+      stepName: log.stepName,
+      status: log.status || 'success'
+    })), summary);
     const messages = [...state.aiChatMessages];
     state.aiPlan = null;
     state.aiLocalPlan = null;
@@ -3164,10 +3164,22 @@ async function executeAiPlan() {
     renderRuntime();
     toast('AI 执行完成');
   } catch (error) {
-    pushAssistantMessage({ role: 'assistant', title: '执行失败', text: error.message });
+    updateAssistantProgress('Tool 执行进度', [
+      { stepName: error.message, status: 'failed' }
+    ], '执行失败');
     state.assistantBusy = false;
     state.currentApp ? renderRuntime() : renderHome();
     toast(error.message);
+  }
+}
+
+function updateAssistantProgress(title, logs, text) {
+  const existing = state.aiChatMessages.find((msg) => msg.title === title);
+  if (existing) {
+    existing.logs = logs;
+    if (text !== undefined) existing.text = text;
+  } else {
+    state.aiChatMessages.push({ role: 'assistant', title, logs, text, type: 'progress' });
   }
 }
 
