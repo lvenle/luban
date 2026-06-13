@@ -1676,8 +1676,7 @@ function optionEditorRow(option) {
         'data-option-color': initialColor,
         onclick: () => toggleColorPicker(row)
       }, [
-        h('span', { class: `option-color-dot select-${initialColor}` }),
-        h('span', { text: colorLabel(initialColor) })
+        h('span', { class: `option-color-dot select-${initialColor}` })
       ]),
       h('div', { class: 'option-color-dropdown hidden' }, 
         OPTION_COLORS.map(color => 
@@ -1686,8 +1685,7 @@ function optionEditorRow(option) {
             type: 'button',
             onclick: () => selectOptionColor(row, color)
           }, [
-            h('span', { class: `option-color-dot select-${color}` }),
-            h('span', { text: colorLabel(color) })
+            h('span', { class: `option-color-dot select-${color}` })
           ])
         )
       )
@@ -1702,6 +1700,29 @@ function optionEditorRow(option) {
     })
   ]);
   return row;
+}
+
+function toggleColorPicker(row) {
+  const dropdown = row.querySelector('.option-color-dropdown');
+  document.querySelectorAll('.option-color-dropdown:not(.hidden)').forEach(el => el.classList.add('hidden'));
+  dropdown.classList.toggle('hidden');
+  const handleClickOutside = (event) => {
+    if (!dropdown.contains(event.target) && !row.querySelector('.option-color-current').contains(event.target)) {
+      dropdown.classList.add('hidden');
+      document.removeEventListener('click', handleClickOutside);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', handleClickOutside), 0);
+}
+
+function selectOptionColor(row, color) {
+  const dropdown = row.querySelector('.option-color-dropdown');
+  const dot = row.querySelector('.option-color-dot');
+  const currentDot = row.querySelector('.option-color-current .option-color-dot');
+  dot.className = `option-color-dot select-${color}`;
+  currentDot.className = `option-color-dot select-${color}`;
+  row.querySelector('.option-color-current').dataset.optionColor = color;
+  dropdown.classList.add('hidden');
 }
 
 function toggleColorPicker(row) {

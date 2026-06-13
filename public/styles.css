@@ -2471,12 +2471,12 @@ button.assistant-send {
 .option-color-current {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  padding: 4px 8px;
+  justify-content: center;
+  padding: 4px;
   border-radius: 6px;
   border: 1px solid var(--line);
-  min-width: 70px;
+  width: 32px;
+  height: 32px;
   cursor: pointer;
   background: white;
 }
@@ -2487,9 +2487,9 @@ button.assistant-send {
   left: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(4, auto);
-  gap: 2px;
-  padding: 6px;
+  grid-template-columns: repeat(7, 24px);
+  gap: 4px;
+  padding: 8px;
   border-radius: 8px;
   background: white;
   border: 1px solid var(--line);
@@ -2501,19 +2501,20 @@ button.assistant-send {
 }
 
 .option-color-option {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 4px;
-  padding: 4px 6px;
-  border-radius: 4px;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 999px;
   cursor: pointer;
-  min-width: auto;
   background: transparent;
 }
 
 .option-color-option:hover {
-  background: #f1f5f9;
+  transform: scale(1.2);
+  transition: transform .1s ease;
 }
 
 .ai-status-card,
