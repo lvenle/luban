@@ -1955,6 +1955,16 @@ thead .sticky-action-cell {
   cursor: grab;
 }
 
+.option-editor-row.dragging {
+  opacity: 0.4;
+}
+
+.option-editor-row.drag-over {
+  outline: 2px dashed #3b82f6;
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
 .option-color-dot {
   width: 18px;
   height: 18px;

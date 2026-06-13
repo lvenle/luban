@@ -1666,8 +1666,56 @@ function renderOptionEditor(options = []) {
 
 function optionEditorRow(option) {
   const initialColor = option.color || 'gray';
+  let dragCounter = 0;
+  const dragHandle = h('span', {
+    class: 'option-drag',
+    text: '⋮⋮',
+    title: '拖动排序',
+    draggable: 'true',
+    ondragstart: (event) => {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', '');
+      row.classList.add('dragging');
+      dragCounter = 0;
+    },
+    ondragend: () => {
+      row.classList.remove('dragging');
+      document.querySelectorAll('.option-editor-row.drag-over').forEach(el => el.classList.remove('drag-over'));
+    },
+    ondragover: (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      if (!row.classList.contains('dragging')) {
+        dragCounter++;
+        row.classList.add('drag-over');
+      }
+    },
+    ondragleave: () => {
+      dragCounter--;
+      if (dragCounter <= 0) {
+        row.classList.remove('drag-over');
+        dragCounter = 0;
+      }
+    },
+    ondrop: (event) => {
+      event.preventDefault();
+      row.classList.remove('drag-over');
+      const dragged = document.querySelector('.option-editor-row.dragging');
+      if (dragged && dragged !== row) {
+        const parent = row.parentNode;
+        const rows = [...parent.querySelectorAll('.option-editor-row')];
+        const fromIndex = rows.indexOf(dragged);
+        const toIndex = rows.indexOf(row);
+        if (fromIndex < toIndex) {
+          parent.insertBefore(dragged, row.nextSibling);
+        } else {
+          parent.insertBefore(dragged, row);
+        }
+      }
+    }
+  });
   const row = h('div', { class: 'option-editor-row' }, [
-    h('span', { class: 'option-drag', text: '⋮⋮', title: '拖动排序稍后开放' }),
+    dragHandle,
     h('div', { class: 'option-color-picker' }, [
       h('button', {
         class: 'option-color-current ghost',
