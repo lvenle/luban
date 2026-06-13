@@ -1668,7 +1668,6 @@ function optionEditorRow(option) {
   const initialColor = option.color || 'gray';
   const row = h('div', { class: 'option-editor-row' }, [
     h('span', { class: 'option-drag', text: '⋮⋮', title: '拖动排序稍后开放' }),
-    h('span', { class: `option-color-dot select-${initialColor}` }),
     h('div', { class: 'option-color-picker' }, [
       h('button', {
         class: 'option-color-current ghost',
@@ -1725,37 +1724,12 @@ function selectOptionColor(row, color) {
   dropdown.classList.add('hidden');
 }
 
-function toggleColorPicker(row) {
-  const dropdown = row.querySelector('.option-color-dropdown');
-  document.querySelectorAll('.option-color-dropdown:not(.hidden)').forEach(el => el.classList.add('hidden'));
-  dropdown.classList.toggle('hidden');
-  const handleClickOutside = (event) => {
-    if (!dropdown.contains(event.target) && !row.querySelector('.option-color-current').contains(event.target)) {
-      dropdown.classList.add('hidden');
-      document.removeEventListener('click', handleClickOutside);
-    }
-  };
-  setTimeout(() => document.addEventListener('click', handleClickOutside), 0);
-}
-
-function selectOptionColor(row, color) {
-  const dropdown = row.querySelector('.option-color-dropdown');
-  const dot = row.querySelector('.option-color-dot');
-  const currentDot = row.querySelector('.option-color-current .option-color-dot');
-  const currentText = row.querySelector('.option-color-current span:nth-child(2)');
-  dot.className = `option-color-dot select-${color}`;
-  currentDot.className = `option-color-dot select-${color}`;
-  currentText.textContent = colorLabel(color);
-  row.querySelector('.option-color-current').dataset.optionColor = color;
-  dropdown.classList.add('hidden');
-}
-
 function collectOptionEditorValues(root) {
   return [...root.querySelectorAll('.option-editor-row')]
-    .map((row) => ({
-      label: row.querySelector('[data-option-label]')?.value.trim(),
-      color: row.querySelector('[data-option-color]')?.value || 'gray'
-    }))
+  .map((row) => ({
+    label: row.querySelector('[data-option-label]')?.value.trim(),
+    color: row.querySelector('[data-option-color]')?.dataset.optionColor || 'gray'
+  }))
     .filter((option) => option.label)
     .map(optionObject);
 }

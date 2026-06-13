@@ -1943,7 +1943,7 @@ thead .sticky-action-cell {
 .option-editor-row {
   position: relative;
   display: grid;
-  grid-template-columns: 18px 22px 120px 1fr 28px;
+  grid-template-columns: 18px 120px 1fr 28px;
   align-items: center;
   gap: 8px;
 }
@@ -1960,16 +1960,6 @@ thead .sticky-action-cell {
   height: 18px;
   border-radius: 999px;
   border: 1px solid #cbd5e1;
-}
-
-.option-editor-row select[data-option-color] {
-  position: absolute;
-  left: 26px;
-  top: 3px;
-  width: 22px;
-  height: 22px;
-  opacity: 0;
-  cursor: pointer;
 }
 
 .option-label-input {
