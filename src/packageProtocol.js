@@ -240,7 +240,12 @@ function hashText(text) {
 function normalizeRelationField(field) {
   const config = { ...(field.config || {}) };
   field.targetEntity = normalizeFieldId(field.targetEntity || field.targetTableId || config.targetEntity || config.targetTableId || config.targetEntityId, 'entity');
-  field.displayField = normalizeFieldId(field.displayField || field.displayFieldId || config.displayField || config.displayFieldId, 'field');
+  const rawDisplay = field.displayField || field.displayFieldId || config.displayField || config.displayFieldId;
+  if (rawDisplay) {
+    field.displayField = normalizeFieldId(rawDisplay, 'field');
+  } else {
+    delete field.displayField;
+  }
   field.multiple = Boolean(field.multiple ?? config.multiple);
   field.allowCreateTargetRecord = Boolean(field.allowCreateTargetRecord ?? config.allowCreateTargetRecord);
   field.enableSearch = field.enableSearch ?? config.enableSearch ?? true;
@@ -507,9 +512,11 @@ function applyOperation(pkg, operation) {
     case 'updateDescription':
       pkg.manifest.description = operation.description || '';
       return;
-    case 'addEntity':
+    case 'addEntity': {
       pkg.schema.entities.push(operation.entity);
+      resolveRelationDisplayFields(pkg);
       return;
+    }
     case 'renameEntity': {
       const entity = findEntity(pkg, operation.entity);
       entity.name = operation.name || entity.name;
@@ -520,6 +527,7 @@ function applyOperation(pkg, operation) {
       const field = structuredClone(operation.field);
       field.id = normalizeFieldId(field.id || field.label, 'field');
       if (!entity.fields.some((item) => item.id === field.id)) entity.fields.push(field);
+      resolveRelationDisplayFields(pkg);
       return;
     }
     case 'updateField': {
@@ -566,5 +574,23 @@ function applyOperation(pkg, operation) {
       return;
     default:
       throw new Error(`不支持的 Patch 操作：${operation.op}`);
+  }
+}
+
+function resolveRelationDisplayFields(pkg) {
+  for (const entity of pkg.schema.entities) {
+    for (const field of entity.fields) {
+      if (field.type !== 'relation') continue;
+      if (field.displayField && field.displayField !== 'field') continue;
+      const target = pkg.schema.entities.find((e) => e.id === field.targetEntity);
+      if (!target || !target.fields.length) continue;
+      const best = target.fields.find((f) => f.id === 'name' || f.id === 'title' || f.label === '名称' || f.label === '标题' || f.label === '姓名')
+        || target.fields.find((f) => f.type === 'text')
+        || target.fields[0];
+      if (best) {
+        field.displayField = best.id;
+        if (field.config) field.config.displayField = best.id;
+      }
+    }
   }
 }
