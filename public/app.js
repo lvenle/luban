@@ -2853,7 +2853,7 @@ function renderModificationPlanPreview(plan) {
     operations.length ? h('div', { class: 'ai-diff-list' }, operations.slice(0, 8).map((operation) =>
       h('div', { class: `ai-diff ${diffClassForOperation(operation)}` }, [
         h('div', { class: 'ai-diff-title', text: operationLabel(operation) }),
-        h('pre', { class: 'ai-plan-json', text: JSON.stringify(operation, null, 2) })
+        h('p', { class: 'ai-diff-desc', text: describeOperation(operation) })
       ])
     )) : h('div', { class: 'ai-diff modify' }, [
       h('div', { class: 'ai-diff-title', text: plan.summary || '修改软件' }),
@@ -2899,6 +2899,82 @@ function operationLabel(operation) {
     removeEntity: '- 删除表'
   };
   return operation?.summary || labels[type] || type || '修改操作';
+}
+
+const FIELD_TYPE_LABELS = {
+  text: '文本', textarea: '多行文本', number: '数字', date: '日期', datetime: '日期时间',
+  boolean: '是/否', select: '单选', multiSelect: '多选', relation: '关联'
+};
+
+function describeOperation(operation) {
+  const op = operation.op || operation.type || '';
+  const value = operation.value || operation.field || operation.entity || {};
+  const path = operation.path || '';
+
+  if (op === 'addEntity' || (op === 'add' && path.includes('/schema/entities'))) {
+    const entity = value.id || value.name || value.label || '未命名表';
+    const fields = value.fields || [];
+    const fieldNames = fields.map((f) => f.label || f.name || f.id).filter(Boolean);
+    const summary = fieldNames.length ? `包含 ${fieldNames.slice(0, 5).join('、')}${fieldNames.length > 5 ? ` 等 ${fieldNames.length} 个字段` : ' 等字段'}` : '';
+    return `新增「${entity}」数据表，${summary}`;
+  }
+
+  if (op === 'addField' || (op === 'add' && path.includes('/fields'))) {
+    const label = value.label || value.name || value.id || '新字段';
+    const type = FIELD_TYPE_LABELS[value.type] || value.type || '文本';
+    const entityName = operation.entity || '';
+    return entityName ? `在「${entityName}」表中新增「${label}」字段（${type}）` : `新增「${label}」字段（${type}）`;
+  }
+
+  if (op === 'addPage' || (op === 'add' && path.includes('/ui/pages'))) {
+    const page = value.title || value.name || value.id || '新页面';
+    const type = value.type === 'chart' ? '统计图表' : value.type === 'dashboard' ? '仪表盘' : '列表管理';
+    return `新增「${page}」${type}页面，支持增删改查导出功能`;
+  }
+
+  if (op === 'addAction' || (op === 'add' && path.includes('/actions'))) {
+    const name = value.name || value.id || '新操作';
+    return `新增「${name}」自动操作`;
+  }
+
+  if (op === 'updateField' || op === 'modifyField' || (op === 'replace' && path.includes('/fields'))) {
+    const label = value.label || value.name || value.id || '字段';
+    const entityName = operation.entity || '';
+    return entityName ? `修改「${entityName}」表中的「${label}」字段` : `修改「${label}」字段设置`;
+  }
+
+  if (op === 'updatePage' || (op === 'replace' && path.includes('/ui/pages'))) {
+    const title = value.title || value.name || '页面';
+    return `修改「${title}」页面设置`;
+  }
+
+  if (op === 'removeField' || (op === 'remove' && path.includes('/fields'))) {
+    const label = operation.fieldId || operation.field || value.label || value.name || '字段';
+    return `删除「${label}」字段`;
+  }
+
+  if (op === 'removeEntity' || op === 'deleteEntity') {
+    const name = operation.entity || value.name || value.id || '表';
+    return `删除「${name}」数据表`;
+  }
+
+  if (op === 'removePage') {
+    return `删除「${operation.pageId || '页面'}」页面`;
+  }
+
+  if (op === 'renameApp' || (op === 'replace' && path.includes('/manifest/name'))) {
+    return `软件重命名为「${operation.name || value}」`;
+  }
+
+  if (op === 'updateDescription' || (op === 'replace' && path.includes('/manifest/description'))) {
+    return `更新软件介绍说明`;
+  }
+
+  if (op === 'replace' && path.includes('/manifest/version')) {
+    return `更新软件版本号`;
+  }
+
+  return operation.summary || operationLabel(operation) || '执行配置更新';
 }
 
 function renderAiToolProgress(logs = []) {
