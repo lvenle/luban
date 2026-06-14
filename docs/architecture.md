@@ -1,0 +1,503 @@
+# 软件花园 MVP — 项目架构与功能说明
+
+## 零依赖架构（Node.js 25+ Built-in Only）
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                        Browser  (Vanilla JS SPA)                      │
+│                                                                      │
+│   public/index.html  (13 lines, 单一入口)                             │
+│        └── <script type="module" src="app.js">                       │
+│                                                                      │
+│   public/app.js     (4999 lines, 完整 SPA)                           │
+│   public/styles.css (3196 lines, 完整样式)                           │
+│                                                                      │
+│   ┌──────────┐  ┌──────────────┐  ┌──────────────┐  ┌───────────┐  │
+│   │ Home 页  │  │ Runtime      │  │ AI 助理抽屉  │  │ 设置 Modal│  │
+│   │ App 网格 │  │ 三栏布局     │  │ 对话/计划/执 │  │ AI 配置   │  │
+│   │ 分类筛选 │  │ 侧栏+工作区  │  │ 行/历史记录  │  │           │  │
+│   └──────────┘  └──────────────┘  └──────────────┘  └───────────┘  │
+│                                                                      │
+│   状态管理: 全局 state 对象 + localStorage 持久化                     │
+│   路由: URLSearchParams (?app=&page=&view=) + history pushState       │
+│   UI: 自定义 h(tag, attrs, children) 虚拟 DOM 辅助函数                │
+│   模态: 自定义 openConfirmDialog (无 alert/confirm/prompt)            │
+└──────────────────────────────────┬───────────────────────────────────┘
+                                   │ HTTP REST (JSON / Binary)
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                     Node.js HTTP Server                               │
+│                                                                      │
+│   src/server.js  (738 lines)                                         │
+│   ┌──────────┐ ┌─────────────────┐ ┌──────────────────────────┐     │
+│   │ 静态文件  │ │ API Routes      │ │ Helper: sendJson/Text     │     │
+│   │ / → index │ │ /api/*          │ │ /Binary, readJson/Buffer  │     │
+│   │ /uploads  │ │ 30+ endpoints   │ │ saveUploadedFile          │     │
+│   └──────────┘ └─────────────────┘ └──────────────────────────┘     │
+│                                                                      │
+│   ┌────────────┐ ┌───────────────┐ ┌────────────┐ ┌────────────┐   │
+│   │ src/db.js  │ │ src/ai.js     │ │ src/agent  │ │ src/actions│   │
+│   │ SQLite 层  │ │ AI + Mock     │ │ .js        │ │ .js        │   │
+│   │ CRUD       │ │ 50+ 场景      │ │ Agent 逻辑 │ │ Action 执行│   │
+│   │ 关系处理   │ │ Patch 生成    │ │ 意图识别   │ │ 内置 Action│   │
+│   │ 导入导出   │ │ Plan 生成     │ │ 澄清/规划  │ │            │   │
+│   └────────────┘ └───────────────┘ └────────────┘ └────────────┘   │
+│                                                                      │
+│   ┌───────────────────┐ ┌────────────┐ ┌────────┐ ┌───────────┐    │
+│   │ src/packageProto  │ │ src/zip.js │ │ src/   │ │ src/sample │   │
+│   │ col.js            │ │ .sgpkg     │ │ xlsx   │ │ Packages   │   │
+│   │ 包校验/Patch 引擎 │ │ 读写       │ │ .js    │ │ .js        │   │
+│   │ 字段/页面/Action  │ │ 零依赖 ZIP│ │ XLSX   │ │ 50+ 样本  │   │
+│   │ 类型定义          │ │            │ │ 导出   │ │ 模板定义   │   │
+│   └───────────────────┘ └────────────┘ └────────┘ └───────────┘    │
+│                              │                                       │
+└──────────────────────────────┼───────────────────────────────────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │  data/db.sqlite      │
+                    │  (SQLite WAL Mode)   │
+                    │                      │
+                    │  apps table          │
+                    │  records table       │
+                    │  record_relations    │
+                    │  ai_sessions         │
+                    │  ai_messages         │
+                    │  ai_execution_logs   │
+                    │  settings            │
+                    └─────────────────────┘
+```
+
+---
+
+## 模块功能说明
+
+### 1. `src/server.js` — HTTP 路由与请求处理
+
+**入口**：`npm start` → `node src/server.js`
+
+**职责**：
+- 创建 HTTP 服务，监听 `process.env.PORT || 5173`
+- 静态文件分发（`public/` 目录 + `/uploads` 目录）
+- 30+ 个 REST API 端点的路由分发
+
+**API 端点分类**：
+
+| 分类 | 端点 | 功能 |
+|------|------|------|
+| 健康检查 | `GET /api/health` | 服务存活检测 |
+| App CRUD | `GET/POST /api/apps` | 列表 / 生成 |
+| | `GET/PUT/DELETE /api/apps/:id` | 详情 / 更新元数据 / 删除 |
+| | `PUT /api/apps/:id/package` | 更新完整包 |
+| 导入导出 | `POST /api/apps/import` | 导入 .sgpkg |
+| | `GET /api/apps/:id/export` | 导出 .sgpkg |
+| | `GET /api/apps/:id/export.csv` | 导出 CSV |
+| | `GET /api/apps/:id/export.xlsx` | 导出 XLSX |
+| 记录 CRUD | `GET/POST /api/apps/:id/records` | 列表 / 创建 |
+| | `PUT/DELETE /api/apps/:id/records/:rid` | 更新 / 删除 |
+| 关系处理 | `GET/PUT /api/apps/:id/records/:rid/relations/:fid` | 关系读写 |
+| | `GET /api/apps/:id/fields/:eid/:fid/relation-options` | 关系选项 |
+| 字段/表管理 | `PATCH/DELETE /api/apps/:id/fields/:eid/:fid` | 更新/删除字段 |
+| | `GET/POST /api/apps/:id/tables` | 表列表/创建 |
+| | `PATCH/DELETE /api/apps/:id/tables/:eid` | 更新/删除表 |
+| | `DELETE /api/apps/:id/tables/:eid/records` | 清空表记录 |
+| | `POST /api/apps/:id/tables/:eid/import` | 导入 CSV/XLSX |
+| | `GET/POST /api/apps/:id/tables/:eid/fields` | 字段列表/创建 |
+| AI 助手 | `GET /api/ai/sessions` | 会话列表 |
+| | `GET /api/ai/sessions/:id` | 会话详情 |
+| | `POST /api/ai/plan` | 生成 AI 计划 |
+| | `POST /api/ai/sessions/:id/revise` | 修订计划 |
+| | `POST /api/ai/sessions/:id/execute` | 执行计划 |
+| | `POST /api/ai/sessions/:id/cancel` | 取消会话 |
+| 配置 | `GET/PUT /api/settings` | AI 设置读写 |
+| Action | `POST /api/apps/:id/actions/:aid/run` | 执行 Action |
+| 文件 | `POST /api/apps/:id/uploads` | 上传文件 |
+| AI 修改 | `POST /api/apps/:id/modify` | AI 修改应用 |
+
+---
+
+### 2. `src/db.js` — 数据库层
+
+**技术**：`node:sqlite`（Node 25+ 内置）
+
+**数据库表结构**：
+
+| 表名 | 用途 | 关键字段 |
+|------|------|----------|
+| `apps` | 应用存储 | id, slug, name, manifestJson, schemaJson, uiJson, actionsJson, promptsJson, category, version |
+| `records` | 记录存储 | id, appId, entityId, dataJson, createdAt, updatedAt |
+| `record_relations` | 跨实体关联 | id, sourceRecordId, fieldId, targetRecordId, targetEntityId |
+| `ai_sessions` | AI 会话 | id, appId, status(created/clarifying/waiting_confirmation/executing/completed/cancelled), planJson, resultAppId |
+| `ai_messages` | 对话消息 | id, sessionId, role(user/assistant), content, createdAt |
+| `ai_execution_logs` | 执行日志 | id, sessionId, step, status, message, createdAt |
+| `settings` | KV 配置 | key, value |
+
+**核心功能**：
+
+- `createAppFromPackage(pkg)` — 规范化 + 校验 + 插入数据库
+- `updateAppPackage(appId, pkg)` — 重新规范化校验后更新
+- `listRecords(appId, { entityId, q })` — 支持全文搜索 + 关系数据水合
+- `createRecord(appId, entityId, data)` — 自动拆分关系字段写入 `record_relations`
+- `updateRecord(recordId, data)` — No-op 检测（相同数据不更新 updatedAt）
+- `deleteRecord(recordId, { force })` — 检查引用约束，force=true 时级联删除
+- `listRelationOptions(appId, entityId, fieldId, keyword)` — 关系字段选项搜索
+- `exportAppPayload(appId, dataMode)` — 导出应用结构（不含用户数据）
+- `importAppPayload(payload)` — 导入应用 + 可选样本数据
+
+**关系处理**：
+- `splitRelationData()` — 从 data 中分离关系字段
+- `normalizeTargetIds()` — 处理多种 ID 输入格式（数组、字符串、数字）
+- `hydrateRelationValues()` — 记录查询时填充关联记录的显示值
+- `getRecordRelations()` / `updateRecordRelations()` — 关系 CRUD
+
+---
+
+### 3. `src/packageProtocol.js` — 软件包协议与 Patch 引擎
+
+**软件包格式**（`.sgpkg` 本质是 zip 包）：
+
+```
+app.sgpkg
+├── manifest.json       # 名称、版本、描述
+├── schema.json         # 实体/字段定义
+├── ui.json             # 页面布局定义
+├── actions.json        # Action 配置
+├── prompts.json        # 建议命令
+└── sample-data.json    # 可选样本数据
+```
+
+**字段类型**（17 种）：
+
+`text`, `textarea`, `number`, `date`, `datetime`, `select`, `multiSelect`, `boolean`, `relation`, `image`, `file`, `richText`, `email`, `phone`, `url`, `color`, `rating`
+
+**页面类型**（7 种）：
+
+`blank`, `list`, `form`, `detail`, `dashboard`, `chart`, `editor`
+
+**Action 类型**（8 种）：
+
+`ai.generateText`, `ai.rewriteText`, `ai.summarize`, `data.createRecord`, `data.updateRecord`, `data.queryRecords`, `export.markdown`, `export.json`, `export.csv`
+
+**Patch 操作**（16 种）：
+
+`renameApp`, `updateDescription`, `addEntity`, `renameEntity`, `addField`, `updateField`, `removeField`, `addPage`, `updatePage`, `removePage`, `addAction`, `updateAction`, `removeAction`, `addSuggestedCommand`, `removeSuggestedCommand`, `renameTable`
+
+**核心流程**：
+
+```
+applyPatch(pkg, patch)
+  → normalizePatchOperation()  // 兼容 JSON Patch / 泛型 verb+target / 命名操作
+  → 逐条执行操作
+  → preparePackage()           // 重新规范化 + 校验
+  → 返回新包
+```
+
+**校验规则**：
+- 必填字段：manifest.name, schema.entities
+- 字段 ID 唯一性
+- 页面 ID 唯一性
+- 关联字段的目标实体必须存在
+- 字段类型必须在支持列表中
+- 页面类型必须在支持列表中
+- Action 类型必须在支持列表中
+- options 颜色值必须在 `SELECT_COLORS` 中
+
+---
+
+### 4. `src/ai.js` — AI 集成与 Mock 生成器
+
+**双模式**：
+
+| 模式 | 条件 | 行为 |
+|------|------|------|
+| Mock AI | API Key 为空 | 关键词匹配 50+ 预定义场景 |
+| OpenAI | API Key 已配置 | 调用 `/v1/chat/completions` |
+
+**Mock AI 匹配逻辑**：
+
+```
+generatePackageFromPrompt(prompt, settings)
+  → pickSamplePackage(prompt)
+    → 关键词匹配 (如 "记账"→budget, "待办"→todo)
+    → 遍历 scenarioDefinitions() 所有场景
+    → 返回匹配度最高的包
+```
+
+**Mock Patch 逻辑**：
+
+```
+generatePatchFromPrompt(prompt, currentPackage, settings)
+  → mockPatch(prompt, pkg)
+    → 分析关键词:
+      - "增加...字段/功能" → addField
+      - "页面/入口/列表页/统计页" → addPage(特定类型)
+      - "导出" → addAction(export.csv)
+      - "总结/分析" → addAction(ai.generateText)
+    → 智能推断字段类型 (从中文标签)
+    → 处理特殊场景: 旅游/今日/爆款/提醒等
+    → 始终有 fallback
+```
+
+**OpenAI 集成**：
+- `requestChatCompletion(settings, messages)` — POST 到 OpenAI-compatible API
+- `chatCompletionsUrl()` — 处理各种 endpoint 格式（含 `/v1` 自动补全）
+- 25s 超时，失败重试（移除 `response_format` 重试）
+- 支持 `response_format: { type: 'json_object' }`
+
+**Plan 生成**（V2）：
+- `generatePlanFromPrompt(prompt, settings, currentPackage)` — 生成结构化 Plan
+- `planToPackage(plan)` — Plan 转完整包
+- `validateAiPlan(plan)` — 限制检查（最多 20 表、每表 100 字段、100 关系）
+
+---
+
+### 5. `src/agent.js` — AI 代理意图识别
+
+**意图类型**（10 种）：
+
+`CreateApp`, `CreateTable`, `CreatePage`, `AddField`, `CreateRelation`, `ModifySchema`, `DeleteSchema`, `QuerySchema`, `AnalyzeData`, `GeneralChat`
+
+**核心流程**：
+
+```
+understandAgentRequest(prompt, { app, session })
+  → detectIntent(text, app)     // 正则匹配中文意图
+  → buildAgentContext()          // 构建当前上下文
+  → clarifyRequest()              // 信息不足时生成澄清问题
+  → return { state: 'CLARIFY' | 'PLAN', intent, context, clarification }
+```
+
+**澄清流程**：
+- 用户第一次请求不明确 → 返回 CLARIFY + 问题列表
+- 用户补充信息 → 生成完整 Plan
+- Plan 等待用户确认（`waiting_confirmation`）
+- 用户确认 → 执行（`completed`）
+- 用户取消 → 标记 `cancelled`
+
+---
+
+### 6. `src/actions.js` — Action 执行器
+
+**调度逻辑**：
+
+```
+runAction(app, actionId)
+  → 查找 action 定义
+  → 按 type 分发:
+    - data.queryRecords → db.listRecords()
+    - export.csv → toCsv(records, entity)
+    - export.json → JSON.stringify(records)
+    - export.markdown → toMarkdown(records)
+    - ai.generateText / ai.rewriteText / ai.summarize → 返回 Mock AI 文本
+```
+
+---
+
+### 7. `src/zip.js` — 零依赖 ZIP 读写
+
+- `createZip(files)` — 手动构建 ZIP 二进制（Local File Header + Central Directory + EOCD）
+- `readZip(buffer)` — 解析 ZIP，支持 store/deflate 压缩
+- `packageToZipPayload(pkg)` — 包 → ZIP 二进制
+- `zipPayloadToPackage(buffer)` — ZIP 二进制 → 包
+
+---
+
+### 8. `src/xlsx.js` — 零依赖 XLSX 导出
+
+- 构建标准 OOXML 结构：`[Content_Types].xml` / `_rels` / `xl/workbook.xml` / `xl/worksheets/sheet1.xml`
+- `recordsToXlsx(records, entity)` — 记录 → XLSX 二进制
+- 支持的字段类型：text, number, date, boolean, select, multiSelect, relation
+
+---
+
+### 9. `src/importData.js` — CSV / XLSX 导入
+
+- `importRowsFromFile(buffer, entity, fileName)` — 自动检测格式
+- `rowsFromCsv(text)` — 完整 CSV 解析（引号字段、转义）
+- `rowsFromXlsx(buffer)` — 基于 zip.js + 手动 XML 解析
+- `rowsToRecords(rows, entity)` — 列头 → fieldId 映射 + 值类型归一化
+
+---
+
+### 10. `src/samplePackages.js` — 50+ 样本包定义
+
+**预定义模板**（4 个）：
+- 家庭记账本（`createBudgetPackage`）— 收入/支出/分类/日期/备注 + 月度统计
+- 待办事项（`createTodoPackage`）— 任务/截止日期/优先级/完成状态
+- 公众号文章生成器（`createArticlePackage`）— 主题/目标读者/风格 → 标题/大纲/正文
+- 客户管理器（`createCrmPackage`）— 客户名称/电话/来源/跟进状态/备注
+
+**动态场景**（~45 个）：
+`createScenarioPackage()` 基于 `scenarioDefinitions()` 数据生成，覆盖：库存、习惯、读书、健身、旅行、学习、发票、项目、会议、求职、菜谱、订阅、资产、缺陷、内容日历、目标、宠物、汽车、房屋、排班、志愿者、活动、课程、采购、供应商、合同、OKR、入职、工单、知识库、设备、农场、销售、会员、选题、作业、考试、实验、医疗、药品、借阅、电影、礼物、婚礼、搬家、环保、投资、房租、客服、产品、版本、巡检、质检、物流、维修、线索、训练营、咨询、保险、捐赠、档案、直播、短视频、访谈、竞品
+
+---
+
+### 11. 前端 `public/app.js` — SPA 核心功能
+
+**页面渲染器**：
+
+| 渲染函数 | 页面类型 | 功能 |
+|---------|----------|------|
+| `renderHome()` | 首页 | App 卡片网格 + 分类筛选 + App 内联编辑 |
+| `renderRuntime()` | 运行框架 | 三栏布局（侧栏 + 工作区 + 助理抽屉） |
+| `renderListPage(page)` | 列表页 | 数据表 + 视图 + 搜索/排序/筛选/分组 + 行内编辑 + 批量操作 + 汇总行 + 列管理 |
+| `renderChartPage(page)` | 图表页 | 柱状图统计（按字段分组、计数/求和/平均） |
+| `renderDashboardPage(page)` | 仪表盘 | 统计卡片（数值/趋势） |
+| `renderEditorPage(page)` | 编辑器页 | 回退到列表页 |
+| `renderBlankPage(page)` | 白板页 | Canvas + 卡片（统计/表格/图表/透视表） |
+
+**前端数据表功能矩阵**：
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 数据列表功能                                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ √ 列头右键菜单: 编辑/隐藏/复制/排序/筛选/分组/插入/删除       │
+│ √ 列宽拖拽调整                                                  │
+│ √ 行内编辑 (双击进入, 下拉/选择/关系/IME 合成)                 │
+│ √ 行内快速新增                                                  │
+│ √ 单元格范围选择 + 复制 (文本/图片)                             │
+│ √ 批量删除                                                      │
+│ √ 列排序 (升序/降序)                                            │
+│ √ 筛选器 (文本/数字/日期/选择/多选/布尔/关系)                  │
+│ √ 分组 (本周/本月/自定义)                                       │
+│ √ 数值汇总行 (计数/求和/平均/最大/最小)                        │
+│ √ 视图系统: 多视图/保存/切换/清除                              │
+│ √ 搜索/快速搜索字段配置                                         │
+│ √ 导出 CSV / XLSX (全部/选中)                                  │
+│ √ 导入 CSV / XLSX                                              │
+│ √ 图片/文件预览                                                 │
+│ √ 关系字段: 标签显示 + 选项搜索                                │
+│ √ 表单布局编辑器: 拖拽排序 + 2/3/4 列布局                      │
+│ √ 字段设置编辑器: 标签/类型/选项/格式/描述/默认值              │
+│ √ 序号/索引列 + 操作列 (编辑/删除)                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**AI 助理功能**：
+- 对话界面（消息气泡 + 历史记录选择）
+- Plan 可视化（创建计划/修改计划卡片）
+- 澄清流程显示（CLARIFY → PLAN → CONFIRM → EXECUTE）
+- 执行进度展示（步骤日志）
+- 上下文感知（根据当前视图决定 contextKey）
+
+**状态管理**：
+- 全局 `state` 对象
+- URL 路由同步（`URLSearchParams` + `history.pushState`）
+- localStorage 持久化（视图配置、表单设计、侧栏状态）
+
+---
+
+## 测试用例（用于后续改动回归）
+
+### 测试分类
+
+```
+tests/
+├── protocol.test.js       # 单元: 包协议校验/Patch/zip/规范化
+├── db-actions.test.js     # 单元: 数据库 CRUD/Action/导出
+├── http.test.js           # 集成: HTTP API 全流程
+├── scenarios.test.js      # 集成: 50+ 场景生成 + 8步修改链
+├── http-scenarios.test.js # 集成: 50 场景 HTTP 运行
+└── ui-features.test.js    # 源码特征: 前端功能存在性断言
+```
+
+### 测试用例清单
+
+#### 1. 包协议测试（`protocol.test.js`）
+
+| # | 用例 | 验证点 |
+|---|------|--------|
+| 1.1 | 包规范化与校验 | normalize+validate 后 manifest/entities/pages 正确 |
+| 1.2 | 拒绝不支持字段类型 | type='script' → 抛异常 /类型不支持/ |
+| 1.3 | 应用 Patch | addField + addSuggestedCommand → 字段存在 + 命令存在 |
+| 1.4 | 拒绝重复页面 ID | 重复 page id → 抛异常 /页面 ID 重复/ |
+| 1.5 | 空白页无绑定实体 | blank page 允许无 entity 字段 |
+| 1.6 | 单表多 View 转多 Page | 同一实体 → 2 个 page, id 唯一 |
+| 1.7 | Mock AI 添加页面 | modify 添加页面 → page.entity 正确 |
+| 1.8 | .sgpkg zip 导入导出 | zip 往返后 manifest id 不变, 字段数一致 |
+| 1.9 | JSON Schema 风格输入 | properties 格式 → 标准化为 entities 格式 |
+| 1.10 | 泛型 Patch 操作 | add+type=field → field 存在且类型正确 |
+| 1.11 | JSON Patch 风格操作 | /schema/entities/0/fields/- → 字段存在 |
+| 1.12 | 选项颜色规范化 | options 字符串/对象混合 → 统一带 id/color 格式 |
+| 1.13 | 关联字段目标校验 | targetEntity 不存在 → 抛异常 |
+
+#### 2. 数据库与 Action 测试（`db-actions.test.js`）
+
+| # | 用例 | 验证点 |
+|---|------|--------|
+| 2.1 | SQLite 存储与查询 | 创建记录 → 查询 (含关键词) → 数据正确 |
+| 2.2 | 内置 Action 执行 | runAction(monthly_summary) → 返回文本 + 记录计数 |
+| 2.3 | 默认导出不含用户数据 | exportAppPayload → sampleData 为 undefined |
+| 2.4 | No-op 更新保持 updatedAt | 相同数据更新 → updatedAt 不变 |
+| 2.5 | 更新不改变列表顺序 | 更新记录后列表顺序不变 |
+
+#### 3. HTTP 集成测试（`http.test.js`）
+
+| # | 用例 | 验证点 |
+|---|------|--------|
+| 3.1 | 创建 App 全流程 | generate → appId + manifest.name + logs |
+| 3.2 | 修改 App 元数据 | PUT /api/apps/:id → name + category 更新 |
+| 3.3 | 创建记录 | POST records → record.id 存在 |
+| 3.4 | 上传文件 | POST uploads → file.name + url + GET 可访问 |
+| 3.5 | 执行 Action | POST actions/run → result 包含记录计数 |
+| 3.6 | 导出 XLSX | GET export.xlsx → content-type + PK 签名 |
+| 3.7 | 选中记录导出 XLSX | GET export.xlsx?ids= → content-type |
+| 3.8 | 导入 CSV | POST tables/import?name=.csv → importedCount=1 |
+| 3.9 | 导入 XLSX | POST tables/import?name=.xlsx → importedCount=1 |
+| 3.10 | AI 修改 | POST modify → 字段存在 + logs |
+| 3.11 | 导出 .sgpkg | GET export → 200 + buffer |
+| 3.12 | 导入 .sgpkg | POST import → 新 appId |
+| 3.13 | V2 多表+关系 | 创建分类表 → 关联字段 → 记录关联 → 关系选项查询 |
+| 3.14 | 关系数据显示 | records 查询 → relation 字段含 displayValue |
+| 3.15 | 引用约束阻止删表 | DELETE table → 409 + details.references |
+| 3.16 | 引用约束阻止清表 | DELETE records → 409 |
+| 3.17 | 引用约束阻止删记录 | DELETE record → 409 |
+| 3.18 | Force 级联删除 | DELETE record?force=true → 200 |
+| 3.19 | 清空表记录 | DELETE records → deletedCount + 查询为空 |
+| 3.20 | 删除表及级联清理 | DELETE table → 实体移除 + 关联字段清理 |
+| 3.21 | AI 计划不创建 App | POST ai/plan → App 数量不变 |
+| 3.22 | AI 计划执行创建 | POST sessions/execute → appId + session.status=completed |
+| 3.23 | 多实体+关联验证 | schema.entities.length >= 3 + relation field |
+| 3.24 | AI 会话历史 | GET sessions?appId= → 会话 + messageCount >= 2 |
+| 3.25 | 会话详情 | GET sessions/:id → messages + logs |
+| 3.26 | 澄清流程: 模糊请求 | POST ai/plan "帮我创建一个系统" → state=CLARIFY |
+| 3.27 | 澄清后生成计划 | 补充信息 → state=CONFIRM + plan.type |
+| 3.28 | 取消会话 | POST cancel → session.status=cancelled |
+
+#### 4. 场景生成测试（`scenarios.test.js`）
+
+| # | 用例 | 验证点 |
+|---|------|--------|
+| 4.1 | 50+ 场景可生成运行 | 每个 prompt → entities>=1, fields>=4, list page, action>=1 |
+| 4.2 | 50+ 场景覆盖 50+ 名称 | names.size >= 50 |
+| 4.3 | 8 步连续修改链 | 8 次修改后: owner/priority/amount/chart/export/ai action 都存在 |
+
+#### 5. HTTP 场景测试（`http-scenarios.test.js`）
+
+| # | 用例 | 验证点 |
+|---|------|--------|
+| 5.1 | 50 场景: 创建 | POST generate → appId + entities>=1 + list page |
+| 5.2 | 50 场景: 创建记录 | POST records → record.id 存在 |
+| 5.3 | 50 场景: 搜索 | GET records?q= → 结果 = 1 |
+| 5.4 | 50 场景: 执行 Action | POST action/run → result 存在 |
+| 5.5 | 50 场景: CSV 导出 | GET export.csv → 200 + 包含 marker |
+| 5.6 | 50 场景: AI 修改 | POST modify → 存在 date_field/acceptance_date |
+
+#### 6. 前端特征测试（`ui-features.test.js`）
+
+| # | 用例 | 验证点 |
+|---|------|--------|
+| 6.1 | 前端运行配置 | 128+ 特征断言 (appCategory, renderAssistantDrawer, 等) |
+| 6.2 | CSS 样式 | 66+ 样式断言 |
+| 6.3 | 禁止原生弹窗 | 无 alert() / confirm() / prompt() |
+| 6.4 | 使用自定义弹窗 | 使用 openConfirmDialog |
+
+---
+
+## 测试运行
+
+```bash
+npm test   # node --test tests/*.test.js
+```
+
+每次改动后必须运行全部测试并确保通过。新增功能需同步补充对应分类的测试用例。
