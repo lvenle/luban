@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const appJs = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+const serverJs = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 
 test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /appCategory/);
@@ -34,6 +35,8 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /ondblclick/);
   assert.match(appJs, /editable-cell/);
   assert.match(appJs, /selected-cell/);
+  assert.match(appJs, /clickedOutsideTableSelection/);
+  assert.match(appJs, /pointerdown', \(event\) =>/);
   assert.match(appJs, /renderImageValue/);
   assert.match(appJs, /image-thumb/);
   assert.match(appJs, /openImagePreview/);
@@ -41,8 +44,22 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /cell-link/);
   assert.match(appJs, /uploads/);
   assert.match(appJs, /startCellEdit/);
+  assert.match(appJs, /importTableData/);
+  assert.match(appJs, /startCellRangeSelection/);
+  assert.match(appJs, /copySelectedCellsToClipboard/);
+  assert.match(appJs, /copySelectedCellsAsImage/);
+  assert.match(appJs, /ClipboardItem/);
+  assert.match(appJs, /compositionstart/);
+  assert.match(appJs, /compositionend/);
+  assert.match(appJs, /event\.isComposing/);
   assert.match(appJs, /text: '编辑'/);
   assert.match(appJs, /draggable/);
+  assert.doesNotMatch(appJs, /page-drag-handle/);
+  assert.doesNotMatch(appJs, /chart: '图'|dashboard: '板'|editor: '编'/);
+  assert.match(appJs, /pageNavKind/);
+  assert.match(appJs, /navKind: 'page'/);
+  assert.match(serverJs, /navKind: 'table'/);
+  assert.match(css, /\.page-type-icon\.table/);
   assert.match(appJs, /一行 \$\{value\} 列/);
   assert.match(appJs, /getViews/);
   assert.match(appJs, /renderViewBar/);
@@ -89,6 +106,9 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /批量删除/);
   assert.match(appJs, /清除视图/);
   assert.match(appJs, /renderAiPlanCard/);
+  assert.match(appJs, /loadAssistantHistory/);
+  assert.match(appJs, /startNewAssistantSession/);
+  assert.match(appJs, /assistantMessagesFromSession/);
   assert.match(appJs, /requestAiPlan/);
   assert.match(appJs, /executeAiPlan/);
   assert.match(appJs, /确认执行/);
@@ -110,6 +130,8 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.menu-item/);
   assert.match(css, /\.query-zone/);
   assert.match(css, /\.assistant-fab/);
+  assert.match(css, /\.assistant-history-bar/);
+  assert.match(css, /\.assistant-history-select/);
   assert.match(css, /\.drawer-backdrop/);
   assert.match(css, /\.table-wrap/);
   assert.match(css, /\.sticky-action-cell/);
@@ -119,6 +141,7 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.resize-edge/);
   assert.match(css, /\.resizing-column/);
   assert.match(css, /\.sidebar-label/);
+  assert.doesNotMatch(css, /\.page-drag-handle/);
   assert.match(css, /\.topbar-app-info/);
   assert.match(css, /\.inline-edit-text/);
   assert.match(css, /\.header-edit-input/);
@@ -135,6 +158,7 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.quick-searches/);
   assert.match(css, /\.editable-cell/);
   assert.match(css, /\.selected-cell/);
+  assert.match(css, /\.cell-copy-toolbar/);
   assert.match(css, /\.image-thumb/);
   assert.match(css, /\.image-preview-full/);
   assert.match(css, /\.file-link/);

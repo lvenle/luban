@@ -15,8 +15,16 @@ const state = {
   aiIntent: '',
   aiChatMessages: [],
   assistantContextKey: '',
+  assistantHistory: [],
+  assistantHistoryContextKey: '',
+  assistantHistoryLoading: false,
+  assistantNewSessionContextKey: '',
   assistantDraft: '',
-  assistantBusy: false
+  assistantBusy: false,
+  pageDragId: '',
+  cellSelection: null,
+  sidebarCollapsed: false,
+  sidebarWidth: 168
 };
 
 const root = document.querySelector('#app');
@@ -34,7 +42,10 @@ async function api(path, options = {}) {
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({ error: response.statusText }));
-    throw new Error(body.error || '请求失败');
+    const error = new Error(body.error || '请求失败');
+    error.status = response.status;
+    error.details = body.details;
+    throw error;
   }
   const contentType = response.headers.get('content-type') || '';
   if (contentType.includes('application/json')) return response.json();
@@ -88,7 +99,7 @@ function openConfirmDialog({ title = '确认操作', message = '', confirmText =
 }
 
 function floatingMenus() {
-  return [...document.querySelectorAll('details.card-menu, details.view-menu, details.export-menu')];
+  return [...document.querySelectorAll('details.card-menu, details.view-menu, details.export-menu, details.page-menu')];
 }
 
 function closeFloatingMenus(except = null) {
@@ -126,6 +137,45 @@ function readStorage(key, fallback) {
 
 function writeStorage(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
+}
+
+function globalStorageKey(scope) {
+  return `software-garden:${scope}`;
+}
+
+function clampSidebarWidth(value) {
+  return Math.max(132, Math.min(360, Number(value) || 168));
+}
+
+function loadSidebarLayout() {
+  state.sidebarCollapsed = Boolean(readStorage(globalStorageKey('sidebar-collapsed'), false));
+  state.sidebarWidth = clampSidebarWidth(readStorage(globalStorageKey('sidebar-width'), 168));
+}
+
+function saveSidebarLayout() {
+  writeStorage(globalStorageKey('sidebar-collapsed'), state.sidebarCollapsed);
+  writeStorage(globalStorageKey('sidebar-width'), state.sidebarWidth);
+}
+
+function slugifyLocal(input, fallback = 'page') {
+  const value = String(input || '')
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return value || fallback;
+}
+
+function uniquePageId(title, entityId = 'page') {
+  const base = slugifyLocal(`${entityId}-${title || 'page'}`, `${entityId}-page`);
+  const existing = new Set((state.currentApp?.ui?.pages || []).map((page) => page.id));
+  if (!existing.has(base)) return base;
+  let index = 2;
+  while (existing.has(`${base}-${index}`)) index += 1;
+  return `${base}-${index}`;
 }
 
 
@@ -293,7 +343,7 @@ function renderHome() {
 
 function appCard(app) {
   const menu = bindFloatingMenu(h('details', { class: 'card-menu', onclick: (event) => event.stopPropagation() }, [
-    h('summary', { title: '更多操作' }, '⋯'),
+    h('summary', { title: '更多操作' }, '⋮'),
       h('div', { class: 'card-menu-popover' }, [
       h('a', { href: `/api/apps/${app.id}/export`, download: `${app.slug}.sgpkg` }, '导出 .sgpkg'),
       h('button', {
@@ -423,30 +473,22 @@ function renderRuntime() {
   const app = state.currentApp;
   const page = app.ui.pages.find((item) => item.id === state.currentPageId) || app.ui.pages[0];
   state.currentPageId = page?.id || state.currentPageId;
+  loadSidebarLayout();
   root.innerHTML = '';
   root.append(
     h('div', { class: 'shell' }, [
       topbar(),
-      h('main', { class: 'runtime' }, [
-        h('aside', { class: 'sidebar' }, [
-          h('div', { class: 'sidebar-label', text: '表格与页面' }),
-          ...app.ui.pages.map((item) =>
-            h('button', {
-              class: `menu-item ${item.id === page.id ? 'active' : ''}`,
-              text: item.title,
-              onclick: async () => {
-                state.currentPageId = item.id;
-                await loadRecords();
-                const nextEntity = entityFor(item);
-                const views = getViews(nextEntity);
-                state.currentViewId = views[0]?.id || '';
-                writeRoute(app.id, item.id, false, state.currentViewId);
-                renderRuntime();
-              }
-            })
-          ),
-          h('button', { class: 'page-button create-table-button', text: '+ 新建表', onclick: openCreateTableModal })
-        ]),
+      h('main', {
+        class: `runtime ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`,
+        style: `--sidebar-width:${state.sidebarWidth}px`
+      }, [
+        h('aside', { class: 'sidebar' }, renderSidebarContent(app, page)),
+        h('div', {
+          class: 'sidebar-resizer',
+          title: state.sidebarCollapsed ? '展开页面列表' : '拖动调整页面列表宽度',
+          onpointerdown: startSidebarResize,
+          ondblclick: toggleSidebarCollapsed
+        }),
         h('section', { class: 'workspace' }, [renderPage(page)]),
       state.assistantOpen ? renderAssistantDrawer() : null
       ])
@@ -471,6 +513,429 @@ function renderRuntime() {
       if (messages) messages.scrollTop = messages.scrollHeight;
     }, 0);
   }
+}
+
+function renderSidebarContent(app, page) {
+  const toggle = h('button', {
+    class: 'sidebar-toggle ghost',
+    title: state.sidebarCollapsed ? '展开页面列表' : '折叠页面列表',
+    onclick: toggleSidebarCollapsed
+  }, [
+    h('span', { text: state.sidebarCollapsed ? '›' : '‹' }),
+    state.sidebarCollapsed ? null : h('span', { text: '折叠' })
+  ]);
+  if (state.sidebarCollapsed) return [toggle];
+  return [
+    h('div', { class: 'sidebar-head' }, [
+      h('div', { class: 'sidebar-label', text: '表格与页面' }),
+      toggle
+    ]),
+    h('div', { class: 'page-list' }, app.ui.pages.map((item) => renderPageNavItem(app, page, item))),
+    h('button', { class: 'page-button create-page-button', onclick: () => openCreatePageModal(page) }, [
+      h('span', { class: 'button-icon page-icon' }, [pageTypeIcon('page')]),
+      h('span', { text: '+ 新建页面' })
+    ]),
+    h('button', { class: 'page-button create-table-button', onclick: openCreateTableModal }, [
+      h('span', { class: 'button-icon table-icon' }, [pageTypeIcon('table')]),
+      h('span', { text: '+ 新建表' })
+    ])
+  ];
+}
+
+function toggleSidebarCollapsed() {
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  saveSidebarLayout();
+  renderRuntime();
+}
+
+function startSidebarResize(event) {
+  if (state.sidebarCollapsed) {
+    toggleSidebarCollapsed();
+    return;
+  }
+  event.preventDefault();
+  const startX = event.clientX;
+  const startWidth = state.sidebarWidth;
+  const controller = new AbortController();
+  document.body.classList.add('resizing-sidebar');
+  const update = (moveEvent) => {
+    state.sidebarWidth = clampSidebarWidth(startWidth + moveEvent.clientX - startX);
+    document.querySelector('.runtime')?.style.setProperty('--sidebar-width', `${state.sidebarWidth}px`);
+  };
+  const finish = () => {
+    document.body.classList.remove('resizing-sidebar');
+    saveSidebarLayout();
+    controller.abort();
+  };
+  document.addEventListener('pointermove', update, { signal: controller.signal });
+  document.addEventListener('pointerup', finish, { once: true, signal: controller.signal });
+  document.addEventListener('pointercancel', finish, { once: true, signal: controller.signal });
+}
+
+function clearPageDragStyles() {
+  document.querySelectorAll('.page-nav-item').forEach((item) => {
+    item.classList.remove('is-dragging', 'drop-before', 'drop-after');
+    delete item.dataset.dropPosition;
+  });
+}
+
+function renderPageNavItem(app, activePage, item) {
+  const entity = item.entity ? app.schema.entities.find((candidate) => candidate.id === item.entity) : null;
+  const navKind = pageNavKind(app, item);
+  const menu = bindFloatingMenu(h('details', { class: 'page-menu', onclick: (event) => event.stopPropagation() }, [
+    h('summary', { title: '页面操作' }, '⋮'),
+    h('div', { class: 'page-menu-popover' }, [
+      navKind === 'page' ? h('button', {
+        class: 'ghost-menu',
+        text: '删除页面',
+        onclick: (event) => {
+          event.preventDefault();
+          menu.open = false;
+          deletePage(item);
+        }
+      }) : null,
+      navKind === 'table' && entity ? h('button', {
+        class: 'ghost-menu',
+        text: '清除数据',
+        onclick: (event) => {
+          event.preventDefault();
+          menu.open = false;
+          clearTableData(entity);
+        }
+      }) : null,
+      navKind === 'table' && entity ? h('button', {
+        class: 'ghost-menu danger',
+        text: '删除表',
+        onclick: (event) => {
+          event.preventDefault();
+          menu.open = false;
+          deleteTableAndData(entity);
+        }
+      }) : null
+    ])
+  ]));
+  const row = h('div', {
+    class: `page-nav-item ${item.id === activePage?.id ? 'active' : ''}`,
+    draggable: 'true',
+    ondragstart: (event) => {
+      state.pageDragId = item.id;
+      row.classList.add('is-dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', item.id);
+    },
+    ondragover: (event) => {
+      if (!state.pageDragId || state.pageDragId === item.id) return;
+      event.preventDefault();
+      const rect = row.getBoundingClientRect();
+      const position = event.clientY - rect.top > rect.height / 2 ? 'after' : 'before';
+      row.dataset.dropPosition = position;
+      row.classList.toggle('drop-before', position === 'before');
+      row.classList.toggle('drop-after', position === 'after');
+      event.dataTransfer.dropEffect = 'move';
+    },
+    ondragleave: () => {
+      row.classList.remove('drop-before', 'drop-after');
+      delete row.dataset.dropPosition;
+    },
+    ondrop: async (event) => {
+      event.preventDefault();
+      const draggedId = event.dataTransfer.getData('text/plain') || state.pageDragId;
+      const position = row.dataset.dropPosition || 'before';
+      clearPageDragStyles();
+      state.pageDragId = '';
+      await reorderPage(draggedId, item.id, position);
+    },
+    ondragend: () => {
+      state.pageDragId = '';
+      clearPageDragStyles();
+    }
+  }, [
+    h('span', { class: `page-type-icon ${navKind}`, title: `${pageTypeLabel(item, navKind)} · 拖动排序` }, [pageTypeIcon(navKind)]),
+    h('button', {
+      class: `menu-item ${item.id === activePage?.id ? 'active' : ''}`,
+      text: item.title,
+      onclick: async () => {
+        state.currentPageId = item.id;
+        await loadRecords();
+        const nextEntity = entityFor(item);
+        const views = getViews(nextEntity);
+        state.currentViewId = views[0]?.id || '';
+        writeRoute(app.id, item.id, false, state.currentViewId);
+        renderRuntime();
+      }
+    }),
+    menu
+  ]);
+  return row;
+}
+
+function pageNavKind(app, page) {
+  if (page?.navKind === 'table' || page?.source === 'table') return 'table';
+  if (page?.navKind === 'page' || page?.source === 'page') return 'page';
+  if (page?.type === 'list' && page.entity) {
+    const entity = app.schema.entities.find((item) => item.id === page.entity);
+    const firstEntityListPage = app.ui.pages.find((item) => item.type === 'list' && item.entity === page.entity);
+    if (firstEntityListPage?.id === page.id) return 'table';
+    if (page.id === `${page.entity}-list` || page.title === `${entity?.name || ''}列表`) return 'table';
+  }
+  return 'page';
+}
+
+function pageTypeIcon(navKind) {
+  if (navKind === 'table') {
+    return svgIcon('0 0 18 18', [
+      svgLine(4, 5, 14, 5),
+      svgLine(4, 9, 14, 9),
+      svgLine(4, 13, 14, 13)
+    ]);
+  }
+  return svgIcon('0 0 18 18', [
+    svgPath('M7.25 6.1 6.1 7.25a3 3 0 0 0 4.24 4.24l1.15-1.15'),
+    svgPath('M10.75 11.9 11.9 10.75a3 3 0 0 0-4.24-4.24L6.5 7.66'),
+    svgLine(7.4, 10.6, 10.6, 7.4)
+  ]);
+}
+
+function svgIcon(viewBox, children) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', viewBox);
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.classList.add('page-type-svg');
+  for (const child of children) svg.append(child);
+  return svg;
+}
+
+function svgLine(x1, y1, x2, y2) {
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', x1);
+  line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2);
+  line.setAttribute('y2', y2);
+  return line;
+}
+
+function svgPath(d) {
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', d);
+  return path;
+}
+
+function pageTypeLabel(page, navKind = 'page') {
+  if (navKind === 'table') return '数据表';
+  const labels = {
+    list: '表格页面',
+    chart: '统计图表',
+    dashboard: '仪表盘页面',
+    editor: '编辑页面',
+    form: '表单页面',
+    detail: '详情页面'
+  };
+  return labels[page?.type] || '页面';
+}
+
+async function reorderPage(draggedId, targetId, position = 'before') {
+  if (!draggedId || !targetId || draggedId === targetId) return;
+  const pages = state.currentApp.ui.pages || [];
+  const fromIndex = pages.findIndex((page) => page.id === draggedId);
+  const toIndex = pages.findIndex((page) => page.id === targetId);
+  if (fromIndex < 0 || toIndex < 0) return;
+
+  try {
+    await saveCurrentPackage((pkg) => {
+      const nextPages = [...pkg.ui.pages];
+      const [moved] = nextPages.splice(fromIndex, 1);
+      let insertIndex = nextPages.findIndex((page) => page.id === targetId);
+      if (position === 'after') insertIndex += 1;
+      nextPages.splice(insertIndex, 0, moved);
+      pkg.ui.pages = nextPages;
+    });
+    writeRoute(state.currentApp.id, state.currentPageId, false, state.currentViewId);
+    renderRuntime();
+    toast('页面顺序已更新');
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function deletePage(page) {
+  const pages = state.currentApp.ui.pages || [];
+  if (pages.length <= 1) return toast('至少保留一个页面。');
+  const remainingPages = pages.filter((item) => item.id !== page.id);
+  if (!remainingPages.some((item) => item.type === 'list')) return toast('至少保留一个列表页面。');
+  if (page.type === 'list' && page.entity && !remainingPages.some((item) => item.type === 'list' && item.entity === page.entity)) {
+    const entity = state.currentApp.schema.entities.find((item) => item.id === page.entity);
+    return toast(`「${entity?.name || page.title}」表只有这一个列表入口，不能单独删除页面。`);
+  }
+  openConfirmDialog({
+    title: '删除页面',
+    message: `确定删除「${page.title}」页面吗？只会移除这个页面入口，不会删除表和数据。`,
+    confirmText: '删除',
+    danger: true,
+    onConfirm: async () => {
+      try {
+        const index = pages.findIndex((item) => item.id === page.id);
+        const nextPage = pages[index + 1] || pages[index - 1] || pages.find((item) => item.id !== page.id);
+        await saveCurrentPackage((pkg) => {
+          pkg.ui.pages = pkg.ui.pages.filter((item) => item.id !== page.id);
+        });
+        if (state.currentPageId === page.id) {
+          state.currentPageId = nextPage?.id || state.currentApp.ui.pages[0]?.id || '';
+          state.currentViewId = '';
+        }
+        await loadRecords();
+        writeRoute(state.currentApp.id, state.currentPageId, false, state.currentViewId);
+        renderRuntime();
+        toast('页面已删除');
+      } catch (error) {
+        toast(error.message);
+      }
+    }
+  });
+}
+
+function deleteTableAndData(entity) {
+  const pages = state.currentApp.ui.pages || [];
+  const relatedPages = pages.filter((page) => page.entity === entity.id);
+  openConfirmDialog({
+    title: '删除表',
+    message: `确定删除「${entity.name}」表、${relatedPages.length} 个页面入口和这张表里的所有记录吗？如果这些记录被其他表实际引用，会自动阻止删除。`,
+    confirmText: '删除表',
+    danger: true,
+    onConfirm: async () => {
+      try {
+        const body = await api(`/api/apps/${state.currentApp.id}/tables/${entity.id}`, { method: 'DELETE' });
+        state.currentApp = body.app;
+        state.apps = state.apps.map((app) => (app.id === body.app.id ? body.app : app));
+        if (!state.currentApp.ui.pages.some((page) => page.id === state.currentPageId)) {
+          state.currentPageId = state.currentApp.ui.pages[0]?.id || '';
+          state.currentViewId = '';
+        }
+        await loadRecords();
+        writeRoute(state.currentApp.id, state.currentPageId, false, state.currentViewId);
+        renderRuntime();
+        toast('表已删除');
+      } catch (error) {
+        showDeleteTableBlocked(error, entity);
+      }
+    }
+  });
+}
+
+function clearTableData(entity) {
+  const count = recordsFor(entity.id).length;
+  openConfirmDialog({
+    title: '清除数据',
+    message: `确定清除「${entity.name}」表里的 ${count} 条记录吗？表结构和页面会保留。如果这些记录被其他表实际引用，会自动阻止清除。`,
+    confirmText: '清除数据',
+    danger: true,
+    onConfirm: async () => {
+      try {
+        const body = await api(`/api/apps/${state.currentApp.id}/tables/${entity.id}/records`, { method: 'DELETE' });
+        await loadRecords();
+        renderRuntime();
+        toast(`已清除 ${body.deletedCount || 0} 条数据`);
+      } catch (error) {
+        showDeleteTableBlocked(error, entity, '不能清除数据', `请先清理这些关联记录，再清除「${entity.name}」表的数据。`);
+      }
+    }
+  });
+}
+
+function showDeleteTableBlocked(error, entity, title = '不能删除表', footer = `请先清理这些关联记录，再删除「${entity.name}」表。`) {
+  const references = error.details?.references || [];
+  if (!references.length) return toast(error.message);
+  const detail = references.map((reference) =>
+    `「${reference.sourceEntityName}.${reference.fieldLabel}」已有 ${reference.count} 条记录引用「${entity.name}」的数据`
+  ).join('\n');
+  openTextModal(title, `${error.message}\n\n${detail}\n\n${footer}`);
+}
+
+function openCreatePageModal(sourcePage = null) {
+  const app = state.currentApp;
+  const entities = app.schema.entities || [];
+  if (!entities.length) return toast('请先新建表。');
+  const defaultEntity = sourcePage?.entity || entities[0]?.id || '';
+  const entitySelect = h('select', {}, entities.map((entity) =>
+    h('option', { value: entity.id, text: entity.name })
+  ));
+  entitySelect.value = defaultEntity;
+  const typeSelect = h('select', {}, [
+    h('option', { value: 'list', text: '列表页面' }),
+    h('option', { value: 'chart', text: '统计图表' }),
+    h('option', { value: 'dashboard', text: '仪表盘' }),
+    h('option', { value: 'editor', text: '编辑页面' })
+  ]);
+  const nameInput = h('input', { placeholder: '例如：重点客户列表' });
+  const hint = h('p', { class: 'muted field-hint', text: '可以为同一张表创建多个页面入口，用来做不同列表、图表或看板。' });
+  const selectedEntityName = () => entities.find((entity) => entity.id === entitySelect.value)?.name || '记录';
+  const updatePlaceholder = () => {
+    const typeLabel = typeSelect.value === 'chart' ? '统计' : typeSelect.value === 'dashboard' ? '看板' : typeSelect.value === 'editor' ? '编辑' : '列表';
+    nameInput.placeholder = `例如：${selectedEntityName()}${typeLabel}`;
+  };
+  entitySelect.addEventListener('change', updatePlaceholder);
+  typeSelect.addEventListener('change', updatePlaceholder);
+  updatePlaceholder();
+
+  const backdrop = h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal compact-modal' }, [
+      h('div', { class: 'toolbar' }, [
+        h('h3', { text: '新建页面' }),
+        h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
+      ]),
+      hint,
+      h('div', { class: 'field' }, [h('label', { text: '绑定表' }), entitySelect]),
+      h('div', { class: 'field' }, [h('label', { text: '页面类型' }), typeSelect]),
+      h('div', { class: 'field' }, [h('label', { text: '页面名称' }), nameInput]),
+      h('div', { class: 'row', style: 'margin-top:14px' }, [
+        h('button', {
+          text: '创建',
+          onclick: async () => {
+            const entity = entities.find((item) => item.id === entitySelect.value);
+            if (!entity) return toast('请选择绑定表。');
+            const title = nameInput.value.trim() || `${entity.name}${typeSelect.value === 'chart' ? '统计' : typeSelect.value === 'dashboard' ? '看板' : typeSelect.value === 'editor' ? '编辑' : '列表'}`;
+            const page = buildPageForEntity({ entity, title, type: typeSelect.value, navKind: 'page' });
+            try {
+              await saveCurrentPackage((pkg) => {
+                pkg.ui.pages.push(page);
+              });
+              state.currentPageId = page.id;
+              state.currentViewId = '';
+              await loadRecords();
+              writeRoute(state.currentApp.id, state.currentPageId, false, state.currentViewId);
+              backdrop.remove();
+              renderRuntime();
+              toast('页面已创建');
+            } catch (error) {
+              toast(error.message);
+            }
+          }
+        })
+      ])
+    ])
+  ]);
+  document.body.append(backdrop);
+}
+
+function buildPageForEntity({ entity, title, type = 'list', navKind = 'page' }) {
+  const page = {
+    id: uniquePageId(title, entity.id),
+    title,
+    type,
+    entity: entity.id,
+    navKind
+  };
+  if (type === 'list') {
+    page.features = ['create', 'edit', 'delete', 'search', 'export'];
+  }
+  if (type === 'chart') {
+    const groupField = entity.fields.find((field) => ['select', 'multiSelect', 'boolean', 'date'].includes(field.type)) || entity.fields[0];
+    page.chart = { type: 'bar', groupBy: groupField?.id || 'name', value: 'count' };
+  }
+  if (type === 'dashboard') {
+    page.cards = [{ type: 'stat', title: `${entity.name}记录数`, entity: entity.id, operation: 'count' }];
+  }
+  return page;
 }
 
 function openCreateTableModal() {
@@ -903,7 +1368,7 @@ function renderListPage(page) {
         if (!collapsed) {
           for (const record of group.records) {
             currentRenderedIds.push(record.id);
-            tableBody.append(renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, selectedIds, syncSelection, updateSelectionState));
+            tableBody.append(renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, selectedIds, syncSelection, updateSelectionState, rowNumber - 1));
             rowNumber += 1;
           }
         }
@@ -915,7 +1380,7 @@ function renderListPage(page) {
     }
     for (const [index, record] of sortedItems.entries()) {
       currentRenderedIds.push(record.id);
-      tableBody.append(renderRecordRow(entity, visibleFields, record, listConfig, index + 1, selectedIds, syncSelection, updateSelectionState));
+      tableBody.append(renderRecordRow(entity, visibleFields, record, listConfig, index + 1, selectedIds, syncSelection, updateSelectionState, index));
     }
     tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计'));
     tableBody.append(renderQuickAddRow(entity, visibleFields));
@@ -981,6 +1446,7 @@ function renderListPage(page) {
       ]),
       h('div', { class: 'row action-row' }, [
         h('button', { class: 'table-add-button', text: '+ 添加记录', onclick: () => openRecordModal(entity) }),
+        h('button', { class: 'secondary', text: '导入', onclick: () => importTableData(entity) }),
         bulkDeleteSlot,
         selectionLabel,
         h('button', { class: 'secondary', text: '筛选', onclick: () => openFilterModal(entity) }),
@@ -1033,6 +1499,30 @@ function exportXlsxHref(entity, selectedIds = null) {
 function exportFileName(scope = 'all') {
   const slug = state.currentApp.slug || state.currentApp.id;
   return scope === 'selected' ? `${slug}-selected.xlsx` : `${slug}.xlsx`;
+}
+
+function importTableData(entity) {
+  const input = h('input', { type: 'file', accept: '.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', class: 'hidden' });
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    input.remove();
+    if (!file) return;
+    try {
+      const params = new URLSearchParams({ name: file.name });
+      const body = await api(`/api/apps/${state.currentApp.id}/tables/${entity.id}/import?${params.toString()}`, {
+        method: 'POST',
+        headers: { 'content-type': file.type || 'application/octet-stream', 'x-file-name': encodeURIComponent(file.name) },
+        body: await file.arrayBuffer()
+      });
+      await loadRecords();
+      renderRuntime();
+      toast(`已导入 ${body.importedCount || 0} 条数据`);
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+  document.body.append(input);
+  input.click();
 }
 
 function tableWidthStyle(visibleFields, listConfig) {
@@ -1450,10 +1940,182 @@ function closeContextMenu() {
   document.querySelector('.context-menu')?.remove();
 }
 
-function selectColumnHeader(header) {
+function clearActiveTableSelection() {
   document.querySelectorAll('th.selected-column-header').forEach((item) => item.classList.remove('selected-column-header'));
   document.querySelectorAll('.editable-cell.selected-cell').forEach((item) => item.classList.remove('selected-cell'));
+  state.cellSelection = null;
+  hideCellCopyToolbar();
+}
+
+function clickedOutsideTableSelection(target) {
+  if (target?.closest?.('.context-menu, .cell-choice-dropdown, .cell-copy-toolbar')) return false;
+  return !target?.closest?.('table');
+}
+
+function selectColumnHeader(header) {
+  clearActiveTableSelection();
   header.classList.add('selected-column-header');
+}
+
+function startCellRangeSelection(event, cell) {
+  if (event.button !== 0 || cell.classList.contains('cell-editing')) return;
+  event.preventDefault();
+  closeContextMenu();
+  closeCellChoiceDropdown();
+  clearActiveTableSelection();
+  const position = cellPosition(cell);
+  state.cellSelection = { active: true, table: cell.closest('table'), start: position, end: position };
+  updateCellRangeSelection();
+}
+
+function extendCellRangeSelection(cell) {
+  if (!state.cellSelection?.active || cell.closest('table') !== state.cellSelection.table) return;
+  state.cellSelection.end = cellPosition(cell);
+  updateCellRangeSelection();
+}
+
+function moveCellRangeSelection(event) {
+  if (!state.cellSelection?.active) return;
+  const cell = document.elementFromPoint(event.clientX, event.clientY)?.closest?.('.editable-cell[data-row-index][data-col-index]');
+  if (cell) extendCellRangeSelection(cell);
+}
+
+async function finishCellRangeSelection() {
+  if (!state.cellSelection?.active) return;
+  state.cellSelection.active = false;
+  updateCellRangeSelection();
+  const matrix = selectedCellMatrix();
+  if (matrix.length && (matrix.length > 1 || matrix[0].length > 1)) {
+    await copySelectedCellsToClipboard(matrix, { quiet: true });
+    showCellCopyToolbar();
+  }
+}
+
+function cellPosition(cell) {
+  return {
+    row: Number(cell.dataset.rowIndex || 0),
+    col: Number(cell.dataset.colIndex || 0)
+  };
+}
+
+function updateCellRangeSelection() {
+  const selection = state.cellSelection;
+  document.querySelectorAll('.editable-cell.selected-cell').forEach((item) => item.classList.remove('selected-cell'));
+  if (!selection?.table) return;
+  const minRow = Math.min(selection.start.row, selection.end.row);
+  const maxRow = Math.max(selection.start.row, selection.end.row);
+  const minCol = Math.min(selection.start.col, selection.end.col);
+  const maxCol = Math.max(selection.start.col, selection.end.col);
+  selection.table.querySelectorAll('.editable-cell[data-row-index][data-col-index]').forEach((cell) => {
+    const { row, col } = cellPosition(cell);
+    cell.classList.toggle('selected-cell', row >= minRow && row <= maxRow && col >= minCol && col <= maxCol);
+  });
+}
+
+function selectedCellMatrix() {
+  const cells = [...document.querySelectorAll('.editable-cell.selected-cell[data-row-index][data-col-index]')];
+  if (!cells.length) return [];
+  const rows = new Map();
+  for (const cell of cells) {
+    const { row, col } = cellPosition(cell);
+    if (!rows.has(row)) rows.set(row, new Map());
+    rows.get(row).set(col, cell.dataset.copyValue || cell.textContent.trim());
+  }
+  return [...rows.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, cols]) => [...cols.entries()].sort(([a], [b]) => a - b).map(([, value]) => value));
+}
+
+async function copySelectedCellsToClipboard(matrix = selectedCellMatrix(), options = {}) {
+  if (!matrix.length) return false;
+  const text = matrix.map((row) => row.join('\t')).join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    if (!options.quiet) toast('已复制选区');
+    return true;
+  } catch {
+    const copied = fallbackCopyText(text);
+    if (!options.quiet) toast(copied ? '已复制选区' : '浏览器暂不允许写入剪贴板。');
+    return copied;
+  }
+}
+
+function fallbackCopyText(text) {
+  const input = h('textarea', { class: 'clipboard-fallback', readonly: 'readonly' }, text);
+  document.body.append(input);
+  input.select();
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } catch {
+    copied = false;
+  }
+  input.remove();
+  return copied;
+}
+
+function hideCellCopyToolbar() {
+  document.querySelector('.cell-copy-toolbar')?.remove();
+}
+
+function showCellCopyToolbar() {
+  hideCellCopyToolbar();
+  const cells = [...document.querySelectorAll('.editable-cell.selected-cell')];
+  if (!cells.length) return;
+  const bounds = cells.reduce((rect, cell) => {
+    const next = cell.getBoundingClientRect();
+    if (!rect) return { left: next.left, top: next.top, right: next.right, bottom: next.bottom };
+    return {
+      left: Math.min(rect.left, next.left),
+      top: Math.min(rect.top, next.top),
+      right: Math.max(rect.right, next.right),
+      bottom: Math.max(rect.bottom, next.bottom)
+    };
+  }, null);
+  const toolbar = h('div', {
+    class: 'cell-copy-toolbar',
+    style: `left:${Math.max(8, bounds.right - 112)}px; top:${bounds.bottom + 8}px`
+  }, [
+    h('button', { class: 'secondary', text: '复制成图片', onclick: copySelectedCellsAsImage })
+  ]);
+  document.body.append(toolbar);
+}
+
+async function copySelectedCellsAsImage() {
+  const matrix = selectedCellMatrix();
+  if (!matrix.length) return toast('先选择要复制的单元格。');
+  try {
+    const blob = await selectedCellsImageBlob(matrix);
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    toast('已复制为图片');
+  } catch {
+    toast('当前浏览器不支持复制图片到剪贴板。');
+  }
+}
+
+function selectedCellsImageBlob(matrix) {
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  const cellWidth = 150;
+  const cellHeight = 34;
+  const padding = 10;
+  canvas.width = Math.max(1, matrix[0].length) * cellWidth + padding * 2;
+  canvas.height = matrix.length * cellHeight + padding * 2;
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = '#dbe2ea';
+  context.fillStyle = '#253044';
+  context.font = '13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  context.textBaseline = 'middle';
+  matrix.forEach((row, rowIndex) => {
+    row.forEach((value, colIndex) => {
+      const x = padding + colIndex * cellWidth;
+      const y = padding + rowIndex * cellHeight;
+      context.strokeRect(x, y, cellWidth, cellHeight);
+      context.fillText(String(value || '').slice(0, 24), x + 8, y + cellHeight / 2);
+    });
+  });
+  return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('图片生成失败')), 'image/png'));
 }
 
 function setFieldSort(entity, fieldId, direction, listConfig) {
@@ -1970,7 +2632,7 @@ function startColumnResize(event, entity, field, nextField, listConfig, header) 
   window.addEventListener('pointerup', onUp);
 }
 
-function renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, selectedIds = new Set(), syncSelection = () => {}, updateSelectionLabel = () => {}) {
+function renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, selectedIds = new Set(), syncSelection = () => {}, updateSelectionLabel = () => {}, rowIndex = rowNumber - 1) {
   return h('tr', { class: 'editable-row', title: '双击单元格编辑' }, [
     h('td', { class: 'select-cell' }, [
       h('input', {
@@ -1985,11 +2647,16 @@ function renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, s
       })
     ]),
     h('td', { class: 'index-cell', text: rowNumber }),
-    ...visibleFields.map((field) => {
+    ...visibleFields.map((field, colIndex) => {
       const cell = h('td', {
         class: 'editable-cell',
         style: columnWidthStyle(listConfig, field),
-        onclick: (event) => selectDataCell(event.currentTarget),
+        'data-row-index': rowIndex,
+        'data-col-index': colIndex,
+        'data-copy-value': formatFieldValue(record.data[field.id], field),
+        onpointerdown: (event) => startCellRangeSelection(event, event.currentTarget),
+        onpointerenter: (event) => extendCellRangeSelection(event.currentTarget),
+        onpointerup: finishCellRangeSelection,
         ondblclick: (event) => startCellEdit(event.currentTarget, entity, record, field)
       });
       cell.append(renderFieldValue(record.data[field.id], field));
@@ -2050,7 +2717,13 @@ function startCellEdit(cell, entity, record, field) {
   input.focus();
   if (input.select) input.select();
   let saved = false;
+  let composing = false;
+  let blurDuringComposition = false;
   const save = async () => {
+    if (composing) {
+      blurDuringComposition = true;
+      return;
+    }
     if (saved) return;
     saved = true;
     const nextValue = await valueFromInput(input, field);
@@ -2070,8 +2743,20 @@ function startCellEdit(cell, entity, record, field) {
       renderRuntime();
     }
   };
+  input.addEventListener('compositionstart', () => {
+    composing = true;
+    blurDuringComposition = false;
+  });
+  input.addEventListener('compositionend', () => {
+    composing = false;
+    if (blurDuringComposition && document.activeElement !== input) {
+      blurDuringComposition = false;
+      input.focus();
+    }
+  });
   input.addEventListener('blur', save);
   input.addEventListener('keydown', (event) => {
+    if (event.isComposing || composing || event.keyCode === 229) return;
     if (event.key === 'Enter' && field.type !== 'textarea' && field.type !== 'richText') input.blur();
     if (event.key === 'Escape') renderRuntime();
   });
@@ -2085,8 +2770,7 @@ function startCellEdit(cell, entity, record, field) {
 }
 
 function selectDataCell(cell) {
-  document.querySelectorAll('.editable-cell.selected-cell').forEach((item) => item.classList.remove('selected-cell'));
-  document.querySelectorAll('th.selected-column-header').forEach((item) => item.classList.remove('selected-column-header'));
+  clearActiveTableSelection();
   cell.classList.add('selected-cell');
 }
 
@@ -2609,8 +3293,12 @@ function renderAssistantDrawer() {
           h('h3', { text: 'AI Builder' }),
           h('p', { class: 'muted', text: creating ? 'Create Mode · 先规划，确认后创建' : `Modify Mode · 正在读取「${state.currentApp.name}」上下文` })
         ]),
-        h('button', { class: 'ghost icon-button', text: '×', title: '关闭 AI 助理', onclick: () => { state.assistantOpen = false; state.currentApp ? renderRuntime() : renderHome(); } })
+        h('div', { class: 'assistant-head-actions' }, [
+          !creating ? h('button', { class: 'secondary', text: '新会话', onclick: startNewAssistantSession }) : null,
+          h('button', { class: 'ghost icon-button', text: '×', title: '关闭 AI 助理', onclick: () => { state.assistantOpen = false; state.currentApp ? renderRuntime() : renderHome(); } })
+        ])
       ]),
+      renderAssistantHistoryBar(creating),
       h('div', { class: 'assistant-messages' }, state.aiChatMessages.map(renderAssistantMessage)),
       h('div', { class: 'assistant-input' }, [
         h('div', { class: 'assistant-quick' }, quickCommands.map((command) =>
@@ -2639,9 +3327,57 @@ function renderAssistantDrawer() {
   ]);
 }
 
+function renderAssistantHistoryBar(creating) {
+  if (creating) return null;
+  const sessions = state.assistantHistory || [];
+  if (state.assistantNewSessionContextKey === state.assistantContextKey) {
+    return h('div', { class: 'assistant-history-bar' }, [
+      h('span', { class: 'muted', text: '新会话中，历史会话已隐藏。' }),
+      sessions.length ? h('button', {
+        class: 'ghost',
+        text: '查看历史',
+        onclick: () => {
+          state.assistantNewSessionContextKey = '';
+          loadAssistantSession(sessions[0].id);
+        }
+      }) : null
+    ]);
+  }
+  return h('div', { class: 'assistant-history-bar' }, [
+    h('span', { class: 'muted', text: state.assistantHistoryLoading ? '正在加载历史会话...' : `历史会话 ${sessions.length}` }),
+    sessions.length ? h('select', {
+      class: 'assistant-history-select',
+      onchange: (event) => loadAssistantSession(event.currentTarget.value)
+    }, sessions.map((session) => h('option', {
+      value: session.id,
+      selected: state.aiSession?.id === session.id ? 'selected' : null,
+      text: assistantSessionLabel(session)
+    }))) : h('span', { class: 'muted', text: '暂无历史' })
+  ]);
+}
+
+function assistantSessionLabel(session) {
+  const statusMap = {
+    understanding: '理解中',
+    clarifying: '待补充',
+    planning: '规划中',
+    waiting_confirmation: '待确认',
+    executing: '执行中',
+    completed: '已完成',
+    failed: '失败',
+    cancelled: '已取消'
+  };
+  const time = session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '历史';
+  const preview = String(session.preview || '').replace(/\s+/g, ' ').slice(0, 18);
+  return `${time} · ${statusMap[session.status] || session.status || '会话'}${preview ? ` · ${preview}` : ''}`;
+}
+
 function ensureAssistantConversation() {
   const contextKey = state.currentApp ? `modify:${state.currentApp.id}` : 'create';
-  if (state.assistantContextKey === contextKey && state.aiChatMessages.length) return;
+  if (state.assistantContextKey === contextKey && state.aiChatMessages.length) {
+    if (state.currentApp && state.assistantHistoryContextKey !== contextKey && !state.assistantHistoryLoading) loadAssistantHistory(contextKey);
+    return;
+  }
   state.assistantContextKey = contextKey;
   state.aiSession = null;
   state.aiPlan = null;
@@ -2650,6 +3386,102 @@ function ensureAssistantConversation() {
   state.aiIntent = '';
   state.assistantDraft = '';
   state.aiChatMessages = [assistantIntroMessage()];
+  if (state.currentApp) loadAssistantHistory(contextKey);
+}
+
+async function loadAssistantHistory(contextKey = state.assistantContextKey) {
+  if (!state.currentApp || state.assistantHistoryLoading) return;
+  state.assistantHistoryLoading = true;
+  try {
+    const body = await api(`/api/ai/sessions?appId=${encodeURIComponent(state.currentApp.id)}`);
+    if (state.assistantContextKey !== contextKey) return;
+    state.assistantHistory = body.sessions || [];
+    state.assistantHistoryContextKey = contextKey;
+    const shouldRestoreLatest = state.assistantNewSessionContextKey !== contextKey && !state.aiSession && state.assistantHistory.length;
+    if (shouldRestoreLatest) {
+      await loadAssistantSession(state.assistantHistory[0].id, { keepHistory: true });
+      return;
+    }
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    state.assistantHistoryLoading = false;
+    if (state.assistantOpen) renderRuntime();
+  }
+}
+
+async function loadAssistantSession(sessionId, { keepHistory = false } = {}) {
+  if (!sessionId || sessionId === state.aiSession?.id) return;
+  try {
+    const body = await api(`/api/ai/sessions/${sessionId}`);
+    const session = body.session;
+    if (state.currentApp && session.appId !== state.currentApp.id) return toast('这个 AI 会话不属于当前应用。');
+    state.assistantNewSessionContextKey = '';
+    state.aiSession = session;
+    state.aiPlan = session.currentPlan || null;
+    state.aiLocalPlan = null;
+    state.aiClarification = structuredClarificationFromSession(session);
+    state.aiIntent = '';
+    state.assistantDraft = '';
+    state.aiChatMessages = assistantMessagesFromSession(session);
+    if (!keepHistory) state.assistantHistory = state.assistantHistory.map((item) => (item.id === session.id ? { ...item, status: session.status, updatedAt: session.updatedAt } : item));
+    renderRuntime();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function startNewAssistantSession() {
+  const contextKey = state.currentApp ? `modify:${state.currentApp.id}` : 'create';
+  state.assistantNewSessionContextKey = contextKey;
+  state.aiSession = null;
+  state.aiPlan = null;
+  state.aiLocalPlan = null;
+  state.aiClarification = null;
+  state.aiIntent = '';
+  state.assistantDraft = '';
+  state.aiChatMessages = [assistantIntroMessage()];
+  renderRuntime();
+}
+
+function assistantMessagesFromSession(session) {
+  const messages = (session.messages || []).map((message) => {
+    if (message.role === 'user') return { role: 'user', text: message.content };
+    const structured = message.structuredContent;
+    if (structured?.type === 'clarification') {
+      return {
+        role: 'assistant',
+        title: `需要确认 ${structured.questions?.length || 1} 个问题`,
+        text: message.content,
+        clarification: {
+          questions: structured.questions || [],
+          guidance: structured.guidance || '信息还不够，我不会直接执行。'
+        }
+      };
+    }
+    if (structured?.type === 'app_creation_plan' || structured?.type === 'app_modification_plan') {
+      return {
+        role: 'assistant',
+        title: structured.type === 'app_creation_plan' ? '应用创建方案' : 'Schema Diff 修改预览',
+        plan: structured
+      };
+    }
+    return { role: 'assistant', text: message.content };
+  });
+  if (!messages.length) messages.push(assistantIntroMessage());
+  if (session.logs?.length) {
+    messages.push({ role: 'assistant', title: '历史执行进度', logs: session.logs, type: 'progress' });
+  }
+  return messages;
+}
+
+function structuredClarificationFromSession(session) {
+  const message = (session.messages || []).find((item) => item.structuredContent?.type === 'clarification');
+  if (!message) return null;
+  return {
+    questions: message.structuredContent.questions || [],
+    guidance: message.structuredContent.guidance || message.content || ''
+  };
 }
 
 function assistantIntroMessage() {
@@ -3860,11 +4692,27 @@ window.addEventListener('popstate', () => {
 });
 
 document.addEventListener('click', (event) => {
-  if (!event.target.closest('details.card-menu, details.view-menu, details.export-menu')) closeFloatingMenus();
+  const target = event.target;
+  if (!target.closest?.('details.card-menu, details.view-menu, details.export-menu, details.page-menu')) closeFloatingMenus();
+});
+
+document.addEventListener('pointerdown', (event) => {
+  if (clickedOutsideTableSelection(event.target)) clearActiveTableSelection();
+}, true);
+
+document.addEventListener('pointerup', finishCellRangeSelection);
+document.addEventListener('pointermove', moveCellRangeSelection);
+
+document.addEventListener('copy', (event) => {
+  const matrix = selectedCellMatrix();
+  if (!matrix.length) return;
+  event.preventDefault();
+  event.clipboardData.setData('text/plain', matrix.map((row) => row.join('\t')).join('\n'));
+  toast('已复制选区');
 });
 
 document.addEventListener('focusin', (event) => {
-  const currentMenu = event.target.closest?.('details.card-menu, details.view-menu, details.export-menu');
+  const currentMenu = event.target.closest?.('details.card-menu, details.view-menu, details.export-menu, details.page-menu');
   if (!currentMenu) closeFloatingMenus();
 });
 

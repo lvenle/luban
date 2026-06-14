@@ -1,3 +1,5 @@
+import { inflateRawSync } from 'node:zlib';
+
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
@@ -100,6 +102,11 @@ export function createZip(files) {
 }
 
 export function readZip(buffer) {
+  const entries = readZipEntries(buffer);
+  return Object.fromEntries(Object.entries(entries).map(([name, data]) => [name, textDecoder.decode(data)]));
+}
+
+export function readZipEntries(buffer) {
   const bytes = new Uint8Array(buffer);
   const files = {};
   let offset = 0;
@@ -108,7 +115,6 @@ export function readZip(buffer) {
     const sig = view.getUint32(0, true);
     if (sig !== 0x04034b50) break;
     const compression = view.getUint16(8, true);
-    if (compression !== 0) throw new Error('只支持未压缩的 .sgpkg zip 文件。');
     const compressedSize = view.getUint32(18, true);
     const nameLength = view.getUint16(26, true);
     const extraLength = view.getUint16(28, true);
@@ -116,7 +122,13 @@ export function readZip(buffer) {
     const dataStart = nameStart + nameLength + extraLength;
     const name = textDecoder.decode(bytes.slice(nameStart, nameStart + nameLength));
     const data = bytes.slice(dataStart, dataStart + compressedSize);
-    files[name] = textDecoder.decode(data);
+    if (compression === 0) {
+      files[name] = data;
+    } else if (compression === 8) {
+      files[name] = new Uint8Array(inflateRawSync(data));
+    } else {
+      throw new Error('不支持这个 zip 压缩格式。');
+    }
     offset = dataStart + compressedSize;
   }
   return files;

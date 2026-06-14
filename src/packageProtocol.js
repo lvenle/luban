@@ -305,7 +305,11 @@ export function validatePackage(pkg) {
   }
   const hasList = (pkg?.ui?.pages || []).some((page) => page.type === 'list');
   if (!hasList) errors.push('ui.pages 至少需要一个 list 页面。');
+  const pageIds = new Set();
   for (const page of pkg?.ui?.pages || []) {
+    if (!page.id) errors.push('页面存在缺少 id 的配置。');
+    if (pageIds.has(page.id)) errors.push(`页面 ID 重复：${page.id}`);
+    pageIds.add(page.id);
     if (!PAGE_TYPES.has(page.type)) errors.push(`页面 ${page.id} 类型不支持：${page.type}`);
     if (page.entity && !entityIds.has(page.entity)) errors.push(`页面 ${page.id} 引用了不存在的实体：${page.entity}`);
   }

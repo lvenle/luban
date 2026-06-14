@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyPatch, preparePackage } from '../src/packageProtocol.js';
+import { generatePlanFromPrompt, planToPackage } from '../src/ai.js';
 import { createBudgetPackage } from '../src/samplePackages.js';
 import { packageToZipPayload, zipPayloadToPackage } from '../src/zip.js';
 
@@ -28,6 +29,41 @@ test('applies patch and keeps package valid', () => {
   });
   assert.ok(next.schema.entities[0].fields.some((field) => field.id === 'travel_budget'));
   assert.ok(next.prompts.suggestedCommands.includes('查看旅游预算'));
+});
+
+test('rejects duplicate page ids', () => {
+  const pkg = createBudgetPackage();
+  pkg.ui.pages.push({ ...pkg.ui.pages[0] });
+  assert.throws(() => preparePackage(pkg), /页面 ID 重复/);
+});
+
+test('converts multiple views for one table into unique pages', () => {
+  const pkg = planToPackage({
+    type: 'app_creation_plan',
+    appName: '客户工具',
+    tables: [
+      {
+        tempId: 'customer',
+        name: '客户',
+        fields: [{ tempId: 'name', name: '名称', type: 'text' }]
+      }
+    ],
+    relations: [],
+    views: [
+      { tableTempId: 'customer', name: '客户列表', type: 'grid' },
+      { tableTempId: 'customer', name: '重点客户列表', type: 'grid' }
+    ]
+  });
+  assert.equal(pkg.ui.pages.length, 2);
+  assert.equal(new Set(pkg.ui.pages.map((page) => page.id)).size, 2);
+  assert.ok(pkg.ui.pages.every((page) => page.entity === 'customer'));
+});
+
+test('mock AI modification can add a page for an existing table', async () => {
+  const pkg = preparePackage(createBudgetPackage());
+  const plan = await generatePlanFromPrompt('给交易表新增一个旅游统计页面', {}, pkg);
+  assert.equal(plan.type, 'app_modification_plan');
+  assert.ok(plan.operations.some((operation) => operation.op === 'addPage' && operation.page?.entity === 'transaction'));
 });
 
 test('exports and imports .sgpkg zip payload', () => {

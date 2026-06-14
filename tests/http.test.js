@@ -61,6 +61,23 @@ test('HTTP API creates, runs, modifies, exports, and imports an app', async () =
     const selectedXlsx = await fetch(`${base}/api/apps/${created.appId}/export.xlsx?entity=transaction&ids=${record.record.id}`);
     assert.equal(selectedXlsx.status, 200);
     assert.equal(selectedXlsx.headers.get('content-type'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const selectedXlsxBytes = await selectedXlsx.arrayBuffer();
+
+    const csvImport = await fetch(`${base}/api/apps/${created.appId}/tables/transaction/import?name=transactions.csv`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/csv' },
+      body: '类型,金额,分类,日期,备注\n收入,2200,工资,2026-06-11,CSV导入'
+    }).then((res) => res.json());
+    assert.equal(csvImport.importedCount, 1);
+
+    const xlsxImport = await fetch(`${base}/api/apps/${created.appId}/tables/transaction/import?name=transactions.xlsx`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+      body: selectedXlsxBytes
+    }).then((res) => res.json());
+    assert.equal(xlsxImport.importedCount, 1);
+    const importedRecords = await getJson(`${base}/api/apps/${created.appId}/records?entity=transaction`);
+    assert.equal(importedRecords.records.length, 3);
 
     const modified = await post(`${base}/api/apps/${created.appId}/modify`, { prompt: '增加旅游预算功能' });
     assert.ok(modified.app.schema.entities[0].fields.some((field) => field.id === 'travel_budget'));
@@ -121,10 +138,37 @@ test('HTTP API supports V2 tables, relation fields, colored options, and confirm
     const records = await getJson(`${base}/api/apps/${appId}/records?entity=${productEntity.id}`);
     assert.equal(records.records[0].data[relation.id][0].displayValue, '手机');
 
+    const blockedTableDelete = await fetch(`${base}/api/apps/${appId}/tables/${categoryEntity.id}`, { method: 'DELETE' });
+    assert.equal(blockedTableDelete.status, 409);
+    const blockedTableBody = await blockedTableDelete.json();
+    assert.equal(blockedTableBody.details.references[0].sourceEntityId, productEntity.id);
+    assert.equal(blockedTableBody.details.references[0].fieldId, relation.id);
+
+    const blockedTableClear = await fetch(`${base}/api/apps/${appId}/tables/${categoryEntity.id}/records`, { method: 'DELETE' });
+    assert.equal(blockedTableClear.status, 409);
+    const blockedClearBody = await blockedTableClear.json();
+    assert.equal(blockedClearBody.details.references[0].sourceEntityId, productEntity.id);
+    assert.equal(blockedClearBody.details.references[0].fieldId, relation.id);
+
     const blockedDelete = await fetch(`${base}/api/apps/${appId}/records/${category.record.id}`, { method: 'DELETE' });
     assert.equal(blockedDelete.status, 409);
     const forcedDelete = await fetch(`${base}/api/apps/${appId}/records/${category.record.id}?force=true`, { method: 'DELETE' });
     assert.equal(forcedDelete.status, 200);
+
+    await post(`${base}/api/apps/${appId}/records`, {
+      entityId: categoryEntity.id,
+      data: { name: '电脑' }
+    });
+    const clearedTable = await fetch(`${base}/api/apps/${appId}/tables/${categoryEntity.id}/records`, { method: 'DELETE' }).then((res) => res.json());
+    assert.equal(clearedTable.deletedCount, 1);
+    const clearedRecords = await getJson(`${base}/api/apps/${appId}/records?entity=${categoryEntity.id}`);
+    assert.equal(clearedRecords.records.length, 0);
+    const appAfterClear = await getJson(`${base}/api/apps/${appId}`);
+    assert.ok(appAfterClear.app.schema.entities.some((entity) => entity.id === categoryEntity.id));
+
+    const deletedTable = await fetch(`${base}/api/apps/${appId}/tables/${categoryEntity.id}`, { method: 'DELETE' }).then((res) => res.json());
+    assert.ok(!deletedTable.app.schema.entities.some((entity) => entity.id === categoryEntity.id));
+    assert.ok(!deletedTable.app.schema.entities.some((entity) => entity.fields.some((field) => field.type === 'relation' && field.targetEntity === categoryEntity.id)));
 
     const beforePlan = await getJson(`${base}/api/apps`);
     const planned = await post(`${base}/api/ai/plan`, { prompt: '帮我创建一个商品管理系统，包括商品、分类、供应商、库存流水' });
@@ -137,6 +181,16 @@ test('HTTP API supports V2 tables, relation fields, colored options, and confirm
     assert.equal(executed.session.status, 'completed');
     assert.ok(executed.app.schema.entities.length >= 3);
     assert.ok(executed.app.schema.entities.some((entity) => entity.fields.some((field) => field.type === 'relation')));
+
+    const history = await getJson(`${base}/api/ai/sessions?appId=${executed.appId}`);
+    assert.ok(history.sessions.some((session) => session.id === planned.session.id));
+    assert.ok(history.sessions[0].messageCount >= 2);
+
+    const historical = await getJson(`${base}/api/ai/sessions/${planned.session.id}`);
+    assert.equal(historical.session.id, planned.session.id);
+    assert.equal(historical.session.appId, executed.appId);
+    assert.ok(historical.session.messages.some((message) => message.role === 'user'));
+    assert.ok(historical.session.logs.length >= 1);
   });
 });
 

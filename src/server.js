@@ -15,6 +15,7 @@ import {
   getApp,
   getDb,
   getPackageFromApp,
+  listAiSessions,
   getRecordRelations,
   getSetting,
   importAppPayload,
@@ -35,6 +36,7 @@ import { normalizeFieldId } from './ids.js';
 import { runAction, toCsv } from './actions.js';
 import { packageToZipPayload, zipPayloadToPackage } from './zip.js';
 import { recordsToXlsx } from './xlsx.js';
+import { importRowsFromFile } from './importData.js';
 
 const PORT = Number(process.env.PORT || 5173);
 const PUBLIC_DIR = join(process.cwd(), 'public');
@@ -168,7 +170,7 @@ async function handleApi(req, res, url) {
     }
 
     if (parts[3] === 'tables') {
-      await handleTablesApi(req, res, method, parts, app);
+      await handleTablesApi(req, res, method, parts, app, url);
       return;
     }
 
@@ -274,6 +276,19 @@ async function handleApi(req, res, url) {
 }
 
 async function handleAiApi(req, res, method, parts) {
+  if (method === 'GET' && parts.length === 3 && parts[2] === 'sessions') {
+    const appId = new URL(req.url, `http://${req.headers.host}`).searchParams.get('appId') || null;
+    sendJson(res, 200, { sessions: listAiSessions({ appId }) });
+    return;
+  }
+
+  if (method === 'GET' && parts[2] === 'sessions' && parts[3] && parts.length === 4) {
+    const session = getAiSession(parts[3]);
+    if (!session) throw notFound('找不到 AI 会话。');
+    sendJson(res, 200, { session });
+    return;
+  }
+
   if (method === 'POST' && parts.length === 3 && parts[2] === 'plan') {
     const body = await readJson(req);
     const app = body.appId ? getApp(body.appId) : null;
@@ -405,7 +420,7 @@ function executeAiPlan(session) {
   }
 }
 
-async function handleTablesApi(req, res, method, parts, app) {
+async function handleTablesApi(req, res, method, parts, app, url) {
   if (method === 'GET' && parts.length === 4) {
     sendJson(res, 200, { tables: app.schema.entities });
     return;
@@ -417,6 +432,18 @@ async function handleTablesApi(req, res, method, parts, app) {
   }
   const entityId = parts[4];
   if (!entityId) throw notFound('表 API 不存在。');
+  if (parts[5] === 'records') {
+    if (method === 'DELETE') {
+      sendJson(res, 200, clearTableRecordsInApp(app, entityId));
+      return;
+    }
+    throw notFound('表数据 API 不存在。');
+  }
+  if (parts[5] === 'import' && method === 'POST') {
+    const fileName = decodeURIComponent(url.searchParams.get('name') || req.headers['x-file-name'] || 'import.csv');
+    sendJson(res, 200, await importTableRecordsInApp(req, app, entityId, fileName));
+    return;
+  }
   if (method === 'PATCH') {
     const body = await readJson(req);
     sendJson(res, 200, { app: updateTableInApp(app, entityId, body) });
@@ -453,7 +480,7 @@ function createTableInApp(app, body = {}) {
     description: body.description || '',
     fields: [{ id: 'name', label: '名称', type: 'text', required: true }]
   });
-  pkg.ui.pages.push({ id: `${entityId}-list`, title: `${name}列表`, type: 'list', entity: entityId, features: ['create', 'edit', 'delete', 'search', 'export'] });
+  pkg.ui.pages.push({ id: `${entityId}-list`, title: `${name}列表`, type: 'list', entity: entityId, navKind: 'table', features: ['create', 'edit', 'delete', 'search', 'export'] });
   return updateAppPackage(app.id, pkg);
 }
 
@@ -468,20 +495,75 @@ function updateTableInApp(app, entityId, body = {}) {
 }
 
 function deleteTableInApp(app, entityId) {
-  const references = app.schema.entities.flatMap((entity) =>
-    (entity.fields || []).filter((field) => field.type === 'relation' && field.targetEntity === entityId).map((field) => `${entity.name}.${field.label}`)
-  );
+  const entity = app.schema.entities.find((item) => item.id === entityId);
+  if (!entity) throw notFound('找不到表。');
+  if ((app.schema.entities || []).length <= 1) throw badRequest('至少保留一张表。');
+  const references = listActualTableReferences(app, entityId);
   if (references.length) {
-    const error = new Error(`当前表被关联字段引用：${references.join('、')}`);
+    const labels = references.map((reference) => `${reference.sourceEntityName}.${reference.fieldLabel}`);
+    const error = new Error(`当前表的数据正在被其他表引用：${labels.join('、')}`);
     error.status = 409;
     error.details = { references };
     throw error;
   }
   const pkg = getPackageFromApp(app);
   pkg.schema.entities = pkg.schema.entities.filter((entity) => entity.id !== entityId);
+  for (const sourceEntity of pkg.schema.entities) {
+    sourceEntity.fields = (sourceEntity.fields || []).filter((field) => !(field.type === 'relation' && field.targetEntity === entityId));
+  }
   pkg.ui.pages = pkg.ui.pages.filter((page) => page.entity !== entityId);
+  getDb().prepare('DELETE FROM record_relations WHERE appId = ? AND (sourceEntityId = ? OR targetEntityId = ?)').run(app.id, entityId, entityId);
   getDb().prepare('DELETE FROM records WHERE appId = ? AND entityId = ?').run(app.id, entityId);
   return updateAppPackage(app.id, pkg);
+}
+
+function clearTableRecordsInApp(app, entityId) {
+  const entity = app.schema.entities.find((item) => item.id === entityId);
+  if (!entity) throw notFound('找不到表。');
+  const references = listActualTableReferences(app, entityId);
+  if (references.length) {
+    const labels = references.map((reference) => `${reference.sourceEntityName}.${reference.fieldLabel}`);
+    const error = new Error(`当前表的数据正在被其他表引用：${labels.join('、')}`);
+    error.status = 409;
+    error.details = { references };
+    throw error;
+  }
+  const database = getDb();
+  database.prepare('DELETE FROM record_relations WHERE appId = ? AND (sourceEntityId = ? OR targetEntityId = ?)').run(app.id, entityId, entityId);
+  const deleted = database.prepare('DELETE FROM records WHERE appId = ? AND entityId = ?').run(app.id, entityId);
+  return { ok: true, deletedCount: deleted.changes };
+}
+
+async function importTableRecordsInApp(req, app, entityId, fileName) {
+  const entity = app.schema.entities.find((item) => item.id === entityId);
+  if (!entity) throw notFound('找不到表。');
+  const buffer = await readBuffer(req);
+  if (!buffer.length) throw badRequest('导入文件不能为空。');
+  const rows = importRowsFromFile(buffer, entity, fileName);
+  if (!rows.length) throw badRequest('没有找到可导入的数据。请确认第一行是表头，且表头与字段名一致。');
+  const records = rows.map((data) => createRecord(app.id, entityId, data));
+  return { ok: true, importedCount: records.length, recordIds: records.map((record) => record.id) };
+}
+
+function listActualTableReferences(app, entityId) {
+  const rows = getDb().prepare(`
+    SELECT sourceEntityId, fieldId, COUNT(*) AS count
+    FROM record_relations
+    WHERE appId = ? AND targetEntityId = ? AND sourceEntityId <> ?
+    GROUP BY sourceEntityId, fieldId
+    ORDER BY count DESC
+  `).all(app.id, entityId, entityId);
+  return rows.map((row) => {
+    const sourceEntity = app.schema.entities.find((item) => item.id === row.sourceEntityId);
+    const field = sourceEntity?.fields?.find((item) => item.id === row.fieldId);
+    return {
+      sourceEntityId: row.sourceEntityId,
+      sourceEntityName: sourceEntity?.name || row.sourceEntityId,
+      fieldId: row.fieldId,
+      fieldLabel: field?.label || row.fieldId,
+      count: row.count
+    };
+  });
 }
 
 function createFieldInApp(app, entityId, field = {}) {

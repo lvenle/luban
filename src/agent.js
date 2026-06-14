@@ -1,6 +1,7 @@
 const INTENTS = [
   'CreateApp',
   'CreateTable',
+  'CreatePage',
   'AddField',
   'CreateRelation',
   'ModifySchema',
@@ -32,6 +33,9 @@ export function buildPlanningPrompt(prompt, { app = null, session = null, intent
   return JSON.stringify({
     request: String(prompt || '').trim(),
     intent,
+    guidance: app
+      ? '修改已有应用时，如果用户要为已有表创建列表、图表、看板或编辑入口，请使用 addPage 操作；允许多个页面引用同一张表。'
+      : '创建应用时，views 可以包含多个引用同一张表的页面，页面名称必须彼此区分。',
     context: context || buildAgentContext({ app, session }),
     recentMessages
   });
@@ -62,6 +66,7 @@ function mergeConversationText(text, session) {
 function detectIntent(text, app) {
   const normalized = String(text || '').toLowerCase();
   if (/删除|移除/.test(normalized) && /表|字段|关系|关联/.test(normalized)) return 'DeleteSchema';
+  if (/页面|入口|看板|图表|列表页|统计页/.test(normalized) && /创建|新增|增加|添加|生成/.test(normalized) && app) return 'CreatePage';
   if (/关联|关系/.test(normalized) && /创建|新增|增加|建立/.test(normalized)) return 'CreateRelation';
   if (/字段|列/.test(normalized) && /创建|新增|增加|添加/.test(normalized)) return 'AddField';
   if (/表/.test(normalized) && /创建|新增|增加|添加/.test(normalized)) return app ? 'CreateTable' : 'CreateApp';
@@ -114,8 +119,11 @@ function clarifyRequest({ intent, text, app, context }) {
   if (intent === 'CreateApp' && !/记录|管理|跟踪|统计|流程|审批|生成|导出|看板|提醒/.test(normalized)) {
     questions.push('你希望它至少完成哪 2-3 个核心工作流？');
   }
-  if (['CreateTable', 'AddField', 'CreateRelation', 'ModifySchema', 'DeleteSchema'].includes(intent) && !app) {
+  if (['CreateTable', 'CreatePage', 'AddField', 'CreateRelation', 'ModifySchema', 'DeleteSchema'].includes(intent) && !app) {
     questions.push('你想修改哪个已有软件？请先打开一个软件后再让 AI 调整结构。');
+  }
+  if (intent === 'CreatePage' && app && context.app?.tableCount > 1 && !mentionsTable) {
+    questions.push('这个新页面要绑定哪张表？');
   }
   if (intent === 'AddField' && app && !mentionsTable && context.app?.tableCount > 1) {
     questions.push('这个字段要加到哪张表？');

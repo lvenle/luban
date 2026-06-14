@@ -456,6 +456,35 @@ export function getAiSession(id) {
   };
 }
 
+export function listAiSessions({ appId = null, limit = 20 } = {}) {
+  const database = getDb();
+  const rows = appId
+    ? database
+        .prepare('SELECT * FROM ai_sessions WHERE appId = ? ORDER BY updatedAt DESC LIMIT ?')
+        .all(appId, limit)
+    : database
+        .prepare('SELECT * FROM ai_sessions WHERE appId IS NULL ORDER BY updatedAt DESC LIMIT ?')
+        .all(limit);
+  return rows.map((row) => {
+    const message = database
+      .prepare('SELECT content FROM ai_messages WHERE sessionId = ? ORDER BY createdAt DESC LIMIT 1')
+      .get(row.id);
+    const messageCount = database
+      .prepare('SELECT COUNT(*) AS count FROM ai_messages WHERE sessionId = ?')
+      .get(row.id)?.count || 0;
+    return {
+      id: row.id,
+      appId: row.appId,
+      status: row.status,
+      currentPlan: row.currentPlanJson ? JSON.parse(row.currentPlanJson) : null,
+      messageCount,
+      preview: message?.content || '',
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt
+    };
+  });
+}
+
 export function updateAiSession(id, patch = {}) {
   const existing = getAiSession(id);
   if (!existing) throw notFoundError('找不到 AI 会话。');

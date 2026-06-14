@@ -27,7 +27,7 @@ export async function generatePatchFromPrompt(prompt, currentPackage, settings =
       {
         role: 'system',
         content:
-          '你是 Software Garden 的软件进化助手。只输出 Patch JSON，顶层包含 summary 和 operations。operations 只能使用支持的 Patch 操作。'
+          '你是 Software Garden 的软件进化助手。只输出 Patch JSON，顶层包含 summary 和 operations。支持操作：addEntity、updateEntity、removeEntity、addField、updateField、removeField、addPage、updatePage、removePage、addAction、updateAction、removeAction。用户要求为已有表创建列表页、统计图表、看板或编辑入口时，使用 addPage；允许多个页面引用同一个 entity。'
       },
       { role: 'user', content: JSON.stringify({ currentPackage, request: prompt }) }
     ]);
@@ -61,7 +61,7 @@ export async function generatePlanFromPrompt(prompt, settings = {}, currentPacka
       {
         role: 'system',
         content:
-          '你是 Software Garden V2 的多维表规划助手。只输出 JSON plan。创建应用时 type=app_creation_plan，包含 appName、description、tables、relations、views。字段类型只用 text、textarea、number、date、datetime、boolean、select、multiSelect、relation；select/multiSelect options 必须包含 id、label、color。不要执行，只规划。'
+          '你是 Software Garden V2 的多维表规划助手。只输出 JSON plan。创建应用时 type=app_creation_plan，包含 appName、description、tables、relations、views。views 可以包含多个页面，且允许多个页面引用同一张表；view.type 可用 grid/list、chart、dashboard、editor。字段类型只用 text、textarea、number、date、datetime、boolean、select、multiSelect、relation；select/multiSelect options 必须包含 id、label、color。不要执行，只规划。'
       },
       { role: 'user', content: prompt }
     ]);
@@ -107,6 +107,8 @@ export function planToPackage(plan) {
     });
   }
   const firstEntity = entities[0]?.id;
+  const usedPageIds = new Set();
+  const views = plan.views?.length ? plan.views : entities.map((entity) => ({ tableTempId: entity.id, name: `${entity.name}列表`, type: 'grid' }));
   return preparePackage({
     manifest: {
       packageVersion: '2.0',
@@ -121,17 +123,53 @@ export function planToPackage(plan) {
     schema: { entities },
     ui: {
       home: { layout: 'dashboard', cards: firstEntity ? [{ type: 'stat', title: '记录总数', entity: firstEntity, operation: 'count' }] : [] },
-      pages: (plan.views?.length ? plan.views : entities.map((entity) => ({ tableTempId: entity.id, name: `${entity.name}列表`, type: 'grid' }))).map((view) => ({
-        id: `${normalizeFieldId(view.tableTempId, 'table')}-list`,
-        title: view.name || '全部记录',
-        type: 'list',
-        entity: normalizeFieldId(view.tableTempId, 'table'),
-        features: ['create', 'edit', 'delete', 'search', 'export']
-      }))
+      pages: views.map((view) => planViewToPage(view, entities, usedPageIds))
     },
     actions: { actions: [{ id: 'export_records', name: '导出数据', type: 'export.csv', input: { records: firstEntity } }] },
     prompts: { systemPrompt: `你是${plan.appName}助手。`, suggestedCommands: ['总结当前视图', '设计当前表单'] }
   });
+}
+
+function planViewToPage(view, entities, usedPageIds) {
+  const entityId = normalizeFieldId(view.tableTempId || view.entity || view.entityId, 'table');
+  const entity = entities.find((item) => item.id === entityId) || entities[0];
+  const type = normalizePlanViewType(view.type);
+  const title = view.name || view.title || `${entity?.name || '记录'}${type === 'chart' ? '统计' : type === 'dashboard' ? '看板' : type === 'editor' ? '编辑' : '列表'}`;
+  const page = {
+    id: uniquePlanPageId(`${entityId}-${title}`, usedPageIds),
+    title,
+    type,
+    entity: entity?.id || entityId
+  };
+  if (type === 'list') {
+    page.features = ['create', 'edit', 'delete', 'search', 'export'];
+  }
+  if (type === 'chart') {
+    const groupField = entity?.fields?.find((field) => ['select', 'multiSelect', 'boolean', 'date'].includes(field.type)) || entity?.fields?.[0];
+    page.chart = { type: 'bar', groupBy: view.groupBy || groupField?.id || 'name', value: view.value || 'count' };
+  }
+  if (type === 'dashboard') {
+    page.cards = view.cards || [{ type: 'stat', title: `${entity?.name || '记录'}数量`, entity: entity?.id || entityId, operation: 'count' }];
+  }
+  return page;
+}
+
+function normalizePlanViewType(type) {
+  const value = String(type || '').toLowerCase();
+  if (value === 'chart' || value === 'dashboard' || value === 'editor') return value;
+  return 'list';
+}
+
+function uniquePlanPageId(input, usedPageIds) {
+  const base = normalizeFieldId(input, 'page').replaceAll('_', '-');
+  let candidate = base;
+  let index = 2;
+  while (usedPageIds.has(candidate)) {
+    candidate = `${base}-${index}`;
+    index += 1;
+  }
+  usedPageIds.add(candidate);
+  return candidate;
 }
 
 export function validateAiPlan(plan) {
@@ -367,6 +405,28 @@ function mockPatch(prompt, pkg) {
   }
   if (!entity) entity = firstEntity(pkg);
   const entityDef = pkg.schema.entities.find((item) => item.id === entity) || pkg.schema.entities[0];
+  if (/页面|入口|列表页|统计页|图表页|看板/.test(text) && /创建|新建|新增|增加|添加|生成/.test(text)) {
+    const pageType = /统计|图表/.test(text) ? 'chart' : /看板|仪表盘/.test(text) ? 'dashboard' : /编辑/.test(text) ? 'editor' : 'list';
+    const title = extractPageTitle(text, entityDef, pageType);
+    const page = {
+      id: uniqueMockPageId(pkg, entity, title),
+      title,
+      type: pageType,
+      entity
+    };
+    if (pageType === 'list') page.features = ['create', 'edit', 'delete', 'search', 'export'];
+    if (pageType === 'chart') {
+      const groupField = chooseGroupField(entityDef);
+      page.chart = { type: 'bar', groupBy: groupField.id, value: 'count' };
+    }
+    if (pageType === 'dashboard') {
+      page.cards = [{ type: 'stat', title: `${entityDef?.name || '记录'}数量`, entity, operation: 'count' }];
+    }
+    return {
+      summary: `增加${title}`,
+      operations: [{ op: 'addPage', page }]
+    };
+  }
   if (text.includes('旅游')) {
     return {
       summary: '增加旅游预算字段和统计页面',
@@ -567,6 +627,28 @@ function fallbackFieldId(label, type) {
   if (label.includes('负责人')) return 'owner';
   if (label.includes('备注')) return 'note';
   return `${type || 'text'}_field`;
+}
+
+function extractPageTitle(text, entityDef, pageType) {
+  const clean = String(text || '')
+    .replace(/帮我|请|给|为|新增|增加|添加|创建|新建|生成|一个|页面|入口/g, '')
+    .replace(/绑定|基于/g, '')
+    .replace(/[，。,.!！?？\s]+/g, '');
+  const suffix = pageType === 'chart' ? '统计' : pageType === 'dashboard' ? '看板' : pageType === 'editor' ? '编辑' : '列表';
+  const fallback = `${entityDef?.name || '记录'}${suffix}`;
+  return clean && clean.length <= 14 ? clean : fallback;
+}
+
+function uniqueMockPageId(pkg, entity, title) {
+  const used = new Set((pkg.ui?.pages || []).map((page) => page.id));
+  const base = normalizeFieldId(`${entity}_${title}`, 'page').replaceAll('_', '-');
+  let candidate = base;
+  let index = 2;
+  while (used.has(candidate)) {
+    candidate = `${base}-${index}`;
+    index += 1;
+  }
+  return candidate;
 }
 
 function chooseGroupField(entityDef) {
