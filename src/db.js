@@ -114,15 +114,6 @@ function migrate(database) {
 
     CREATE INDEX IF NOT EXISTS idx_ai_logs_session ON ai_execution_logs(sessionId);
 
-    CREATE TABLE IF NOT EXISTS conversations (
-      id TEXT PRIMARY KEY,
-      appId TEXT,
-      title TEXT,
-      messagesJson TEXT NOT NULL,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
-    );
-
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       valueJson TEXT NOT NULL,
@@ -165,7 +156,7 @@ function appToPackage(app) {
 }
 
 export function getPackageFromApp(app) {
-  return appToPackage(app);
+  return structuredClone(appToPackage(app));
 }
 
 export function uniqueSlug(baseSlug) {
@@ -263,9 +254,15 @@ export function deleteApp(id) {
 }
 
 export function listRecords(appId, options = {}) {
+  const conditions = ['appId = ?'];
+  const params = [appId];
+  if (options.entityId) {
+    conditions.push('entityId = ?');
+    params.push(options.entityId);
+  }
   const rows = getDb()
-    .prepare('SELECT * FROM records WHERE appId = ? ORDER BY createdAt ASC, rowid ASC')
-    .all(appId);
+    .prepare(`SELECT * FROM records WHERE ${conditions.join(' AND ')} ORDER BY createdAt ASC, rowid ASC`)
+    .all(...params);
   let records = rows.map((row) => ({
     id: row.id,
     appId: row.appId,
@@ -274,7 +271,6 @@ export function listRecords(appId, options = {}) {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   }));
-  if (options.entityId) records = records.filter((record) => record.entityId === options.entityId);
   if (options.q) {
     const q = String(options.q).toLowerCase();
     records = records.filter((record) => JSON.stringify(record.data).toLowerCase().includes(q));
@@ -284,6 +280,8 @@ export function listRecords(appId, options = {}) {
 
 export function createRecord(appId, entityId, data) {
   const app = getApp(appId);
+  if (!app) throw notFoundError('找不到应用。');
+  if (!app.schema.entities.some((entity) => entity.id === entityId)) throw validationError(`实体不存在：${entityId}`);
   const { data: cleanData, relations } = splitRelationData(app, entityId, data);
   const id = createId('rec');
   const createdAt = now();
@@ -313,13 +311,28 @@ export function updateRecord(recordId, data) {
   const app = getApp(existing.appId);
   const { data: cleanData, relations } = splitRelationData(app, existing.entityId, data);
   const nextJson = JSON.stringify(cleanData || {});
-  if (JSON.stringify(existing.data || {}) !== nextJson) {
+  const dataChanged = JSON.stringify(existing.data || {}) !== nextJson;
+  const relationsChanged = relationsChangedSince(recordId, relations);
+  if (!dataChanged && !relationsChanged) return existing;
+  if (dataChanged) {
     getDb()
       .prepare('UPDATE records SET dataJson = ?, updatedAt = ? WHERE id = ?')
       .run(nextJson, now(), recordId);
   }
-  setRecordRelationValues(existing.appId, existing.entityId, recordId, relations);
+  if (relationsChanged) {
+    setRecordRelationValues(existing.appId, existing.entityId, recordId, relations);
+  }
   return getRecord(recordId);
+}
+
+function relationsChangedSince(recordId, relations) {
+  const existingRows = getDb()
+    .prepare('SELECT fieldId, targetRecordId FROM record_relations WHERE sourceRecordId = ? ORDER BY sortOrder ASC')
+    .all(recordId);
+  const existing = existingRows.map((row) => `${row.fieldId}:${row.targetRecordId}`);
+  const incoming = relations.flatMap((r) => r.targetIds.map((targetId) => `${r.field.id}:${targetId}`));
+  if (existing.length !== incoming.length) return true;
+  return existing.some((key, index) => key !== incoming[index]);
 }
 
 export function deleteRecord(recordId, options = {}) {
@@ -409,117 +422,6 @@ export function importAppPayload(payload) {
     createRecord(app.id, record.entityId, record.data);
   }
   return app;
-}
-
-export function createAiSession({ appId = null, status = 'idle', currentPlan = null } = {}) {
-  const id = createId('ais');
-  const createdAt = now();
-  getDb()
-    .prepare('INSERT INTO ai_sessions (id, appId, status, currentPlanJson, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(id, appId, status, currentPlan ? JSON.stringify(currentPlan) : null, createdAt, createdAt);
-  return getAiSession(id);
-}
-
-export function getAiSession(id) {
-  const row = getDb().prepare('SELECT * FROM ai_sessions WHERE id = ?').get(id);
-  if (!row) return null;
-  return {
-    id: row.id,
-    appId: row.appId,
-    status: row.status,
-    currentPlan: row.currentPlanJson ? JSON.parse(row.currentPlanJson) : null,
-    messages: getDb()
-      .prepare('SELECT * FROM ai_messages WHERE sessionId = ? ORDER BY createdAt ASC')
-      .all(row.id)
-      .map((message) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        structuredContent: message.structuredContentJson ? JSON.parse(message.structuredContentJson) : null,
-        createdAt: message.createdAt
-      })),
-    logs: getDb()
-      .prepare('SELECT * FROM ai_execution_logs WHERE sessionId = ? ORDER BY createdAt ASC')
-      .all(row.id)
-      .map((log) => ({
-        id: log.id,
-        stepName: log.stepName,
-        toolName: log.toolName,
-        status: log.status,
-        input: log.inputJson ? JSON.parse(log.inputJson) : null,
-        output: log.outputJson ? JSON.parse(log.outputJson) : null,
-        error: log.error,
-        createdAt: log.createdAt
-      })),
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt
-  };
-}
-
-export function listAiSessions({ appId = null, limit = 20 } = {}) {
-  const database = getDb();
-  const rows = appId
-    ? database
-        .prepare('SELECT * FROM ai_sessions WHERE appId = ? ORDER BY updatedAt DESC LIMIT ?')
-        .all(appId, limit)
-    : database
-        .prepare('SELECT * FROM ai_sessions WHERE appId IS NULL ORDER BY updatedAt DESC LIMIT ?')
-        .all(limit);
-  return rows.map((row) => {
-    const message = database
-      .prepare('SELECT content FROM ai_messages WHERE sessionId = ? ORDER BY createdAt DESC LIMIT 1')
-      .get(row.id);
-    const messageCount = database
-      .prepare('SELECT COUNT(*) AS count FROM ai_messages WHERE sessionId = ?')
-      .get(row.id)?.count || 0;
-    return {
-      id: row.id,
-      appId: row.appId,
-      status: row.status,
-      currentPlan: row.currentPlanJson ? JSON.parse(row.currentPlanJson) : null,
-      messageCount,
-      preview: message?.content || '',
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt
-    };
-  });
-}
-
-export function updateAiSession(id, patch = {}) {
-  const existing = getAiSession(id);
-  if (!existing) throw notFoundError('找不到 AI 会话。');
-  const status = patch.status || existing.status;
-  const appId = patch.appId === undefined ? existing.appId : patch.appId;
-  const currentPlan = patch.currentPlan === undefined ? existing.currentPlan : patch.currentPlan;
-  getDb()
-    .prepare('UPDATE ai_sessions SET appId = ?, status = ?, currentPlanJson = ?, updatedAt = ? WHERE id = ?')
-    .run(appId, status, currentPlan ? JSON.stringify(currentPlan) : null, now(), id);
-  return getAiSession(id);
-}
-
-export function addAiMessage(sessionId, role, content, structuredContent = null) {
-  getDb()
-    .prepare('INSERT INTO ai_messages (id, sessionId, role, content, structuredContentJson, createdAt) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(createId('aim'), sessionId, role, content || '', structuredContent ? JSON.stringify(structuredContent) : null, now());
-}
-
-export function addAiExecutionLog(sessionId, stepName, status, options = {}) {
-  getDb()
-    .prepare(`
-      INSERT INTO ai_execution_logs (id, sessionId, stepName, toolName, status, inputJson, outputJson, error, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
-      createId('ail'),
-      sessionId,
-      stepName,
-      options.toolName || '',
-      status,
-      options.input ? JSON.stringify(options.input) : null,
-      options.output ? JSON.stringify(options.output) : null,
-      options.error || null,
-      now()
-    );
 }
 
 function splitRelationData(app, entityId, data = {}) {

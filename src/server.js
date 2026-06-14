@@ -5,17 +5,12 @@ import { basename, extname, join, normalize } from 'node:path';
 import {
   createAppFromPackage,
   createRecord,
-  addAiExecutionLog,
-  addAiMessage,
-  createAiSession,
   deleteApp,
   deleteRecord,
   exportAppPayload,
-  getAiSession,
   getApp,
   getDb,
   getPackageFromApp,
-  listAiSessions,
   getRecordRelations,
   getSetting,
   importAppPayload,
@@ -23,20 +18,30 @@ import {
   listApps,
   listRecords,
   setSetting,
-  updateAiSession,
   updateAppMetadata,
   updateAppPackage,
   updateRecordRelations,
   updateRecord
 } from './db.js';
-import { generatePackageFromPrompt, generatePatchFromPrompt, generatePlanFromPrompt, planToPackage } from './ai.js';
-import { buildPlanningPrompt, describePlan, understandAgentRequest } from './agent.js';
+import { generatePackageFromPrompt, generatePatchFromPrompt } from './ai.js';
 import { applyPatch, preparePackage } from './packageProtocol.js';
 import { normalizeFieldId } from './ids.js';
-import { runAction, toCsv } from './actions.js';
+import { handleAiApi } from './routes/ai.js';
+import { runAction } from './actions.js';
+import { toCsv } from './utils/export.js';
 import { packageToZipPayload, zipPayloadToPackage } from './zip.js';
 import { recordsToXlsx } from './xlsx.js';
-import { importRowsFromFile } from './importData.js';
+import {
+  createTableInApp,
+  updateTableInApp,
+  deleteTableInApp,
+  clearTableRecordsInApp,
+  importTableRecordsInApp,
+  createFieldInApp,
+  updateFieldInApp,
+  deleteFieldInApp,
+  uniqueFieldId
+} from './operations.js';
 
 const PORT = Number(process.env.PORT || 5173);
 const PUBLIC_DIR = join(process.cwd(), 'public');
@@ -92,6 +97,7 @@ async function handleApi(req, res, url) {
 
   if (method === 'POST' && url.pathname === '/api/apps/generate') {
     const body = await readJson(req);
+    requireFields(body, ['prompt']);
     const logs = ['收到创建需求', '读取 AI 配置', '生成软件包 JSON'];
     const settings = getSetting('ai') || {};
     const pkg = preparePackage(await generatePackageFromPrompt(body.prompt, settings));
@@ -117,7 +123,7 @@ async function handleApi(req, res, url) {
   }
 
   if (parts[1] === 'ai') {
-    await handleAiApi(req, res, method, parts);
+    await handleAiApi(req, res, method, parts, url);
     return;
   }
 
@@ -194,6 +200,7 @@ async function handleApi(req, res, url) {
 
     if (method === 'POST' && parts[3] === 'modify') {
       const body = await readJson(req);
+      requireFields(body, ['prompt']);
       const logs = ['收到修改需求', '读取当前软件包', '生成 Patch'];
       const settings = getSetting('ai') || {};
       const patch = await generatePatchFromPrompt(body.prompt, getPackageFromApp(app), settings);
@@ -207,13 +214,17 @@ async function handleApi(req, res, url) {
     }
 
     if (method === 'GET' && parts[3] === 'records') {
-      sendJson(res, 200, { records: listRecords(appId, { entityId: url.searchParams.get('entity'), q: url.searchParams.get('q') }) });
+      const entityId = url.searchParams.get('entity');
+      const records = entityId ? listRecords(appId, { entityId, q: url.searchParams.get('q') }) : [];
+      sendJson(res, 200, { records });
       return;
     }
 
     if (method === 'POST' && parts[3] === 'records') {
       const body = await readJson(req);
       const entityId = body.entityId || app.schema.entities[0]?.id;
+      if (!entityId) throw badRequest('请求缺少 entityId 且应用没有默认实体。');
+      if (!app.schema.entities.some((entity) => entity.id === entityId)) throw notFound(`实体不存在：${entityId}`);
       sendJson(res, 201, { record: createRecord(appId, entityId, body.data || {}) });
       return;
     }
@@ -243,15 +254,20 @@ async function handleApi(req, res, url) {
     }
 
     if (method === 'GET' && parts[3] === 'export.csv') {
-      const records = listRecords(appId, { entityId: url.searchParams.get('entity') || undefined });
-      const entity = app.schema.entities.find((item) => item.id === (url.searchParams.get('entity') || undefined));
+      const entityId = url.searchParams.get('entity') || app.schema.entities[0]?.id;
+      if (!entityId) throw badRequest('没有可导出的实体。');
+      const entity = app.schema.entities.find((item) => item.id === entityId);
+      if (!entity) throw notFound('找不到要导出的实体。');
+      const records = listRecords(appId, { entityId });
       sendText(res, 200, toCsv(records, entity), 'text/csv; charset=utf-8', `${app.slug}.csv`);
       return;
     }
 
     if (method === 'GET' && parts[3] === 'export.xlsx') {
-      const entityId = url.searchParams.get('entity') || undefined;
-      const entity = app.schema.entities.find((item) => item.id === entityId) || app.schema.entities[0];
+      const entityId = url.searchParams.get('entity') || app.schema.entities[0]?.id;
+      if (!entityId) throw badRequest('没有可导出的实体。');
+      const entity = app.schema.entities.find((item) => item.id === entityId);
+      if (!entity) throw notFound('找不到要导出的实体。');
       const ids = new Set((url.searchParams.get('ids') || '').split(',').map((id) => id.trim()).filter(Boolean));
       const records = listRecords(appId, { entityId }).filter((record) => !ids.size || ids.has(record.id));
       const xlsx = recordsToXlsx(records, entity);
@@ -273,151 +289,6 @@ async function handleApi(req, res, url) {
   }
 
   throw notFound('API 不存在。');
-}
-
-async function handleAiApi(req, res, method, parts) {
-  if (method === 'GET' && parts.length === 3 && parts[2] === 'sessions') {
-    const appId = new URL(req.url, `http://${req.headers.host}`).searchParams.get('appId') || null;
-    sendJson(res, 200, { sessions: listAiSessions({ appId }) });
-    return;
-  }
-
-  if (method === 'GET' && parts[2] === 'sessions' && parts[3] && parts.length === 4) {
-    const session = getAiSession(parts[3]);
-    if (!session) throw notFound('找不到 AI 会话。');
-    sendJson(res, 200, { session });
-    return;
-  }
-
-  if (method === 'POST' && parts.length === 3 && parts[2] === 'plan') {
-    const body = await readJson(req);
-    const app = body.appId ? getApp(body.appId) : null;
-    const session = body.sessionId ? getAiSession(body.sessionId) : createAiSession({ appId: app?.id || null, status: 'understanding' });
-    if (!session) throw notFound('找不到 AI 会话。');
-    updateAiSession(session.id, { appId: app?.id || session.appId || null, status: 'understanding' });
-    addAiMessage(session.id, 'user', body.prompt || '');
-    const freshSession = getAiSession(session.id);
-    const agentTurn = understandAgentRequest(body.prompt || '', { app, session: freshSession });
-    addAiExecutionLog(session.id, '理解用户意图', 'success', { output: { intent: agentTurn.intent, state: agentTurn.state } });
-    addAiExecutionLog(session.id, '读取上下文', 'success', { output: agentTurn.context });
-
-    if (agentTurn.clarification.required) {
-      addAiMessage(session.id, 'assistant', agentTurn.clarification.questions.join('\n'), {
-        type: 'clarification',
-        intent: agentTurn.intent,
-        questions: agentTurn.clarification.questions
-      });
-      const nextSession = updateAiSession(session.id, { status: 'clarifying', currentPlan: null });
-      sendJson(res, 200, {
-        session: nextSession,
-        state: 'CLARIFY',
-        intent: agentTurn.intent,
-        clarification: agentTurn.clarification,
-        context: agentTurn.context
-      });
-      return;
-    }
-
-    updateAiSession(session.id, { status: 'planning' });
-    addAiExecutionLog(session.id, '生成执行方案', 'running', { input: { intent: agentTurn.intent } });
-    const settings = getSetting('ai') || {};
-    const usingMock = !settings?.apiKey;
-    if (usingMock) {
-      addAiExecutionLog(session.id, '本地模式', 'success', { warning: '未设置 API Key，使用本地 Mock 生成器。请在设置中配置 API Key 以获得真实 AI 响应。' });
-    }
-    const planningPrompt = buildPlanningPrompt(body.prompt || '', {
-      app,
-      session: getAiSession(session.id),
-      intent: agentTurn.intent,
-      context: agentTurn.context
-    });
-    const plan = await generatePlanFromPrompt(planningPrompt, settings, app ? getPackageFromApp(app) : null);
-    addAiExecutionLog(session.id, '生成执行方案', 'success', { output: { summary: describePlan(plan) } });
-    let planDescription = describePlan(plan);
-    if (usingMock) {
-      planDescription += `\n\n⚠️ 本地模式：此方案由本地 Mock 生成器提供，请在设置中配置 API Key 以获得真实 AI 响应。`;
-    }
-    addAiMessage(session.id, 'assistant', planDescription, plan);
-    const nextSession = updateAiSession(session.id, { status: 'waiting_confirmation', currentPlan: plan });
-    sendJson(res, 200, { session: nextSession, state: 'CONFIRM', intent: agentTurn.intent, plan, context: agentTurn.context, usingMock });
-    return;
-  }
-
-  if (method === 'POST' && parts[2] === 'sessions' && parts[3] && parts[4] === 'revise') {
-    const body = await readJson(req);
-    const session = getAiSession(parts[3]);
-    if (!session) throw notFound('找不到 AI 会话。');
-    const app = session.appId ? getApp(session.appId) : null;
-    addAiMessage(session.id, 'user', body.prompt || '');
-    updateAiSession(session.id, { status: 'planning' });
-    addAiExecutionLog(session.id, '按用户修改意见重新规划', 'running', { input: { previousPlan: session.currentPlan, revision: body.prompt || '' } });
-    const prompt = buildPlanningPrompt(JSON.stringify({ previousPlan: session.currentPlan, revision: body.prompt || '' }), {
-      app,
-      session: getAiSession(session.id),
-      intent: 'ModifySchema'
-    });
-    const plan = await generatePlanFromPrompt(prompt, getSetting('ai') || {}, app ? getPackageFromApp(app) : null);
-    addAiExecutionLog(session.id, '按用户修改意见重新规划', 'success', { output: { summary: describePlan(plan) } });
-    addAiMessage(session.id, 'assistant', describePlan(plan), plan);
-    sendJson(res, 200, { session: updateAiSession(session.id, { status: 'waiting_confirmation', currentPlan: plan }), plan });
-    return;
-  }
-
-  if (method === 'POST' && parts[2] === 'sessions' && parts[3] && parts[4] === 'execute') {
-    const session = getAiSession(parts[3]);
-    if (!session) throw notFound('找不到 AI 会话。');
-    if (session.status !== 'waiting_confirmation') {
-      const error = new Error('AI 会话尚未等待确认，不能执行。');
-      error.status = 409;
-      throw error;
-    }
-    const result = executeAiPlan(session);
-    sendJson(res, 200, result);
-    return;
-  }
-
-  if (method === 'POST' && parts[2] === 'sessions' && parts[3] && parts[4] === 'cancel') {
-    const session = getAiSession(parts[3]);
-    if (!session) throw notFound('找不到 AI 会话。');
-    addAiExecutionLog(session.id, '用户取消执行', 'cancelled');
-    sendJson(res, 200, { session: updateAiSession(session.id, { status: 'cancelled' }) });
-    return;
-  }
-
-  throw notFound('AI API 不存在。');
-}
-
-function executeAiPlan(session) {
-  updateAiSession(session.id, { status: 'executing' });
-  addAiExecutionLog(session.id, '开始执行方案', 'running', { input: session.currentPlan });
-  try {
-    let app;
-    if (session.currentPlan.type === 'app_creation_plan') {
-      addAiExecutionLog(session.id, '冲突检测', 'success', { toolName: 'recovery.check_conflicts', output: { conflictCount: 0 } });
-      addAiExecutionLog(session.id, '创建应用软件包', 'running', { toolName: 'create_app' });
-      const pkg = planToPackage(session.currentPlan);
-      app = createAppFromPackage(pkg);
-      addAiExecutionLog(session.id, '创建应用软件包', 'success', { output: { appId: app.id } });
-    } else if (session.currentPlan.type === 'app_modification_plan') {
-      app = getApp(session.appId);
-      if (!app) throw notFound('找不到要修改的应用。');
-      addAiExecutionLog(session.id, '冲突检测', 'success', { toolName: 'recovery.check_conflicts', output: { conflictCount: 0 } });
-      addAiExecutionLog(session.id, '应用 Patch', 'running', { toolName: 'apply_patch', input: session.currentPlan.patch });
-      const nextPackage = applyPatch(getPackageFromApp(app), session.currentPlan.patch);
-      app = updateAppPackage(app.id, nextPackage);
-      addAiExecutionLog(session.id, '应用 Patch', 'success', { output: { appId: app.id } });
-    } else {
-      throw new Error(`不支持的 AI 方案类型：${session.currentPlan.type}`);
-    }
-    addAiExecutionLog(session.id, '执行完成', 'success');
-    const nextSession = updateAiSession(session.id, { status: 'completed', appId: app.id });
-    return { session: nextSession, appId: app.id, app, logs: nextSession.logs };
-  } catch (error) {
-    addAiExecutionLog(session.id, '执行失败', 'failed', { error: error.message });
-    addAiExecutionLog(session.id, '恢复处理', 'success', { toolName: 'recovery.rollback', output: { rolledBack: true, reason: error.message } });
-    const failed = updateAiSession(session.id, { status: 'failed' });
-    return { session: failed, error: error.message, logs: failed.logs };
-  }
 }
 
 async function handleTablesApi(req, res, method, parts, app, url) {
@@ -467,154 +338,6 @@ async function handleTablesApi(req, res, method, parts, app, url) {
     }
   }
   throw notFound('表 API 不存在。');
-}
-
-function createTableInApp(app, body = {}) {
-  const pkg = getPackageFromApp(app);
-  const name = String(body.name || '').trim();
-  if (!name) throw badRequest('表名不能为空。');
-  const entityId = uniqueEntityId(pkg, body.id || name);
-  pkg.schema.entities.push({
-    id: entityId,
-    name,
-    description: body.description || '',
-    fields: [{ id: 'name', label: '名称', type: 'text', required: true }]
-  });
-  pkg.ui.pages.push({ id: `${entityId}-list`, title: `${name}列表`, type: 'list', entity: entityId, navKind: 'table', features: ['create', 'edit', 'delete', 'search', 'export'] });
-  return updateAppPackage(app.id, pkg);
-}
-
-function updateTableInApp(app, entityId, body = {}) {
-  const pkg = getPackageFromApp(app);
-  const entity = pkg.schema.entities.find((item) => item.id === entityId);
-  if (!entity) throw notFound('找不到表。');
-  if (body.name) entity.name = String(body.name).trim();
-  if (body.description !== undefined) entity.description = String(body.description || '');
-  for (const page of pkg.ui.pages.filter((item) => item.entity === entityId && body.name)) page.title = `${entity.name}列表`;
-  return updateAppPackage(app.id, pkg);
-}
-
-function deleteTableInApp(app, entityId) {
-  const entity = app.schema.entities.find((item) => item.id === entityId);
-  if (!entity) throw notFound('找不到表。');
-  if ((app.schema.entities || []).length <= 1) throw badRequest('至少保留一张表。');
-  const references = listActualTableReferences(app, entityId);
-  if (references.length) {
-    const labels = references.map((reference) => `${reference.sourceEntityName}.${reference.fieldLabel}`);
-    const error = new Error(`当前表的数据正在被其他表引用：${labels.join('、')}`);
-    error.status = 409;
-    error.details = { references };
-    throw error;
-  }
-  const pkg = getPackageFromApp(app);
-  pkg.schema.entities = pkg.schema.entities.filter((entity) => entity.id !== entityId);
-  for (const sourceEntity of pkg.schema.entities) {
-    sourceEntity.fields = (sourceEntity.fields || []).filter((field) => !(field.type === 'relation' && field.targetEntity === entityId));
-  }
-  pkg.ui.pages = pkg.ui.pages.filter((page) => page.entity !== entityId);
-  getDb().prepare('DELETE FROM record_relations WHERE appId = ? AND (sourceEntityId = ? OR targetEntityId = ?)').run(app.id, entityId, entityId);
-  getDb().prepare('DELETE FROM records WHERE appId = ? AND entityId = ?').run(app.id, entityId);
-  return updateAppPackage(app.id, pkg);
-}
-
-function clearTableRecordsInApp(app, entityId) {
-  const entity = app.schema.entities.find((item) => item.id === entityId);
-  if (!entity) throw notFound('找不到表。');
-  const references = listActualTableReferences(app, entityId);
-  if (references.length) {
-    const labels = references.map((reference) => `${reference.sourceEntityName}.${reference.fieldLabel}`);
-    const error = new Error(`当前表的数据正在被其他表引用：${labels.join('、')}`);
-    error.status = 409;
-    error.details = { references };
-    throw error;
-  }
-  const database = getDb();
-  database.prepare('DELETE FROM record_relations WHERE appId = ? AND (sourceEntityId = ? OR targetEntityId = ?)').run(app.id, entityId, entityId);
-  const deleted = database.prepare('DELETE FROM records WHERE appId = ? AND entityId = ?').run(app.id, entityId);
-  return { ok: true, deletedCount: deleted.changes };
-}
-
-async function importTableRecordsInApp(req, app, entityId, fileName) {
-  const entity = app.schema.entities.find((item) => item.id === entityId);
-  if (!entity) throw notFound('找不到表。');
-  const buffer = await readBuffer(req);
-  if (!buffer.length) throw badRequest('导入文件不能为空。');
-  const rows = importRowsFromFile(buffer, entity, fileName);
-  if (!rows.length) throw badRequest('没有找到可导入的数据。请确认第一行是表头，且表头与字段名一致。');
-  const records = rows.map((data) => createRecord(app.id, entityId, data));
-  return { ok: true, importedCount: records.length, recordIds: records.map((record) => record.id) };
-}
-
-function listActualTableReferences(app, entityId) {
-  const rows = getDb().prepare(`
-    SELECT sourceEntityId, fieldId, COUNT(*) AS count
-    FROM record_relations
-    WHERE appId = ? AND targetEntityId = ? AND sourceEntityId <> ?
-    GROUP BY sourceEntityId, fieldId
-    ORDER BY count DESC
-  `).all(app.id, entityId, entityId);
-  return rows.map((row) => {
-    const sourceEntity = app.schema.entities.find((item) => item.id === row.sourceEntityId);
-    const field = sourceEntity?.fields?.find((item) => item.id === row.fieldId);
-    return {
-      sourceEntityId: row.sourceEntityId,
-      sourceEntityName: sourceEntity?.name || row.sourceEntityId,
-      fieldId: row.fieldId,
-      fieldLabel: field?.label || row.fieldId,
-      count: row.count
-    };
-  });
-}
-
-function createFieldInApp(app, entityId, field = {}) {
-  const pkg = getPackageFromApp(app);
-  const entity = pkg.schema.entities.find((item) => item.id === entityId);
-  if (!entity) throw notFound('找不到表。');
-  const label = String(field.label || field.name || '').trim();
-  if (!label) throw badRequest('字段名不能为空。');
-  const id = uniqueFieldId(entity, field.id || label);
-  entity.fields.push({ ...field, id, label });
-  return updateAppPackage(app.id, pkg);
-}
-
-function updateFieldInApp(app, entityId, fieldId, patch = {}) {
-  const pkg = getPackageFromApp(app);
-  const entity = pkg.schema.entities.find((item) => item.id === entityId);
-  const field = entity?.fields?.find((item) => item.id === fieldId);
-  if (!field) throw notFound('找不到字段。');
-  Object.assign(field, patch);
-  return updateAppPackage(app.id, pkg);
-}
-
-function deleteFieldInApp(app, entityId, fieldId) {
-  const pkg = getPackageFromApp(app);
-  const entity = pkg.schema.entities.find((item) => item.id === entityId);
-  if (!entity) throw notFound('找不到表。');
-  entity.fields = entity.fields.filter((field) => field.id !== fieldId);
-  getDb().prepare('DELETE FROM record_relations WHERE appId = ? AND sourceEntityId = ? AND fieldId = ?').run(app.id, entityId, fieldId);
-  return updateAppPackage(app.id, pkg);
-}
-
-function uniqueEntityId(pkg, base) {
-  const existing = new Set(pkg.schema.entities.map((entity) => entity.id));
-  let id = normalizeFieldId(base, 'table');
-  let index = 2;
-  while (existing.has(id)) {
-    id = `${normalizeFieldId(base, 'table')}_${index}`;
-    index += 1;
-  }
-  return id;
-}
-
-function uniqueFieldId(entity, base) {
-  const existing = new Set((entity.fields || []).map((field) => field.id));
-  let id = normalizeFieldId(base, 'field');
-  let index = 2;
-  while (existing.has(id)) {
-    id = `${normalizeFieldId(base, 'field')}_${index}`;
-    index += 1;
-  }
-  return id;
 }
 
 async function saveUploadedFile(req, appId, url) {
@@ -729,6 +452,14 @@ function badRequest(message) {
 
 function statusForError(error) {
   return error.status || (error.name === 'SyntaxError' ? 400 : 500);
+}
+
+function requireFields(body, requiredFields) {
+  for (const field of requiredFields) {
+    if (body[field] === undefined || body[field] === null || String(body[field]).trim() === '') {
+      throw badRequest(`请求缺少必填字段：${field}`);
+    }
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

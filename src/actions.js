@@ -1,4 +1,5 @@
 import { listRecords } from './db.js';
+import { toCsv, toMarkdown } from './utils/export.js';
 
 export async function runAction(app, actionId) {
   const action = app.actions.actions.find((item) => item.id === actionId);
@@ -31,58 +32,4 @@ function generateMockText(action, records) {
   }
   if (records.length === 0) return '目前还没有数据。先添加几条记录，我就能生成更有用的总结。';
   return `已分析 ${records.length} 条记录。整体数据已经保存，可继续补充记录或增加统计页面。`;
-}
-
-export function toCsv(records, entity = null) {
-  const fields = entity?.fields?.length
-    ? entity.fields
-    : [...new Set(records.flatMap((record) => Object.keys(record.data)))].map((id) => ({ id, label: id }));
-  const lines = [fields.map((field) => csvEscape(field.label || field.id)).join(',')];
-  for (const record of records) {
-    lines.push(fields.map((field) => csvEscape(displayExportValue(record.data[field.id], field))).join(','));
-  }
-  return lines.join('\n');
-}
-
-function displayExportValue(value, field = {}) {
-  if (field.type === 'select') return optionLabel(field, value);
-  if (field.type === 'multiSelect') return (Array.isArray(value) ? value : []).map((item) => optionLabel(field, item)).join('、');
-  if (field.type === 'relation') return (Array.isArray(value) ? value : [value]).filter(Boolean).map((item) => item.displayValue || item).join('、');
-  if (field.type === 'image' || field.type === 'file') return fileLabel(value);
-  if (Array.isArray(value)) return value.join('、');
-  if (value && typeof value === 'object') return value.displayValue || value.label || value.optionId || '';
-  if (typeof value === 'boolean') return value ? '是' : '否';
-  return value ?? '';
-}
-
-function fileLabel(value) {
-  if (!value) return '';
-  if (Array.isArray(value)) return value.map(fileLabel).filter(Boolean).join('、');
-  if (typeof value === 'object') return value.name || value.filename || value.label || value.url || '';
-  return value;
-}
-
-function optionLabel(field, value) {
-  const raw = value?.optionId || value?.id || value;
-  const option = (field.options || []).find((item) => item.id === raw || item.label === raw);
-  return option?.label || raw || '';
-}
-
-function csvEscape(value) {
-  if (value === null || value === undefined) return '';
-  const text = String(value);
-  if (/[",\n]/.test(text)) return `"${text.replaceAll('"', '""')}"`;
-  return text;
-}
-
-function toMarkdown(records) {
-  return records
-    .map((record, index) => {
-      const lines = [`## 记录 ${index + 1}`];
-      for (const [key, value] of Object.entries(record.data)) {
-        lines.push(`- ${key}: ${displayExportValue(value)}`);
-      }
-      return lines.join('\n');
-    })
-    .join('\n\n');
 }

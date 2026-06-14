@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const appJs = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const serverJs = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+const operationsJs = readFileSync(new URL('../src/operations.js', import.meta.url), 'utf8');
 
 test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /appCategory/);
@@ -62,7 +63,7 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /renderBlankPage/);
   assert.match(appJs, /inferPageCardsFromPrompt/);
   assert.match(appJs, /startPageCardResize/);
-  assert.match(serverJs, /navKind: 'table'/);
+  assert.match(operationsJs, /navKind: 'table'/);
   assert.match(css, /\.page-type-icon\.table/);
   assert.match(css, /\.blank-page-canvas/);
   assert.match(css, /\.page-card-canvas/);
