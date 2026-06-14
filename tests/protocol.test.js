@@ -37,6 +37,15 @@ test('rejects duplicate page ids', () => {
   assert.throws(() => preparePackage(pkg), /页面 ID 重复/);
 });
 
+test('allows blank pages without bound table', () => {
+  const pkg = createBudgetPackage();
+  pkg.ui.pages.push({ id: 'blank-board', title: '空白页面', type: 'blank', navKind: 'page', cards: [] });
+  const clean = preparePackage(pkg);
+  const blank = clean.ui.pages.find((page) => page.id === 'blank-board');
+  assert.equal(blank.type, 'blank');
+  assert.equal(blank.entity, undefined);
+});
+
 test('converts multiple views for one table into unique pages', () => {
   const pkg = planToPackage({
     type: 'app_creation_plan',

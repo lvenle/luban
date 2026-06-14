@@ -58,8 +58,14 @@ test('frontend exposes required runtime configuration features', () => {
   assert.doesNotMatch(appJs, /chart: '图'|dashboard: '板'|editor: '编'/);
   assert.match(appJs, /pageNavKind/);
   assert.match(appJs, /navKind: 'page'/);
+  assert.match(appJs, /buildBlankPage/);
+  assert.match(appJs, /renderBlankPage/);
+  assert.match(appJs, /inferPageCardsFromPrompt/);
+  assert.match(appJs, /startPageCardResize/);
   assert.match(serverJs, /navKind: 'table'/);
   assert.match(css, /\.page-type-icon\.table/);
+  assert.match(css, /\.blank-page-canvas/);
+  assert.match(css, /\.page-card-canvas/);
   assert.match(appJs, /一行 \$\{value\} 列/);
   assert.match(appJs, /getViews/);
   assert.match(appJs, /renderViewBar/);

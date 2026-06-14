@@ -20,7 +20,7 @@ export const SELECT_COLORS = [
   'cyan', 'blue', 'purple', 'pink'
 ];
 
-export const PAGE_TYPES = new Set(['list', 'form', 'detail', 'dashboard', 'chart', 'editor']);
+export const PAGE_TYPES = new Set(['blank', 'list', 'form', 'detail', 'dashboard', 'chart', 'editor']);
 
 export const ACTION_TYPES = new Set([
   'ai.generateText',

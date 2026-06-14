@@ -147,6 +147,10 @@ function clampSidebarWidth(value) {
   return Math.max(132, Math.min(360, Number(value) || 168));
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, Number(value) || min));
+}
+
 function loadSidebarLayout() {
   state.sidebarCollapsed = Boolean(readStorage(globalStorageKey('sidebar-collapsed'), false));
   state.sidebarWidth = clampSidebarWidth(readStorage(globalStorageKey('sidebar-width'), 168));
@@ -724,6 +728,7 @@ function svgPath(d) {
 function pageTypeLabel(page, navKind = 'page') {
   if (navKind === 'table') return '数据表';
   const labels = {
+    blank: '空白页面',
     list: '表格页面',
     chart: '统计图表',
     dashboard: '仪表盘页面',
@@ -852,30 +857,8 @@ function showDeleteTableBlocked(error, entity, title = '不能删除表', footer
 }
 
 function openCreatePageModal(sourcePage = null) {
-  const app = state.currentApp;
-  const entities = app.schema.entities || [];
-  if (!entities.length) return toast('请先新建表。');
-  const defaultEntity = sourcePage?.entity || entities[0]?.id || '';
-  const entitySelect = h('select', {}, entities.map((entity) =>
-    h('option', { value: entity.id, text: entity.name })
-  ));
-  entitySelect.value = defaultEntity;
-  const typeSelect = h('select', {}, [
-    h('option', { value: 'list', text: '列表页面' }),
-    h('option', { value: 'chart', text: '统计图表' }),
-    h('option', { value: 'dashboard', text: '仪表盘' }),
-    h('option', { value: 'editor', text: '编辑页面' })
-  ]);
-  const nameInput = h('input', { placeholder: '例如：重点客户列表' });
-  const hint = h('p', { class: 'muted field-hint', text: '可以为同一张表创建多个页面入口，用来做不同列表、图表或看板。' });
-  const selectedEntityName = () => entities.find((entity) => entity.id === entitySelect.value)?.name || '记录';
-  const updatePlaceholder = () => {
-    const typeLabel = typeSelect.value === 'chart' ? '统计' : typeSelect.value === 'dashboard' ? '看板' : typeSelect.value === 'editor' ? '编辑' : '列表';
-    nameInput.placeholder = `例如：${selectedEntityName()}${typeLabel}`;
-  };
-  entitySelect.addEventListener('change', updatePlaceholder);
-  typeSelect.addEventListener('change', updatePlaceholder);
-  updatePlaceholder();
+  const nameInput = h('input', { placeholder: '例如：经营看板' });
+  const hint = h('p', { class: 'muted field-hint', text: '新页面默认不关联表，也不显示任何内容。创建后可打开 AI Builder 描述你想要的表格、统计图、透视图等卡片。' });
 
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal compact-modal' }, [
@@ -884,17 +867,13 @@ function openCreatePageModal(sourcePage = null) {
         h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
       ]),
       hint,
-      h('div', { class: 'field' }, [h('label', { text: '绑定表' }), entitySelect]),
-      h('div', { class: 'field' }, [h('label', { text: '页面类型' }), typeSelect]),
       h('div', { class: 'field' }, [h('label', { text: '页面名称' }), nameInput]),
       h('div', { class: 'row', style: 'margin-top:14px' }, [
         h('button', {
           text: '创建',
           onclick: async () => {
-            const entity = entities.find((item) => item.id === entitySelect.value);
-            if (!entity) return toast('请选择绑定表。');
-            const title = nameInput.value.trim() || `${entity.name}${typeSelect.value === 'chart' ? '统计' : typeSelect.value === 'dashboard' ? '看板' : typeSelect.value === 'editor' ? '编辑' : '列表'}`;
-            const page = buildPageForEntity({ entity, title, type: typeSelect.value, navKind: 'page' });
+            const title = nameInput.value.trim() || '空白页面';
+            const page = buildBlankPage(title);
             try {
               await saveCurrentPackage((pkg) => {
                 pkg.ui.pages.push(page);
@@ -915,6 +894,16 @@ function openCreatePageModal(sourcePage = null) {
     ])
   ]);
   document.body.append(backdrop);
+}
+
+function buildBlankPage(title) {
+  return {
+    id: uniquePageId(title, 'page'),
+    title,
+    type: 'blank',
+    navKind: 'page',
+    cards: []
+  };
 }
 
 function buildPageForEntity({ entity, title, type = 'list', navKind = 'page' }) {
@@ -975,6 +964,7 @@ function openCreateTableModal() {
 
 function renderPage(page) {
   if (!page) return h('div', { class: 'panel', text: '这个软件还没有页面。' });
+  if (page.type === 'blank') return renderBlankPage(page);
   if (page.type === 'chart') return renderChartPage(page);
   if (page.type === 'dashboard') return renderDashboardPage(page);
   if (page.type === 'editor') return renderEditorPage(page);
@@ -987,6 +977,193 @@ function entityFor(page) {
 
 function recordsFor(entityId) {
   return state.records.filter((record) => !entityId || record.entityId === entityId);
+}
+
+function renderBlankPage(page) {
+  const cards = Array.isArray(page.cards) ? page.cards : [];
+  if (!cards.length) return h('div', { class: 'blank-page-canvas', 'data-page-id': page.id });
+  return h('div', { class: 'blank-page-canvas page-card-canvas', 'data-page-id': page.id }, cards.map((card, index) =>
+    renderPageCard(page, card, index)
+  ));
+}
+
+function renderPageCard(page, card, index) {
+  const width = clamp(Number(card.w || 3), 2, 6);
+  const height = clamp(Number(card.h || 2), 1, 5);
+  return h('section', {
+    class: `page-card page-card-${card.type || 'stat'}`,
+    draggable: 'true',
+    style: `grid-column: span ${width}; min-height:${height * 74}px`,
+    ondragstart: (event) => {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', String(index));
+      event.currentTarget.classList.add('is-dragging');
+    },
+    ondragover: (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+    },
+    ondrop: async (event) => {
+      event.preventDefault();
+      const fromIndex = Number(event.dataTransfer.getData('text/plain'));
+      await reorderPageCard(page, fromIndex, index);
+    },
+    ondragend: (event) => event.currentTarget.classList.remove('is-dragging')
+  }, [
+    h('div', { class: 'page-card-head' }, [
+      h('strong', { text: card.title || pageCardTitle(card) }),
+      h('span', { class: 'page-card-filter', text: cardFilterLabel(card) })
+    ]),
+    renderPageCardBody(card),
+    h('span', {
+      class: 'page-card-resize',
+      title: '拖动调整大小',
+      onpointerdown: (event) => startPageCardResize(event, page, index)
+    })
+  ]);
+}
+
+function renderPageCardBody(card) {
+  if (card.type === 'table') return renderPageTableCard(card);
+  if (card.type === 'chart') return renderPageChartCard(card);
+  if (card.type === 'pivot') return renderPagePivotCard(card);
+  return renderPageStatCard(card);
+}
+
+function renderPageStatCard(card) {
+  const entity = entityById(card.entity);
+  const records = filteredCardRecords(card);
+  const value = card.operation === 'sum'
+    ? records.reduce((sum, record) => sum + Number(record.data?.[card.field] || 0), 0)
+    : records.length;
+  const field = entity?.fields?.find((item) => item.id === card.field);
+  return h('div', { class: 'page-stat-body' }, [
+    h('div', { class: 'stat-value', text: field?.type === 'number' ? formatNumberSummary(value, field) : value }),
+    h('p', { class: 'muted', text: entity ? `${entity.name} · ${records.length} 条记录` : '未选择数据表' })
+  ]);
+}
+
+function renderPageTableCard(card) {
+  const entity = entityById(card.entity);
+  if (!entity) return h('p', { class: 'muted', text: '未选择数据表' });
+  const fields = (card.fields || entity.fields.map((field) => field.id)).slice(0, 5)
+    .map((fieldId) => entity.fields.find((field) => field.id === fieldId))
+    .filter(Boolean);
+  const records = filteredCardRecords(card).slice(0, 6);
+  return h('table', { class: 'page-mini-table' }, [
+    h('thead', {}, [h('tr', {}, fields.map((field) => h('th', { text: field.label || field.id })))]),
+    h('tbody', {}, records.map((record) =>
+      h('tr', {}, fields.map((field) => h('td', { text: formatFieldValue(record.data?.[field.id], field) })))
+    ))
+  ]);
+}
+
+function renderPageChartCard(card) {
+  const entity = entityById(card.entity);
+  const field = entity?.fields?.find((item) => item.id === card.groupBy) || entity?.fields?.[0];
+  const rows = groupedCardRows(card, field);
+  const max = Math.max(1, ...rows.map((row) => row.value));
+  return h('div', { class: 'page-card-chart' }, rows.slice(0, 6).map((row) =>
+    h('div', { class: 'page-card-bar' }, [
+      h('span', { text: row.label }),
+      h('div', {}, [h('div', { style: `width:${Math.max(8, (row.value / max) * 100)}%` })]),
+      h('strong', { text: row.value })
+    ])
+  ));
+}
+
+function renderPagePivotCard(card) {
+  const entity = entityById(card.entity);
+  const field = entity?.fields?.find((item) => item.id === card.groupBy) || entity?.fields?.[0];
+  const rows = groupedCardRows(card, field);
+  return h('table', { class: 'page-mini-table' }, [
+    h('thead', {}, [h('tr', {}, [h('th', { text: field?.label || '分组' }), h('th', { text: '数量' })])]),
+    h('tbody', {}, rows.slice(0, 8).map((row) => h('tr', {}, [h('td', { text: row.label }), h('td', { text: row.value })])))
+  ]);
+}
+
+function groupedCardRows(card, field) {
+  const grouped = new Map();
+  for (const record of filteredCardRecords(card)) {
+    const label = formatFieldValue(record.data?.[field?.id], field || {}) || '未填写';
+    grouped.set(label, (grouped.get(label) || 0) + 1);
+  }
+  return [...grouped.entries()].map(([label, value]) => ({ label, value }));
+}
+
+function filteredCardRecords(card) {
+  return recordsFor(card.entity).filter((record) => cardFiltersMatch(record, card.filters || []));
+}
+
+function cardFiltersMatch(record, filters) {
+  return filters.every((filter) => {
+    const value = record.data?.[filter.field];
+    if (filter.op === 'notEmpty') return hasDisplayValue(value);
+    if (filter.op === 'thisMonth') return dateKey(value).slice(0, 7) === dateKey(new Date()).slice(0, 7);
+    if (filter.op === 'today') return dateKey(value) === dateKey(new Date());
+    if (filter.op === 'eq') return String(value ?? '') === String(filter.value ?? '');
+    return true;
+  });
+}
+
+function cardFilterLabel(card) {
+  const filters = card.filters || [];
+  if (!filters.length) return '全部数据';
+  if (filters.some((filter) => filter.op === 'thisMonth')) return '本月';
+  if (filters.some((filter) => filter.op === 'today')) return '今日';
+  return `${filters.length} 个筛选`;
+}
+
+function pageCardTitle(card) {
+  if (card.type === 'table') return '数据表格';
+  if (card.type === 'chart') return '统计图';
+  if (card.type === 'pivot') return '透视图';
+  return '统计卡片';
+}
+
+function entityById(entityId) {
+  return state.currentApp.schema.entities.find((entity) => entity.id === entityId);
+}
+
+async function reorderPageCard(page, fromIndex, toIndex) {
+  if (!Number.isInteger(fromIndex) || fromIndex === toIndex) return;
+  await saveCurrentPackage((pkg) => {
+    const target = pkg.ui.pages.find((item) => item.id === page.id);
+    const cards = [...(target.cards || [])];
+    const [moved] = cards.splice(fromIndex, 1);
+    cards.splice(toIndex, 0, moved);
+    target.cards = cards;
+  });
+  renderRuntime();
+}
+
+function startPageCardResize(event, page, index) {
+  event.preventDefault();
+  event.stopPropagation();
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const card = page.cards[index];
+  const startW = Number(card.w || 3);
+  const startH = Number(card.h || 2);
+  const onMove = (moveEvent) => {
+    card.w = clamp(startW + Math.round((moveEvent.clientX - startX) / 120), 2, 6);
+    card.h = clamp(startH + Math.round((moveEvent.clientY - startY) / 70), 1, 5);
+    renderRuntime();
+  };
+  const onUp = async () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    await saveCurrentPackage((pkg) => {
+      const target = pkg.ui.pages.find((item) => item.id === page.id);
+      if (target?.cards?.[index]) {
+        target.cards[index].w = card.w;
+        target.cards[index].h = card.h;
+      }
+    });
+    renderRuntime();
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
 }
 
 function orderedFields(entity) {
@@ -3198,7 +3375,7 @@ function sampleFieldValue(field) {
 }
 
 function renderDashboardPage(page) {
-  const cards = state.currentApp.ui.home?.cards || [];
+  const cards = page.cards || state.currentApp.ui.home?.cards || [];
   return h('div', { class: 'panel' }, [
     h('h3', { text: page.title || '仪表盘' }),
     h(
@@ -4016,11 +4193,11 @@ function updateAssistantProgress(title, logs, text) {
   }
 }
 
-function executeAiLocalPlan() {
+async function executeAiLocalPlan() {
   const plan = state.aiLocalPlan;
   if (!plan) return toast('没有可执行的本地方案。');
   try {
-    const result = executeAssistantConfigPlan(plan);
+    const result = await executeAssistantConfigPlan(plan);
     state.aiPlan = null;
     state.aiLocalPlan = null;
     state.aiClarification = null;
@@ -4038,9 +4215,20 @@ function executeAiLocalPlan() {
 
 function applyAssistantConfigIntent(prompt) {
   const page = state.currentApp.ui.pages.find((item) => item.id === state.currentPageId) || state.currentApp.ui.pages[0];
+  const text = String(prompt || '');
+  if (page?.type === 'blank' && /页面|卡片|看板|仪表盘|表格|统计|图|透视|筛选|本月|今日/.test(text)) {
+    const cards = inferPageCardsFromPrompt(page, text);
+    if (cards.length) {
+      return localPlan(
+        `生成「${page.title}」页面布局`,
+        '确认后会在当前空白页实时渲染表格、统计图、透视图等卡片；卡片可继续拖动和调整大小。',
+        JSON.stringify(cards.map(({ id, title, type, entity, filters, w, h }) => ({ id, title, type, entity, filters, w, h })), null, 2),
+        { kind: 'designPage', pageId: page.id, cards }
+      );
+    }
+  }
   const entity = entityFor(page);
   const config = getListConfig(entity);
-  const text = String(prompt || '');
   const field = findFieldMention(entity, prompt);
   if (/表单|录入/.test(text) && /设计|优化|生成|推荐/.test(text)) {
     const preview = designCurrentForm(entity, text.replace(/应用|保存|使用/g, ''));
@@ -4090,15 +4278,105 @@ function applyAssistantConfigIntent(prompt) {
   return localPlan(`将「${field.label}」设为查询条件`, '确认后更新当前视图搜索条件。', [...nextSearchFields].join('、'), { kind: 'setSearchFields', entityId: entity.id, searchFields: [...nextSearchFields] });
 }
 
+function inferPageCardsFromPrompt(page, text) {
+  const entities = state.currentApp.schema.entities || [];
+  const mentioned = entities.filter((entity) => text.includes(entity.name) || text.includes(entity.id));
+  const primary = mentioned[0] || entities[0];
+  if (!primary) return [];
+  const fields = primary.fields || [];
+  const dateField = fields.find((field) => field.type === 'date' || field.type === 'datetime');
+  const groupField = fields.find((field) => ['select', 'multiSelect', 'boolean', 'date', 'datetime'].includes(field.type)) || fields[0];
+  const numericField = fields.find((field) => field.type === 'number');
+  const filters = [];
+  if (/本月|这个月|月度/.test(text) && dateField) filters.push({ field: dateField.id, op: 'thisMonth' });
+  if (/今天|今日|当天/.test(text) && dateField) filters.push({ field: dateField.id, op: 'today' });
+  const wantsTable = /表格|列表|明细/.test(text);
+  const wantsChart = /图表|统计图|柱状|趋势|图/.test(text);
+  const wantsPivot = /透视|交叉|分组|汇总/.test(text);
+  const wantsStat = /指标|卡片|统计|数量|总数|合计|金额/.test(text) || (!wantsTable && !wantsChart && !wantsPivot);
+  const cards = [];
+  if (wantsStat) {
+    cards.push({
+      id: uniqueCardId(page, 'stat', cards),
+      type: 'stat',
+      title: numericField && /金额|合计|总额|收入|支出/.test(text) ? `${primary.name}${numericField.label}合计` : `${primary.name}数量`,
+      entity: primary.id,
+      operation: numericField && /金额|合计|总额|收入|支出/.test(text) ? 'sum' : 'count',
+      field: numericField?.id,
+      filters,
+      w: 2,
+      h: 1
+    });
+  }
+  if (wantsChart) {
+    cards.push({
+      id: uniqueCardId(page, 'chart', cards),
+      type: 'chart',
+      title: `${primary.name}${groupField?.label || ''}统计图`,
+      entity: primary.id,
+      groupBy: groupField?.id,
+      filters,
+      w: 4,
+      h: 3
+    });
+  }
+  if (wantsPivot) {
+    cards.push({
+      id: uniqueCardId(page, 'pivot', cards),
+      type: 'pivot',
+      title: `${primary.name}透视汇总`,
+      entity: primary.id,
+      groupBy: groupField?.id,
+      filters,
+      w: 3,
+      h: 3
+    });
+  }
+  if (wantsTable) {
+    cards.push({
+      id: uniqueCardId(page, 'table', cards),
+      type: 'table',
+      title: `${primary.name}明细表`,
+      entity: primary.id,
+      fields: fields.slice(0, 5).map((field) => field.id),
+      filters,
+      w: 6,
+      h: 3
+    });
+  }
+  return cards;
+}
+
+function uniqueCardId(page, prefix, nextCards = []) {
+  const existing = new Set([...(page.cards || []), ...nextCards].map((card) => card.id));
+  let index = existing.size + 1;
+  let id = `${prefix}-${index}`;
+  while (existing.has(id)) {
+    index += 1;
+    id = `${prefix}-${index}`;
+  }
+  return id;
+}
+
 function localPlan(summary, description, preview, operation) {
   return { type: 'local_interaction_plan', summary, description, preview, operation };
 }
 
-function executeAssistantConfigPlan(plan) {
+async function executeAssistantConfigPlan(plan) {
   const operation = plan.operation || {};
   const page = state.currentApp.ui.pages.find((item) => item.id === state.currentPageId) || state.currentApp.ui.pages[0];
   const entity = state.currentApp.schema.entities.find((item) => item.id === operation.entityId) || entityFor(page);
   const config = getListConfig(entity);
+  if (operation.kind === 'designPage') {
+    await saveCurrentPackage((pkg) => {
+      const target = pkg.ui.pages.find((item) => item.id === operation.pageId);
+      if (!target) throw new Error('找不到要设计的页面。');
+      target.type = 'blank';
+      target.navKind = 'page';
+      target.cards = operation.cards || [];
+    });
+    return { message: '页面已生成，可拖动卡片位置并调整大小。' };
+  }
   if (operation.kind === 'summarizeView') return summarizeCurrentView(entity, config);
   if (operation.kind === 'designForm') return designCurrentForm(entity, operation.text || '应用');
   if (operation.kind === 'createView') {

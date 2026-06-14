@@ -1515,6 +1515,113 @@ tbody tr:hover {
   display: none;
 }
 
+.blank-page-canvas {
+  min-height: calc(100vh - 96px);
+  background: #fff;
+}
+
+.page-card-canvas {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 12px;
+  align-content: start;
+  padding: 12px;
+}
+
+.page-card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  padding: 12px;
+}
+
+.page-card.is-dragging {
+  opacity: 0.5;
+}
+
+.page-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.page-card-filter {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.page-card-resize {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+}
+
+.page-card-resize::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-right: 2px solid #b8c1cf;
+  border-bottom: 2px solid #b8c1cf;
+}
+
+.page-stat-body {
+  display: grid;
+  gap: 4px;
+}
+
+.page-mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.page-mini-table th,
+.page-mini-table td {
+  max-width: 160px;
+  border-bottom: 1px solid var(--line);
+  padding: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.page-card-chart {
+  display: grid;
+  gap: 8px;
+}
+
+.page-card-bar {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.page-card-bar > div {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #edf2f7;
+}
+
+.page-card-bar > div > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand);
+}
+
 .group-row td {
   background: #f8fafc;
   font-weight: 700;
