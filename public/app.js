@@ -2545,13 +2545,13 @@ function showCellCopyToolbar() {
 }
 
 async function copySelectedCellsAsImage() {
-  const matrix = selectedCellMatrix();
-  if (!matrix.length) {
+  const imageRows = selectedCellImageRows();
+  if (!imageRows.length) {
     hideCellCopyToolbar();
     return toast('先选择要复制的单元格。');
   }
   try {
-    const blob = await selectedCellsImageBlob(matrix);
+    const blob = await selectedCellsImageBlob(imageRows);
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
     toast('已复制为图片');
   } catch {
@@ -2561,29 +2561,106 @@ async function copySelectedCellsAsImage() {
   }
 }
 
-function selectedCellsImageBlob(matrix) {
+function selectedCellImageRows() {
+  const cells = selectedCellElements();
+  if (!cells.length) return [];
+  const rows = new Map();
+  for (const cell of cells) {
+    const { row, col } = cellPosition(cell);
+    if (!rows.has(row)) rows.set(row, new Map());
+    rows.get(row).set(col, cellImageContent(cell));
+  }
+  return [...rows.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, cols]) => [...cols.entries()].sort(([a], [b]) => a - b).map(([, value]) => value));
+}
+
+function cellImageContent(cell) {
+  const tags = [...cell.querySelectorAll('.select-tag, .relation-tag')].map((tag) => {
+    const style = getComputedStyle(tag);
+    return {
+      text: tag.textContent.trim(),
+      background: style.backgroundColor || '#f8fafc',
+      color: style.color || '#253044',
+      border: style.borderColor || '#cbd5e1'
+    };
+  }).filter((tag) => tag.text);
+  return {
+    text: cell.dataset.copyValue || cell.textContent.trim(),
+    tags
+  };
+}
+
+function selectedCellsImageBlob(rows) {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   const cellWidth = 150;
   const cellHeight = 34;
   const padding = 10;
-  canvas.width = Math.max(1, matrix[0].length) * cellWidth + padding * 2;
-  canvas.height = matrix.length * cellHeight + padding * 2;
+  const pixelRatio = Math.max(3, window.devicePixelRatio || 1);
+  const width = Math.max(1, rows[0].length) * cellWidth + padding * 2;
+  const height = rows.length * cellHeight + padding * 2;
+  canvas.width = Math.ceil(width * pixelRatio);
+  canvas.height = Math.ceil(height * pixelRatio);
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  context.scale(pixelRatio, pixelRatio);
   context.fillStyle = '#ffffff';
-  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillRect(0, 0, width, height);
   context.strokeStyle = '#dbe2ea';
-  context.fillStyle = '#253044';
   context.font = '13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   context.textBaseline = 'middle';
-  matrix.forEach((row, rowIndex) => {
-    row.forEach((value, colIndex) => {
+  rows.forEach((row, rowIndex) => {
+    row.forEach((cell, colIndex) => {
       const x = padding + colIndex * cellWidth;
       const y = padding + rowIndex * cellHeight;
+      context.strokeStyle = '#dbe2ea';
       context.strokeRect(x, y, cellWidth, cellHeight);
-      context.fillText(String(value || '').slice(0, 24), x + 8, y + cellHeight / 2);
+      drawCellImageContent(context, cell, x, y, cellWidth, cellHeight);
     });
   });
   return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('图片生成失败')), 'image/png'));
+}
+
+function drawCellImageContent(context, cell, x, y, width, height) {
+  if (!cell.tags.length) {
+    context.fillStyle = '#253044';
+    context.fillText(String(cell.text || '').slice(0, 24), x + 8, y + height / 2);
+    return;
+  }
+  let cursorX = x + 8;
+  let cursorY = y + 6;
+  const maxX = x + width - 8;
+  for (const tag of cell.tags) {
+    const tagText = String(tag.text || '');
+    if (!tagText) continue;
+    const tagWidth = Math.min(maxX - cursorX, Math.ceil(context.measureText(tagText).width) + 16);
+    if (tagWidth <= 14) break;
+    context.fillStyle = tag.background;
+    drawRoundedRect(context, cursorX, cursorY, tagWidth, 22, 4);
+    context.fill();
+    context.strokeStyle = tag.border;
+    drawRoundedRect(context, cursorX, cursorY, tagWidth, 22, 4);
+    context.stroke();
+    context.fillStyle = tag.color;
+    context.fillText(tagText, cursorX + 8, cursorY + 11);
+    cursorX += tagWidth + 4;
+  }
+}
+
+function drawRoundedRect(context, x, y, width, height, radius) {
+  const nextRadius = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + nextRadius, y);
+  context.lineTo(x + width - nextRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + nextRadius);
+  context.lineTo(x + width, y + height - nextRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - nextRadius, y + height);
+  context.lineTo(x + nextRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - nextRadius);
+  context.lineTo(x, y + nextRadius);
+  context.quadraticCurveTo(x, y, x + nextRadius, y);
+  context.closePath();
 }
 
 function setFieldSort(entity, fieldId, direction, listConfig) {

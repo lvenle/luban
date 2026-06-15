@@ -139,6 +139,13 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /displayField/);
   assert.match(appJs, /renderSelectTag/);
   assert.match(appJs, /relationFieldDisplayText/);
+  assert.match(appJs, /selectedCellImageRows/);
+  assert.match(appJs, /cellImageContent/);
+  assert.match(appJs, /querySelectorAll\('\.select-tag, \.relation-tag'\)/);
+  assert.match(appJs, /drawCellImageContent/);
+  assert.match(appJs, /drawRoundedRect/);
+  assert.match(appJs, /Math\.max\(3, window\.devicePixelRatio \|\| 1\)/);
+  assert.match(appJs, /context\.scale\(pixelRatio, pixelRatio\)/);
   assert.doesNotMatch(appJs, /label \|\| '未选择'/);
   assert.match(appJs, /openCreateTableModal/);
   assert.match(appJs, /新建表/);
