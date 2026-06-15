@@ -1730,7 +1730,68 @@ th.header-editing .header-edit-input:focus {
 .editable-cell.selected-cell {
   position: relative;
   background: #eef4ff;
-  box-shadow: inset 0 0 0 2px #2563eb;
+  border-color: #b7cdf6;
+  box-shadow: none;
+}
+
+.editable-cell.selected-cell.selection-top {
+  box-shadow: inset 0 2px 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-right {
+  box-shadow: inset -2px 0 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-bottom {
+  box-shadow: inset 0 -2px 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-left {
+  box-shadow: inset 2px 0 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-top.selection-right {
+  box-shadow: inset 0 2px 0 #2563eb, inset -2px 0 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-top.selection-bottom {
+  box-shadow: inset 0 2px 0 #2563eb, inset 0 -2px 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-top.selection-left {
+  box-shadow: inset 0 2px 0 #2563eb, inset 2px 0 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-right.selection-bottom {
+  box-shadow: inset -2px 0 0 #2563eb, inset 0 -2px 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-right.selection-left {
+  box-shadow: inset -2px 0 0 #2563eb, inset 2px 0 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-bottom.selection-left {
+  box-shadow: inset 0 -2px 0 #2563eb, inset 2px 0 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-top.selection-right.selection-bottom {
+  box-shadow: inset 0 2px 0 #2563eb, inset -2px 0 0 #2563eb, inset 0 -2px 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-top.selection-right.selection-left {
+  box-shadow: inset 0 2px 0 #2563eb, inset -2px 0 0 #2563eb, inset 2px 0 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-top.selection-bottom.selection-left {
+  box-shadow: inset 0 2px 0 #2563eb, inset 0 -2px 0 #2563eb, inset 2px 0 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-right.selection-bottom.selection-left {
+  box-shadow: inset -2px 0 0 #2563eb, inset 0 -2px 0 #2563eb, inset 2px 0 0 #2563eb;
+}
+
+.editable-cell.selected-cell.selection-top.selection-right.selection-bottom.selection-left {
+  box-shadow: inset 0 2px 0 #2563eb, inset -2px 0 0 #2563eb, inset 0 -2px 0 #2563eb, inset 2px 0 0 #2563eb;
 }
 
 .cell-copy-toolbar {
@@ -1793,7 +1854,7 @@ th.header-editing .header-edit-input:focus {
 
 .cell-choice-dropdown {
   position: fixed;
-  z-index: 30;
+  z-index: 200;
   overflow: auto;
   border: 1px solid #cfd6e2;
   border-radius: 6px;
@@ -1902,6 +1963,15 @@ th.header-editing .header-edit-input:focus {
   color: #64748b;
   font-size: 20px;
   line-height: 1;
+}
+
+.field .cell-choice-editor {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.preview-field .cell-choice-editor {
+  pointer-events: none;
 }
 
 .cell-choice-empty {
@@ -2448,10 +2518,35 @@ thead .sticky-action-cell {
   display: grid;
   gap: 4px;
   cursor: grab;
+  position: relative;
 }
 
 .preview-field:active {
   cursor: grabbing;
+}
+
+.preview-field.is-dragging {
+  opacity: 0.46;
+}
+
+.preview-field.drop-before::before,
+.preview-field.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  border-radius: 99px;
+  background: var(--brand);
+  z-index: 1;
+}
+
+.preview-field.drop-before::before {
+  top: -4px;
+}
+
+.preview-field.drop-after::after {
+  bottom: -4px;
 }
 
 .preview-head {
@@ -2487,6 +2582,12 @@ thead .sticky-action-cell {
   background: #fff;
   color: var(--muted);
   padding: 7px 8px;
+}
+
+.preview-field input,
+.preview-field textarea,
+.preview-field select {
+  pointer-events: none;
 }
 
 .layout-row:active {

@@ -37,6 +37,8 @@ test('HTTP API creates, runs, modifies, exports, and imports an app', async () =
       data: { type: '支出', amount: 100, category: '餐饮', date: '2026-06-10' }
     });
     assert.ok(record.record.id);
+    const allRecords = await getJson(`${base}/api/apps/${created.appId}/records`);
+    assert.ok(allRecords.records.some((item) => item.id === record.record.id));
 
     const uploaded = await fetch(`${base}/api/apps/${created.appId}/uploads?name=receipt.png`, {
       method: 'POST',

@@ -23,6 +23,7 @@ const state = {
   assistantBusy: false,
   pageDragId: '',
   cellSelection: null,
+  cellClipboard: null,
   sidebarCollapsed: false,
   sidebarWidth: 168
 };
@@ -33,7 +34,7 @@ const OPTION_COLORS = [
   'gray', 'red', 'orange', 'yellow', 'lime', 'green', 
   'cyan', 'blue', 'purple', 'pink'
 ];
-let activeCellChoiceController = null;
+
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -405,7 +406,7 @@ async function openApp(appId, options = {}) {
   state.currentApp = body.app;
   state.currentPageId = options.pageId && body.app.ui.pages.some((page) => page.id === options.pageId) ? options.pageId : body.app.ui.pages[0]?.id;
   state.currentViewId = options.viewId || '';
-  await loadRecords();
+  await loadCurrentPageRecords();
   const page = body.app.ui.pages.find((item) => item.id === state.currentPageId) || body.app.ui.pages[0];
   if (page?.entity) {
     const entity = body.app.schema.entities.find((item) => item.id === page.entity) || body.app.schema.entities[0];
@@ -421,6 +422,28 @@ async function loadRecords(entityId = '') {
   const path = entityId ? `/api/apps/${state.currentApp.id}/records?entity=${encodeURIComponent(entityId)}` : `/api/apps/${state.currentApp.id}/records`;
   const body = await api(path);
   state.records = body.records;
+}
+
+async function loadCurrentPageRecords() {
+  const page = currentPage();
+  const entity = pageEntityForRecordLoad(page);
+  if (!entity) {
+    await loadRecords();
+    return;
+  }
+  await loadRecords(entity.id);
+  const relationTargets = [...new Set(entity.fields
+    .filter((field) => field.type === 'relation' && field.targetEntity && field.targetEntity !== entity.id)
+    .map((field) => field.targetEntity))];
+  for (const targetEntityId of relationTargets) {
+    await mergeEntityRecords(targetEntityId);
+  }
+}
+
+async function mergeEntityRecords(entityId) {
+  const body = await api(`/api/apps/${state.currentApp.id}/records?entity=${encodeURIComponent(entityId)}`);
+  const others = state.records.filter((record) => record.entityId !== entityId);
+  state.records = [...others, ...body.records];
 }
 
 async function saveAppMetadata(name, category, description = state.currentApp.description || '') {
@@ -660,7 +683,7 @@ function renderPageNavItem(app, activePage, item) {
       text: item.title,
       onclick: async () => {
         state.currentPageId = item.id;
-        await loadRecords();
+        await loadCurrentPageRecords();
         const nextEntity = entityFor(item);
         const views = getViews(nextEntity);
         state.currentViewId = views[0]?.id || '';
@@ -788,7 +811,7 @@ function deletePage(page) {
           state.currentPageId = nextPage?.id || state.currentApp.ui.pages[0]?.id || '';
           state.currentViewId = '';
         }
-        await loadRecords();
+        await loadCurrentPageRecords();
         writeRoute(state.currentApp.id, state.currentPageId, false, state.currentViewId);
         renderRuntime();
         toast('页面已删除');
@@ -816,7 +839,7 @@ function deleteTableAndData(entity) {
           state.currentPageId = state.currentApp.ui.pages[0]?.id || '';
           state.currentViewId = '';
         }
-        await loadRecords();
+        await loadCurrentPageRecords();
         writeRoute(state.currentApp.id, state.currentPageId, false, state.currentViewId);
         renderRuntime();
         toast('表已删除');
@@ -837,7 +860,7 @@ function clearTableData(entity) {
     onConfirm: async () => {
       try {
         const body = await api(`/api/apps/${state.currentApp.id}/tables/${entity.id}/records`, { method: 'DELETE' });
-        await loadRecords();
+        await loadCurrentPageRecords();
         renderRuntime();
         toast(`已清除 ${body.deletedCount || 0} 条数据`);
       } catch (error) {
@@ -880,7 +903,7 @@ function openCreatePageModal(sourcePage = null) {
               });
               state.currentPageId = page.id;
               state.currentViewId = '';
-              await loadRecords();
+              await loadCurrentPageRecords();
               writeRoute(state.currentApp.id, state.currentPageId, false, state.currentViewId);
               backdrop.remove();
               renderRuntime();
@@ -950,7 +973,7 @@ function openCreateTableModal() {
             });
             state.currentApp = body.app;
             state.currentPageId = body.app.ui.pages.at(-1)?.id || state.currentPageId;
-            await loadRecords();
+            await loadCurrentPageRecords();
             backdrop.remove();
             renderRuntime();
             toast('表已创建');
@@ -973,6 +996,17 @@ function renderPage(page) {
 
 function entityFor(page) {
   return state.currentApp.schema.entities.find((entity) => entity.id === page.entity) || state.currentApp.schema.entities[0];
+}
+
+function currentPage() {
+  return state.currentApp?.ui.pages.find((item) => item.id === state.currentPageId) || state.currentApp?.ui.pages[0] || null;
+}
+
+function pageEntityForRecordLoad(page) {
+  if (!page || !state.currentApp) return null;
+  if (page.entity) return entityFor(page);
+  if (['list', 'chart', 'editor', 'form', 'detail'].includes(page.type)) return entityFor(page);
+  return null;
 }
 
 function recordsFor(entityId) {
@@ -1691,7 +1725,7 @@ function importTableData(entity) {
         headers: { 'content-type': file.type || 'application/octet-stream', 'x-file-name': encodeURIComponent(file.name) },
         body: await file.arrayBuffer()
       });
-      await loadRecords();
+      await loadCurrentPageRecords();
       renderRuntime();
       toast(`已导入 ${body.importedCount || 0} 条数据`);
     } catch (error) {
@@ -2119,7 +2153,7 @@ function closeContextMenu() {
 
 function clearActiveTableSelection() {
   document.querySelectorAll('th.selected-column-header').forEach((item) => item.classList.remove('selected-column-header'));
-  document.querySelectorAll('.editable-cell.selected-cell').forEach((item) => item.classList.remove('selected-cell'));
+  document.querySelectorAll('.editable-cell.selected-cell').forEach(clearCellSelectionClasses);
   state.cellSelection = null;
   hideCellCopyToolbar();
 }
@@ -2136,9 +2170,11 @@ function selectColumnHeader(header) {
 
 function startCellRangeSelection(event, cell) {
   if (event.button !== 0 || cell.classList.contains('cell-editing')) return;
+  const activeEditorInput = document.querySelector('.editable-cell.cell-editing input, .editable-cell.cell-editing textarea');
+  if (activeEditorInput && !cell.contains(activeEditorInput)) activeEditorInput.blur();
   event.preventDefault();
   closeContextMenu();
-  closeCellChoiceDropdown();
+  document.querySelectorAll('.cell-choice-dropdown').forEach((m) => m.remove());
   clearActiveTableSelection();
   const position = cellPosition(cell);
   state.cellSelection = { active: true, table: cell.closest('table'), start: position, end: position };
@@ -2157,15 +2193,10 @@ function moveCellRangeSelection(event) {
   if (cell) extendCellRangeSelection(cell);
 }
 
-async function finishCellRangeSelection() {
+function finishCellRangeSelection() {
   if (!state.cellSelection?.active) return;
   state.cellSelection.active = false;
   updateCellRangeSelection();
-  const matrix = selectedCellMatrix();
-  if (matrix.length && (matrix.length > 1 || matrix[0].length > 1)) {
-    await copySelectedCellsToClipboard(matrix, { quiet: true });
-    showCellCopyToolbar();
-  }
 }
 
 function cellPosition(cell) {
@@ -2177,7 +2208,7 @@ function cellPosition(cell) {
 
 function updateCellRangeSelection() {
   const selection = state.cellSelection;
-  document.querySelectorAll('.editable-cell.selected-cell').forEach((item) => item.classList.remove('selected-cell'));
+  document.querySelectorAll('.editable-cell.selected-cell').forEach(clearCellSelectionClasses);
   if (!selection?.table) return;
   const minRow = Math.min(selection.start.row, selection.end.row);
   const maxRow = Math.max(selection.start.row, selection.end.row);
@@ -2185,12 +2216,22 @@ function updateCellRangeSelection() {
   const maxCol = Math.max(selection.start.col, selection.end.col);
   selection.table.querySelectorAll('.editable-cell[data-row-index][data-col-index]').forEach((cell) => {
     const { row, col } = cellPosition(cell);
-    cell.classList.toggle('selected-cell', row >= minRow && row <= maxRow && col >= minCol && col <= maxCol);
+    const selected = row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+    if (!selected) return;
+    cell.classList.add('selected-cell');
+    cell.classList.toggle('selection-top', row === minRow);
+    cell.classList.toggle('selection-bottom', row === maxRow);
+    cell.classList.toggle('selection-left', col === minCol);
+    cell.classList.toggle('selection-right', col === maxCol);
   });
 }
 
+function clearCellSelectionClasses(cell) {
+  cell.classList.remove('selected-cell', 'selection-top', 'selection-bottom', 'selection-left', 'selection-right');
+}
+
 function selectedCellMatrix() {
-  const cells = [...document.querySelectorAll('.editable-cell.selected-cell[data-row-index][data-col-index]')];
+  const cells = selectedCellElements();
   if (!cells.length) return [];
   const rows = new Map();
   for (const cell of cells) {
@@ -2203,18 +2244,263 @@ function selectedCellMatrix() {
     .map(([, cols]) => [...cols.entries()].sort(([a], [b]) => a - b).map(([, value]) => value));
 }
 
+function selectedCellElements() {
+  return [...document.querySelectorAll('.editable-cell.selected-cell[data-row-index][data-col-index]')]
+    .sort((a, b) => {
+      const first = cellPosition(a);
+      const second = cellPosition(b);
+      return first.row - second.row || first.col - second.col;
+    });
+}
+
+function selectedCellPayload() {
+  const cells = selectedCellElements();
+  if (!cells.length) return null;
+  const rows = new Map();
+  for (const cell of cells) {
+    const { row, col } = cellPosition(cell);
+    if (!rows.has(row)) rows.set(row, new Map());
+    const field = fieldForCell(cell);
+    const record = recordForCell(cell);
+    rows.get(row).set(col, {
+      fieldId: field?.id || cell.dataset.fieldId || '',
+      fieldType: field?.type || cell.dataset.fieldType || '',
+      value: structuredClone(record?.data?.[field?.id]),
+      text: cell.dataset.copyValue || cell.textContent.trim()
+    });
+  }
+  return [...rows.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, cols]) => [...cols.entries()].sort(([a], [b]) => a - b).map(([, value]) => value));
+}
+
 async function copySelectedCellsToClipboard(matrix = selectedCellMatrix(), options = {}) {
   if (!matrix.length) return false;
+  state.cellClipboard = selectedCellPayload();
   const text = matrix.map((row) => row.join('\t')).join('\n');
   try {
     await navigator.clipboard.writeText(text);
     if (!options.quiet) toast('已复制选区');
+    if (isMultiCellMatrix(matrix)) showCellCopyToolbar();
     return true;
   } catch {
     const copied = fallbackCopyText(text);
     if (!options.quiet) toast(copied ? '已复制选区' : '浏览器暂不允许写入剪贴板。');
+    if (copied && isMultiCellMatrix(matrix)) showCellCopyToolbar();
     return copied;
   }
+}
+
+function isMultiCellMatrix(matrix) {
+  return matrix.length > 1 || matrix[0]?.length > 1;
+}
+
+async function pasteCellsFromClipboard(event) {
+  if (event.target?.closest?.('input, textarea, select, [contenteditable="true"], .cell-choice-dropdown')) return;
+  const targetCells = selectedCellElements();
+  if (!targetCells.length) return;
+  event.preventDefault();
+  const text = event.clipboardData?.getData('text/plain') || await navigator.clipboard.readText().catch(() => '');
+  const source = clipboardPayloadFromText(text, state.cellClipboard);
+  if (!source.length || !source[0]?.length) return;
+  await pasteCellMatrix(source, targetCells);
+}
+
+function clipboardPayloadFromText(text, structuredPayload = null) {
+  const textMatrix = parseClipboardText(text);
+  if (!textMatrix.length) return [];
+  if (payloadMatchesTextMatrix(structuredPayload, textMatrix)) return structuredPayload;
+  return textMatrix.map((row) => row.map((value) => ({ text: value, value, fieldType: '' })));
+}
+
+function payloadMatchesTextMatrix(payload, textMatrix) {
+  if (!payload || payload.length !== textMatrix.length || payload[0]?.length !== textMatrix[0]?.length) return false;
+  return payload.every((row, rowIndex) => row.length === textMatrix[rowIndex].length
+    && row.every((cell, colIndex) => String(cell.text ?? '') === String(textMatrix[rowIndex][colIndex] ?? '')));
+}
+
+function parseClipboardText(text) {
+  const clean = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n$/, '');
+  if (!clean) return [];
+  return clean.split('\n').map((row) => row.split('\t'));
+}
+
+async function pasteCellMatrix(source, targetCells) {
+  const target = targetSelectionBounds(targetCells);
+  const sourceRows = source.length;
+  const sourceCols = Math.max(...source.map((row) => row.length));
+  if (sourceRows > target.rows || sourceCols > target.cols) {
+    return toast(`复制区域是 ${sourceRows} 行 ${sourceCols} 列，不能大于目标区域 ${target.rows} 行 ${target.cols} 列。`);
+  }
+  const fillAll = sourceRows === 1 && sourceCols === 1;
+  const changesByRecord = new Map();
+  const pasteRows = fillAll ? target.rows : sourceRows;
+  const pasteCols = fillAll ? target.cols : sourceCols;
+
+  for (let rowOffset = 0; rowOffset < pasteRows; rowOffset += 1) {
+    for (let colOffset = 0; colOffset < pasteCols; colOffset += 1) {
+      const targetCell = target.cellMap.get(`${target.minRow + rowOffset}:${target.minCol + colOffset}`);
+      if (!targetCell) return toast('目标区域必须是连续的单元格区域。');
+      const sourceCell = fillAll ? source[0][0] : source[rowOffset]?.[colOffset];
+      const field = fieldForCell(targetCell);
+      const record = recordForCell(targetCell);
+      if (!field || !record) return toast('找不到目标单元格对应的数据。');
+      const parsed = valueForPastedCell(sourceCell, field);
+      if (!parsed.ok) return toast(parsed.message);
+      const current = changesByRecord.get(record.id) || { record, data: { ...record.data } };
+      current.data[field.id] = parsed.value;
+      changesByRecord.set(record.id, current);
+    }
+  }
+
+  for (const { record, data } of changesByRecord.values()) {
+    if (fieldValuesEqual(record.data, data)) continue;
+    await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
+  }
+  await loadCurrentPageRecords();
+  renderRuntime();
+  toast(`已粘贴 ${pasteRows * pasteCols} 个单元格`);
+}
+
+function targetSelectionBounds(cells) {
+  const positions = cells.map((cell) => ({ ...cellPosition(cell), cell }));
+  const rows = positions.map((item) => item.row);
+  const cols = positions.map((item) => item.col);
+  const minRow = Math.min(...rows);
+  const maxRow = Math.max(...rows);
+  const minCol = Math.min(...cols);
+  const maxCol = Math.max(...cols);
+  return {
+    minRow,
+    minCol,
+    rows: maxRow - minRow + 1,
+    cols: maxCol - minCol + 1,
+    cellMap: new Map(positions.map((item) => [`${item.row}:${item.col}`, item.cell]))
+  };
+}
+
+function fieldForCell(cell) {
+  const page = currentPage();
+  const entity = page ? (pageEntityForRecordLoad(page) || entityFor(page)) : state.currentApp?.schema.entities[0];
+  return entity?.fields.find((field) => field.id === cell.dataset.fieldId);
+}
+
+function recordForCell(cell) {
+  return state.records.find((record) => record.id === cell.dataset.recordId);
+}
+
+function valueForPastedCell(sourceCell, targetField) {
+  const sourceType = sourceCell?.fieldType || '';
+  const text = String(sourceCell?.text ?? sourceCell?.value ?? '');
+  if (sourceType && !fieldTypesCompatible(sourceType, targetField.type)) {
+    return { ok: false, message: `不能粘贴：复制字段类型「${fieldTypeLabel(sourceType)}」与目标字段「${targetField.label}」不兼容。` };
+  }
+  if (sourceType && sourceCell && sourceCell.value !== undefined && sourceCell.value !== null) {
+    return normalizePastedValue(sourceCell.value, targetField);
+  }
+  return normalizePastedValue(text, targetField);
+}
+
+function fieldTypesCompatible(sourceType, targetType) {
+  if (sourceType === targetType) return true;
+  const textLike = new Set(['text', 'textarea', 'richText']);
+  if (textLike.has(sourceType) && textLike.has(targetType)) return true;
+  if (sourceType === 'select' && targetType === 'multiSelect') return true;
+  if (sourceType === 'date' && targetType === 'datetime') return true;
+  return false;
+}
+
+function normalizePastedValue(value, field) {
+  if (value === null || value === undefined) return { ok: true, value: defaultValueForField(field) };
+  if (field.type === 'number') {
+    const normalized = String(value).replace(/[¥,%\s]/g, '');
+    if (normalized === '') return { ok: true, value: null };
+    const number = Number(normalized);
+    return Number.isFinite(number)
+      ? { ok: true, value: number }
+      : { ok: false, message: `「${field.label}」需要数字，无法粘贴「${value}」。` };
+  }
+  if (field.type === 'boolean') {
+    if (typeof value === 'boolean') return { ok: true, value };
+    const normalized = String(value).trim().toLowerCase();
+    if (['true', '是', '对', '1', 'yes', 'y'].includes(normalized)) return { ok: true, value: true };
+    if (['false', '否', '错', '0', 'no', 'n', ''].includes(normalized)) return { ok: true, value: false };
+    return { ok: false, message: `「${field.label}」需要是/否值，无法粘贴「${value}」。` };
+  }
+  if (field.type === 'select') return pastedSelectValue(value, field);
+  if (field.type === 'multiSelect') return pastedMultiSelectValue(value, field);
+  if (field.type === 'date') return pastedDateValue(value, field);
+  if (field.type === 'datetime') return pastedDateTimeValue(value, field);
+  if (field.type === 'relation') return pastedRelationValue(value, field);
+  if (field.type === 'image' || field.type === 'file') {
+    return typeof value === 'object'
+      ? { ok: true, value }
+      : { ok: false, message: `「${field.label}」是附件字段，不能从文本粘贴。` };
+  }
+  return { ok: true, value: String(value) };
+}
+
+function pastedSelectValue(value, field) {
+  const text = String(value ?? '').trim();
+  if (!text) return { ok: true, value: '' };
+  const option = (field.options || []).map(optionObject).find((item) => item.id === text || item.label === text);
+  return option
+    ? { ok: true, value: option.id }
+    : { ok: false, message: `「${field.label}」没有选项「${text}」。` };
+}
+
+function pastedMultiSelectValue(value, field) {
+  if (Array.isArray(value)) {
+    const values = value.map((item) => optionObject(item).id || item).filter(Boolean);
+    const validIds = new Set((field.options || []).map((item) => optionObject(item).id));
+    const invalid = values.find((item) => !validIds.has(item));
+    return invalid ? { ok: false, message: `「${field.label}」没有选项「${invalid}」。` } : { ok: true, value: values };
+  }
+  const parts = String(value || '').split(/[、,，]/).map((item) => item.trim()).filter(Boolean);
+  const options = (field.options || []).map(optionObject);
+  const values = [];
+  for (const part of parts) {
+    const option = options.find((item) => item.id === part || item.label === part);
+    if (!option) return { ok: false, message: `「${field.label}」没有选项「${part}」。` };
+    values.push(option.id);
+  }
+  return { ok: true, value: values };
+}
+
+function pastedDateValue(value, field) {
+  const text = String(value || '').trim().replaceAll('/', '-');
+  if (!text) return { ok: true, value: '' };
+  const match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!match) return { ok: false, message: `「${field.label}」需要日期，无法粘贴「${value}」。` };
+  return { ok: true, value: `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}` };
+}
+
+function pastedDateTimeValue(value, field) {
+  const text = String(value || '').trim().replaceAll('/', '-').replace(' ', 'T');
+  if (!text) return { ok: true, value: '' };
+  const match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:T(\d{1,2}):(\d{1,2}))?/);
+  if (!match) return { ok: false, message: `「${field.label}」需要日期时间，无法粘贴「${value}」。` };
+  const date = `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+  const time = match[4] ? `T${match[4].padStart(2, '0')}:${match[5].padStart(2, '0')}` : '';
+  return { ok: true, value: `${date}${time}` };
+}
+
+function pastedRelationValue(value, field) {
+  if (Array.isArray(value)) {
+    const values = value.map((item) => item.targetRecordId || item.recordId || item).filter(Boolean);
+    return { ok: true, value: field.multiple ? values : values[0] || '' };
+  }
+  if (value && typeof value === 'object') {
+    const id = value.targetRecordId || value.recordId || value.id;
+    return { ok: true, value: field.multiple ? [id].filter(Boolean) : id || '' };
+  }
+  const text = String(value || '').trim();
+  if (!text) return { ok: true, value: field.multiple ? [] : '' };
+  const targetEntity = state.currentApp.schema.entities.find((item) => item.id === field.targetEntity);
+  const candidates = recordsFor(field.targetEntity);
+  const record = candidates.find((item) => item.id === text || relationDisplayValue(field, targetEntity, item) === text);
+  if (!record) return { ok: false, message: `「${field.label}」找不到关联记录「${text}」。` };
+  return { ok: true, value: field.multiple ? [record.id] : record.id };
 }
 
 function fallbackCopyText(text) {
@@ -2260,13 +2546,18 @@ function showCellCopyToolbar() {
 
 async function copySelectedCellsAsImage() {
   const matrix = selectedCellMatrix();
-  if (!matrix.length) return toast('先选择要复制的单元格。');
+  if (!matrix.length) {
+    hideCellCopyToolbar();
+    return toast('先选择要复制的单元格。');
+  }
   try {
     const blob = await selectedCellsImageBlob(matrix);
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
     toast('已复制为图片');
   } catch {
     toast('当前浏览器不支持复制图片到剪贴板。');
+  } finally {
+    hideCellCopyToolbar();
   }
 }
 
@@ -2830,6 +3121,9 @@ function renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, s
         style: columnWidthStyle(listConfig, field),
         'data-row-index': rowIndex,
         'data-col-index': colIndex,
+        'data-record-id': record.id,
+        'data-field-id': field.id,
+        'data-field-type': field.type,
         'data-copy-value': formatFieldValue(record.data[field.id], field),
         onpointerdown: (event) => startCellRangeSelection(event, event.currentTarget),
         onpointerenter: (event) => extendCellRangeSelection(event.currentTarget),
@@ -2883,8 +3177,28 @@ function formatNumberSummary(value, field) {
 
 function startCellEdit(cell, entity, record, field) {
   if (cell.classList.contains('cell-editing')) return;
-  if (field.type === 'select' || field.type === 'multiSelect' || field.type === 'relation') {
-    openCellChoiceDropdown(cell, record, field);
+    if (field.type === 'select' || field.type === 'multiSelect' || field.type === 'relation') {
+    const widget = createChoiceWidget(field, record.data[field.id], async (newValue) => {
+      if (fieldValuesEqual(record.data[field.id], newValue)) {
+        renderRuntime();
+        return;
+      }
+      const data = { ...record.data, [field.id]: newValue };
+      try {
+        await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
+        await loadCurrentPageRecords();
+        renderRuntime();
+      } catch (error) {
+        toast(error.message);
+        renderRuntime();
+      }
+    });
+    clearActiveTableSelection();
+    cell.classList.add('selected-cell', 'cell-editing');
+    cell.innerHTML = '';
+    cell.append(widget);
+    widget._choiceCloseCallback = () => renderRuntime();
+    setTimeout(() => widget.click(), 0);
     return;
   }
   cell.classList.add('cell-editing');
@@ -2913,7 +3227,7 @@ function startCellEdit(cell, entity, record, field) {
     cell.classList.add('saving-cell');
     try {
       await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
-      await loadRecords();
+      await loadCurrentPageRecords();
       renderRuntime();
     } catch (error) {
       toast(error.message);
@@ -2946,199 +3260,7 @@ function startCellEdit(cell, entity, record, field) {
   }
 }
 
-function selectDataCell(cell) {
-  clearActiveTableSelection();
-  cell.classList.add('selected-cell');
-}
 
-function openCellChoiceDropdown(cell, record, field) {
-  closeCellChoiceDropdown();
-  selectDataCell(cell);
-  cell.classList.add('cell-editing');
-  const multiple = field.type === 'multiSelect' || (field.type === 'relation' && field.multiple);
-  const currentValues = currentCellChoiceValues(record.data[field.id], field);
-  const choices = cellChoiceOptions(field);
-  const list = h('div', { class: 'cell-choice-list' }, choices.map((option) => {
-    const selected = currentValues.has(option.id) || currentValues.has(option.label);
-    const row = h('button', {
-      class: `cell-choice-row ${selected ? 'selected' : ''}`,
-      type: 'button',
-      'data-choice-option': option.id,
-      'data-choice-selected': selected ? 'true' : 'false',
-      onclick: async (event) => {
-        event.preventDefault();
-        if (multiple) {
-          const nextSelected = event.currentTarget.dataset.choiceSelected !== 'true';
-          event.currentTarget.dataset.choiceSelected = nextSelected ? 'true' : 'false';
-          event.currentTarget.classList.toggle('selected', nextSelected);
-          menu.dataset.dirty = 'true';
-          renderCellChoiceEditor(cell, record, field, menu, choices);
-          return;
-        }
-        menu.querySelectorAll('[data-choice-option]').forEach((item) => {
-          item.dataset.choiceSelected = 'false';
-          item.classList.remove('selected');
-        });
-        event.currentTarget.dataset.choiceSelected = 'true';
-        event.currentTarget.classList.add('selected');
-        await saveCellChoiceDropdown(record, field, menu);
-      }
-    }, [
-      h('span', { class: `cell-choice-pill select-${option.color || 'gray'}`, text: option.label })
-    ]);
-    return row;
-  }));
-  const menu = h('div', { class: 'cell-choice-dropdown' }, [
-    choices.length ? null : h('div', { class: 'cell-choice-empty', text: '暂无可选记录' }),
-    list
-  ]);
-  menu.dataset.dirty = 'false';
-  cell.replaceChildren();
-  renderCellChoiceEditor(cell, record, field, menu, choices);
-  document.body.append(menu);
-  positionCellChoiceDropdown(cell, menu);
-  menu.querySelector('.cell-choice-row')?.focus();
-
-  menu.addEventListener('keydown', async (event) => {
-    if (event.key === 'Enter' && !event.target?.closest?.('.cell-choice-row')) await saveCellChoiceDropdown(record, field, menu);
-    if (event.key === 'Escape') {
-      closeCellChoiceDropdown();
-      renderRuntime();
-    }
-  });
-  const outsideController = new AbortController();
-  menu._outsideController = outsideController;
-  activeCellChoiceController = outsideController;
-  setTimeout(() => {
-    if (!document.body.contains(menu) || outsideController.signal.aborted) return;
-    const closeOnOutside = async (event) => {
-      if (menu.contains(event.target) || cell.contains(event.target)) return;
-      if (menu.dataset.dirty === 'true') {
-        await saveCellChoiceDropdown(record, field, menu);
-        return;
-      }
-      closeCellChoiceDropdown();
-      renderRuntime();
-    };
-    document.addEventListener('pointerdown', closeOnOutside, { capture: true, signal: outsideController.signal });
-  }, 0);
-}
-
-function renderCellChoiceEditor(cell, record, field, menu, choices) {
-  const selectedIds = selectedCellChoiceIds(menu);
-  const selectedOptions = choices.filter((option) => selectedIds.includes(option.id));
-  const tags = h('div', { class: 'cell-choice-editor-tags' }, selectedOptions.map((option) =>
-    h('span', { class: `cell-choice-editor-pill select-${option.color || 'gray'}` }, [
-      h('span', { text: option.label }),
-      h('button', {
-        class: 'cell-choice-pill-remove',
-        type: 'button',
-        text: '×',
-        title: '移除',
-        onclick: async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          const row = [...menu.querySelectorAll('[data-choice-option]')]
-            .find((item) => item.dataset.choiceOption === String(option.id));
-          if (row) {
-            row.dataset.choiceSelected = 'false';
-            row.classList.remove('selected');
-          }
-          menu.dataset.dirty = 'true';
-          if (field.type === 'select' || (field.type === 'relation' && !field.multiple)) {
-            await saveCellChoiceDropdown(record, field, menu);
-            return;
-          }
-          renderCellChoiceEditor(cell, record, field, menu, choices);
-        }
-      })
-    ])
-  ));
-  const editor = h('div', { class: 'cell-choice-editor' }, [
-    tags,
-    h('span', { class: 'cell-choice-editor-arrow', text: '⌄' })
-  ]);
-  cell.replaceChildren(editor);
-}
-
-function selectedCellChoiceIds(menu) {
-  return [...menu.querySelectorAll('[data-choice-option]')]
-    .filter((option) => option.dataset.choiceSelected === 'true')
-    .map((option) => option.dataset.choiceOption);
-}
-
-function cellChoiceOptions(field) {
-  if (field.type === 'relation') {
-    const target = state.currentApp.schema.entities.find((item) => item.id === field.targetEntity);
-    return recordsFor(field.targetEntity).map((record) => ({
-      id: record.id,
-      label: relationDisplayValue(field, target, record) || record.id
-    }));
-  }
-  return (field.options || []).map((rawOption) => {
-    const option = optionObject(rawOption);
-    return { id: option.id, label: option.label, color: option.color };
-  });
-}
-
-function currentCellChoiceValues(value, field) {
-  const rawCurrent = field.type === 'multiSelect' || field.type === 'relation'
-    ? (Array.isArray(value) ? value : [value])
-    : [value];
-  return new Set(rawCurrent.filter(Boolean).flatMap((item) => {
-    if (field.type === 'relation') {
-      const id = item.targetRecordId || item.recordId || item;
-      return [id, item.displayValue].filter(Boolean);
-    }
-    const option = optionObject(item);
-    return [option.id, option.label, item];
-  }));
-}
-
-async function saveCellChoiceDropdown(record, field, menu) {
-  if (!menu || menu.dataset.saving === 'true') return;
-  menu.dataset.saving = 'true';
-  menu._outsideController?.abort();
-  if (activeCellChoiceController === menu._outsideController) activeCellChoiceController = null;
-  const selected = selectedCellChoiceIds(menu);
-  const nextValue = field.type === 'multiSelect' || field.type === 'relation' ? selected : selected[0] || '';
-  closeCellChoiceDropdown();
-  if (fieldValuesEqual(record.data[field.id], nextValue)) {
-    renderRuntime();
-    return;
-  }
-  const data = { ...record.data, [field.id]: nextValue };
-  try {
-    await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
-    await loadRecords();
-    renderRuntime();
-  } catch (error) {
-    toast(error.message);
-    renderRuntime();
-  }
-}
-
-function positionCellChoiceDropdown(cell, menu) {
-  const rect = cell.getBoundingClientRect();
-  const menuWidth = Math.max(rect.width, 180);
-  const left = Math.min(window.innerWidth - menuWidth - 8, Math.max(8, rect.left));
-  const top = rect.bottom + 4;
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
-  menu.style.minWidth = `${menuWidth}px`;
-  menu.style.maxWidth = `${Math.min(320, window.innerWidth - 16)}px`;
-  menu.style.maxHeight = `${Math.max(120, window.innerHeight - top - 12)}px`;
-}
-
-function closeCellChoiceDropdown() {
-  activeCellChoiceController?.abort();
-  activeCellChoiceController = null;
-  document.querySelectorAll('.cell-choice-dropdown').forEach((menu) => {
-    menu._outsideController?.abort();
-    menu.remove();
-  });
-  document.querySelectorAll('.cell-editing').forEach((item) => item.classList.remove('cell-editing'));
-}
 
 function fieldValuesEqual(currentValue, nextValue) {
   if (currentValue === nextValue) return true;
@@ -3245,7 +3367,6 @@ function openFormLayoutModal(entity) {
   const layout = getFormLayout(entity);
   let order = [...layout.order];
   let columns = layout.columns;
-  const list = h('div', { class: 'layout-list' });
   const unusedList = h('div', { class: 'layout-list unused-list' });
   const preview = h('div', { class: 'form-preview' });
   const columnSelect = h('select');
@@ -3257,7 +3378,6 @@ function openFormLayoutModal(entity) {
   });
 
   const renderRows = () => {
-    list.innerHTML = '';
     unusedList.innerHTML = '';
     preview.innerHTML = '';
     const unused = entity.fields.filter((field) => !order.includes(field.id));
@@ -3271,35 +3391,53 @@ function openFormLayoutModal(entity) {
     for (const fieldId of order) {
       const field = entity.fields.find((item) => item.id === fieldId);
       if (!field) continue;
-      const row = h('div', { class: 'layout-row', draggable: 'true', 'data-field-id': field.id }, [
-        h('span', { class: 'drag-handle', text: '↕' }),
-        h('span', { text: field.label }),
-        h('div', { class: 'row' }, [
-          h('button', { class: 'secondary', text: '上移', onclick: () => moveField(field.id, -1) }),
-          h('button', { class: 'secondary', text: '下移', onclick: () => moveField(field.id, 1) }),
-          h('button', { class: 'secondary', text: '移除', onclick: () => { order = order.filter((id) => id !== field.id); renderRows(); } })
-        ])
-      ]);
-      bindFormFieldDrag(row, field.id, () => renderRows());
-      list.append(row);
       const previewField = h('div', { class: 'preview-field', draggable: 'true', 'data-field-id': field.id }, [
         h('div', { class: 'preview-head' }, [
           h('label', { text: field.label }),
           h('button', { class: 'ghost preview-remove', text: '移除', onclick: () => { order = order.filter((id) => id !== field.id); renderRows(); } })
         ]),
-        h('div', { class: 'preview-input', text: sampleFieldValue(field) })
+        (() => {
+          if (field.type === 'file' || field.type === 'image') {
+            return h('div', { class: 'preview-input', text: field.type === 'image' ? '点击上传图片' : '点击上传文件' });
+          }
+          const input = inputForField(field, sampleFieldValue(field));
+          if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' || input.tagName === 'SELECT') {
+            input.disabled = true;
+          }
+          return input;
+        })()
       ]);
       bindFormFieldDrag(previewField, field.id, () => renderRows());
       preview.append(previewField);
     }
     preview.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
   };
+  let dragFieldId = '';
   const bindFormFieldDrag = (element, fieldId, rerender) => {
-    element.addEventListener('dragstart', (event) => event.dataTransfer.setData('text/plain', fieldId));
-    element.addEventListener('dragover', (event) => event.preventDefault());
+    element.addEventListener('dragstart', (event) => {
+      dragFieldId = fieldId;
+      element.classList.add('is-dragging');
+      event.dataTransfer.setData('text/plain', fieldId);
+    });
+    element.addEventListener('dragover', (event) => {
+      if (!dragFieldId || dragFieldId === fieldId) return;
+      event.preventDefault();
+      const rect = element.getBoundingClientRect();
+      const position = event.clientY - rect.top > rect.height / 2 ? 'after' : 'before';
+      element.dataset.dropPosition = position;
+      element.classList.toggle('drop-before', position === 'before');
+      element.classList.toggle('drop-after', position === 'after');
+    });
+    element.addEventListener('dragleave', () => {
+      element.classList.remove('drop-before', 'drop-after');
+      delete element.dataset.dropPosition;
+    });
     element.addEventListener('drop', (event) => {
       event.preventDefault();
-      const from = event.dataTransfer.getData('text/plain');
+      element.classList.remove('drop-before', 'drop-after', 'is-dragging');
+      delete element.dataset.dropPosition;
+      const from = event.dataTransfer.getData('text/plain') || dragFieldId;
+      dragFieldId = '';
       const fromIndex = order.indexOf(from);
       const toIndex = order.indexOf(fieldId);
       if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
@@ -3307,13 +3445,11 @@ function openFormLayoutModal(entity) {
       order.splice(toIndex, 0, from);
       rerender();
     });
-  };
-  const moveField = (fieldId, delta) => {
-    const index = order.indexOf(fieldId);
-    const nextIndex = index + delta;
-    if (index < 0 || nextIndex < 0 || nextIndex >= order.length) return;
-    [order[index], order[nextIndex]] = [order[nextIndex], order[index]];
-    renderRows();
+    element.addEventListener('dragend', () => {
+      element.classList.remove('drop-before', 'drop-after', 'is-dragging');
+      delete element.dataset.dropPosition;
+      dragFieldId = '';
+    });
   };
   renderRows();
 
@@ -3323,14 +3459,12 @@ function openFormLayoutModal(entity) {
         h('h3', { text: '表单视图' }),
         h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
       ]),
-      h('p', { class: 'muted', text: '这是默认表单视图。左侧调整字段顺序、列数和使用字段；右侧实时预览新增/编辑表单。' }),
+      h('p', { class: 'muted', text: '这是默认表单视图。左侧添加字段，右侧拖拽排序和移除字段；预览实时反映新增/编辑表单的实际效果。' }),
       h('div', { class: 'layout-editor' }, [
         h('div', {}, [
           h('div', { class: 'field' }, [h('label', { text: '布局列数' }), columnSelect]),
           h('h4', { text: '未使用字段' }),
-          unusedList,
-          h('h4', { text: '已使用字段' }),
-          list
+          unusedList
         ]),
         h('div', {}, [
           h('h4', { text: '预览' }),
@@ -3370,7 +3504,7 @@ function sampleFieldValue(field) {
   if (field.type === 'boolean') return '是 / 否';
   if (field.type === 'select' || field.type === 'multiSelect') return optionObject(field.options?.[0] || '选项').label;
   if (field.type === 'relation') return '关联记录';
-  if (field.type === 'textarea' || field.type === 'richText') return '多行文本';
+  if (field.type === 'textarea' || field.type === 'richText') return '这是一段多行文本示例内容，\n展示长文本在表单中的实际所占高度。\n第三行内容。';
   return '文本';
 }
 
@@ -4026,6 +4160,10 @@ async function requestAiPlan(prompt) {
       body: JSON.stringify({ prompt, appId: state.currentApp?.id || null, sessionId: state.aiSession?.id || null })
     });
     state.aiSession = body.session;
+    if (body.session) {
+      state.assistantHistory = [body.session, ...state.assistantHistory.filter((s) => s.id !== body.session.id)];
+      state.assistantHistoryContextKey = state.assistantContextKey;
+    }
     state.aiIntent = body.intent || state.aiIntent;
     state.aiClarification = body.clarification || null;
     state.aiPlan = body.plan;
@@ -4166,6 +4304,8 @@ async function executeAiPlan() {
     state.aiClarification = null;
     state.assistantDraft = '';
     state.aiSession = body.session;
+    state.assistantHistory = [body.session, ...state.assistantHistory.filter((s) => s.id !== body.session.id)];
+    state.assistantHistoryContextKey = state.assistantContextKey;
     await openApp(body.appId);
     state.aiChatMessages = messages;
     state.assistantContextKey = state.currentApp ? `modify:${state.currentApp.id}` : state.assistantContextKey;
@@ -4294,7 +4434,7 @@ function inferPageCardsFromPrompt(page, text) {
   const wantsChart = /图表|统计图|柱状|趋势|图/.test(text);
   const wantsPivot = /透视|交叉|分组|汇总/.test(text);
   const wantsStat = /指标|卡片|统计|数量|总数|合计|金额/.test(text) || (!wantsTable && !wantsChart && !wantsPivot);
-  const cards = [];
+  const cards = [...(page.cards || [])];
   if (wantsStat) {
     cards.push({
       id: uniqueCardId(page, 'stat', cards),
@@ -4539,7 +4679,7 @@ function openRecordModal(entity, record = null) {
             const method = record ? 'PUT' : 'POST';
             await api(path, { method, body: JSON.stringify({ entityId: entity.id, data }) });
             backdrop.remove();
-            await loadRecords();
+            await loadCurrentPageRecords();
             renderRuntime();
           }
         }),
@@ -4548,6 +4688,145 @@ function openRecordModal(entity, record = null) {
     ])
   ]);
   document.body.append(backdrop);
+}
+
+function createChoiceWidget(field, initialValue, onChange) {
+  const multiple = field.type === 'multiSelect' || (field.type === 'relation' && field.multiple);
+  let currentValue = initialValue;
+
+  let choices;
+  if (field.type === 'relation') {
+    const target = state.currentApp.schema.entities.find((e) => e.id === field.targetEntity);
+    choices = recordsFor(field.targetEntity)
+      .map((record) => ({
+        id: record.id,
+        label: relationDisplayValue(field, target, record),
+        color: 'gray'
+      }))
+      .filter((c) => c.label && c.label !== c.id);
+  } else {
+    choices = (field.options || []).map(optionObject);
+  }
+
+  const selectedIds = () => {
+    const vals = multiple ? (Array.isArray(currentValue) ? currentValue : []) : [currentValue].filter(Boolean);
+    return vals.map((v) => {
+      if (field.type === 'relation') return v.targetRecordId || v.recordId || v;
+      return optionObject(v).id;
+    }).filter(Boolean);
+  };
+
+  const tags = h('div', { class: 'cell-choice-editor-tags' });
+  const arrow = h('span', { class: 'cell-choice-editor-arrow', text: '⌄' });
+  const editor = h('div', { class: 'cell-choice-editor' }, [tags, arrow]);
+
+  const renderTags = () => {
+    tags.innerHTML = '';
+    const ids = selectedIds();
+    for (const choice of choices) {
+      if (!ids.includes(choice.id)) continue;
+      tags.append(h('span', { class: `cell-choice-editor-pill select-${choice.color || 'gray'}` }, [
+        h('span', { text: choice.label }),
+        h('button', { class: 'cell-choice-pill-remove', text: '×', title: '移除',
+          onclick: (e) => { e.stopPropagation(); toggleOption(choice.id); }
+        })
+      ]));
+    }
+  };
+
+  let dropdown = null;
+  let outsideController = null;
+
+  const closeDropdown = () => {
+    outsideController?.abort();
+    outsideController = null;
+    if (dropdown) { dropdown.remove(); dropdown = null; }
+  };
+
+  const toggleOption = (id) => {
+    const ids = selectedIds();
+    let newVal;
+    if (ids.includes(id)) {
+      if (multiple) {
+        const arr = Array.isArray(currentValue) ? [...currentValue] : [];
+        const valIdx = arr.findIndex((v) => {
+          const vid = field.type === 'relation' ? (v.targetRecordId || v.recordId || v) : optionObject(v).id;
+          return vid === id;
+        });
+        if (valIdx >= 0) arr.splice(valIdx, 1);
+        newVal = arr;
+      } else {
+        newVal = '';
+      }
+    } else {
+      if (multiple) {
+        const arr = Array.isArray(currentValue) ? [...currentValue] : [];
+        arr.push(id);
+        newVal = arr;
+      } else {
+        newVal = id;
+      }
+    }
+    currentValue = newVal;
+    editor._choiceValue = newVal;
+    renderTags();
+    if (dropdown) {
+      dropdown.querySelectorAll('[data-choice-option]').forEach((row) => {
+        const isSelected = selectedIds().includes(row.dataset.choiceOption);
+        row.dataset.choiceSelected = isSelected ? 'true' : 'false';
+        row.classList.toggle('selected', isSelected);
+      });
+    }
+    if (onChange) onChange(newVal);
+  };
+
+  const openDropdown = () => {
+    closeDropdown();
+    const list = h('div', { class: 'cell-choice-list' });
+    const ids = selectedIds();
+    for (const choice of choices) {
+      const selected = ids.includes(choice.id);
+      list.append(h('button', {
+        class: `cell-choice-row ${selected ? 'selected' : ''}`,
+        type: 'button',
+        'data-choice-option': choice.id,
+        'data-choice-selected': selected ? 'true' : 'false',
+        onclick: (e) => { e.preventDefault(); toggleOption(choice.id); if (!multiple) closeDropdown(); }
+      }, [
+        h('span', { class: `cell-choice-pill select-${choice.color || 'gray'}`, text: choice.label })
+      ]));
+    }
+    dropdown = h('div', { class: 'cell-choice-dropdown' }, [list]);
+    document.body.append(dropdown);
+    const rect = editor.getBoundingClientRect();
+    const dw = Math.max(rect.width, 180);
+    dropdown.style.left = `${Math.min(window.innerWidth - dw - 8, Math.max(8, rect.left))}px`;
+    dropdown.style.top = `${rect.bottom + 4}px`;
+    dropdown.style.minWidth = `${dw}px`;
+    dropdown.style.maxWidth = `${Math.min(320, window.innerWidth - 16)}px`;
+    const ctrl = new AbortController();
+    outsideController = ctrl;
+    setTimeout(() => {
+      if (ctrl.signal.aborted) return;
+      document.addEventListener('pointerdown', (e) => {
+        if (dropdown?.contains(e.target) || editor.contains(e.target)) return;
+        closeDropdown();
+        if (editor._choiceCloseCallback) editor._choiceCloseCallback();
+      }, { capture: true, signal: ctrl.signal });
+    }, 0);
+    dropdown.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeDropdown();
+        if (editor._choiceCloseCallback) editor._choiceCloseCallback();
+      }
+    });
+  };
+
+  renderTags();
+  editor.addEventListener('click', openDropdown);
+  editor._choiceValue = currentValue;
+
+  return editor;
 }
 
 function inputForField(field, value) {
@@ -4559,32 +4838,10 @@ function inputForField(field, value) {
     return input;
   }
   if (field.type === 'select' || field.type === 'multiSelect') {
-    const select = h('select', field.type === 'multiSelect' ? { multiple: 'multiple' } : {});
-    select.append(h('option', { value: '', text: '请选择' }));
-    for (const rawOption of field.options || []) {
-      const option = optionObject(rawOption);
-      select.append(h('option', { value: option.id, text: option.label }));
-    }
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        const id = optionObject(item).id || (field.options || []).map(optionObject).find((option) => option.label === item)?.id || item;
-        [...select.options].find((option) => option.value === id || option.textContent === item)?.setAttribute('selected', 'selected');
-      }
-    } else {
-      select.value = optionObject(value).id || (field.options || []).map(optionObject).find((option) => option.label === value)?.id || value || '';
-    }
-    return select;
+    return createChoiceWidget(field, value ?? (field.type === 'multiSelect' ? [] : ''), null);
   }
   if (field.type === 'relation') {
-    const select = h('select', field.multiple ? { multiple: 'multiple' } : {});
-    select.append(h('option', { value: '', text: '请选择' }));
-    const target = state.currentApp.schema.entities.find((item) => item.id === field.targetEntity);
-    for (const record of recordsFor(field.targetEntity)) {
-      select.append(h('option', { value: record.id, text: relationDisplayValue(field, target, record) || record.id }));
-    }
-    const selected = new Set((Array.isArray(value) ? value : [value]).filter(Boolean).map((item) => item.targetRecordId || item.recordId || item));
-    for (const option of select.options) if (selected.has(option.value)) option.setAttribute('selected', 'selected');
-    return select;
+    return createChoiceWidget(field, value ?? (field.multiple ? [] : ''), null);
   }
   if (field.type === 'boolean') {
     const input = h('input', { type: 'checkbox' });
@@ -4618,8 +4875,9 @@ function searchInputForField(field) {
 
 async function valueFromInput(input, field) {
   if (field.type === 'boolean') return input.checked;
-  if (field.type === 'multiSelect') return [...input.selectedOptions].map((option) => option.value).filter(Boolean);
-  if (field.type === 'relation') return [...input.selectedOptions].map((option) => option.value).filter(Boolean);
+  if (field.type === 'multiSelect') return input._choiceValue !== undefined ? (Array.isArray(input._choiceValue) ? input._choiceValue : []) : [...input.selectedOptions].map((option) => option.value).filter(Boolean);
+  if (field.type === 'relation') return input._choiceValue !== undefined ? (Array.isArray(input._choiceValue) ? input._choiceValue : [input._choiceValue]) : [...input.selectedOptions].map((option) => option.value).filter(Boolean);
+  if (field.type === 'select') return input._choiceValue !== undefined ? (input._choiceValue || '') : input.value;
   if (field.type === 'image' || field.type === 'file') return uploadValueFromInput(input, field);
   if (field.type === 'number') return input.value === '' ? null : Number(input.value);
   return input.value;
@@ -4652,7 +4910,7 @@ async function removeRecord(recordId, entityId) {
     onConfirm: async () => {
       try {
         await api(`/api/apps/${state.currentApp.id}/records/${recordId}`, { method: 'DELETE' });
-        await loadRecords();
+        await loadCurrentPageRecords();
         renderRuntime();
         toast('记录已删除');
       } catch (error) {
@@ -4664,7 +4922,7 @@ async function removeRecord(recordId, entityId) {
           danger: true,
           onConfirm: async () => {
             await api(`/api/apps/${state.currentApp.id}/records/${recordId}?force=true`, { method: 'DELETE' });
-            await loadRecords();
+            await loadCurrentPageRecords();
             renderRuntime();
             toast('记录和相关关联已删除');
           }
@@ -4678,7 +4936,7 @@ async function quickAddRecord(entity) {
   const data = {};
   for (const field of entity.fields) data[field.id] = defaultValueForField(field);
   const body = await api(`/api/apps/${state.currentApp.id}/records`, { method: 'POST', body: JSON.stringify({ entityId: entity.id, data }) });
-  await loadRecords();
+  await loadCurrentPageRecords();
   renderRuntime();
   toast(`已新增 1 行，可直接双击单元格编辑。`);
   return body.record;
@@ -4706,7 +4964,7 @@ function bulkDeleteRecords(entity, selectedIds, selectionKey) {
         await api(`/api/apps/${state.currentApp.id}/records/${recordId}`, { method: 'DELETE' });
       }
       writeStorage(selectionKey, []);
-      await loadRecords();
+      await loadCurrentPageRecords();
       renderRuntime();
       toast('已删除选中记录');
     }
@@ -4857,16 +5115,23 @@ function optionColor(field, value) {
 }
 
 function renderFieldValue(value, field) {
-  if (field.type === 'select') return renderSelectTag(optionLabel(field, value), optionColor(field, value));
+  if (field.type === 'select') {
+    const label = optionLabel(field, value);
+    return label ? renderSelectTag(label, optionColor(field, value)) : document.createTextNode('');
+  }
   if (field.type === 'multiSelect') {
     const wrap = h('span', { class: 'tag-list' });
-    for (const item of Array.isArray(value) ? value : []) wrap.append(renderSelectTag(optionLabel(field, item), optionColor(field, item)));
+    for (const item of Array.isArray(value) ? value : []) {
+      const label = optionLabel(field, item);
+      if (label) wrap.append(renderSelectTag(label, optionColor(field, item)));
+    }
     return wrap;
   }
   if (field.type === 'relation') {
     const wrap = h('span', { class: 'tag-list relation-tags' });
     for (const item of Array.isArray(value) ? value : [value]) {
-      if (item) wrap.append(h('span', { class: 'relation-tag', text: item.displayValue || item }));
+      const label = relationFieldDisplayText(item);
+      if (label) wrap.append(h('span', { class: 'relation-tag', text: label }));
     }
     return wrap;
   }
@@ -4931,14 +5196,19 @@ function isHttpUrl(value) {
 }
 
 function renderSelectTag(label, color = 'gray') {
-  return h('span', { class: `select-tag select-${color}`, text: label || '未选择' });
+  return h('span', { class: `select-tag select-${color}`, text: label });
+}
+
+function relationFieldDisplayText(value) {
+  if (!value || typeof value !== 'object') return '';
+  return value.displayValue || value.label || value.name || '';
 }
 
 function formatFieldValue(value, field) {
   if (value === null || value === undefined || value === '') return '';
   if (field.type === 'select') return optionLabel(field, value);
-  if (field.type === 'multiSelect') return (Array.isArray(value) ? value : []).map((item) => optionLabel(field, item)).join('、');
-  if (field.type === 'relation') return displayValue(value);
+  if (field.type === 'multiSelect') return (Array.isArray(value) ? value : []).map((item) => optionLabel(field, item)).filter(Boolean).join('、');
+  if (field.type === 'relation') return (Array.isArray(value) ? value : [value]).map(relationFieldDisplayText).filter(Boolean).join('、');
   if (field.type === 'image' || field.type === 'file') return normalizeFileValue(value)?.name || '';
   if (field.type === 'number') {
     const number = Number(value);
@@ -4985,8 +5255,14 @@ document.addEventListener('copy', (event) => {
   const matrix = selectedCellMatrix();
   if (!matrix.length) return;
   event.preventDefault();
+  state.cellClipboard = selectedCellPayload();
   event.clipboardData.setData('text/plain', matrix.map((row) => row.join('\t')).join('\n'));
+  if (isMultiCellMatrix(matrix)) showCellCopyToolbar();
   toast('已复制选区');
+});
+
+document.addEventListener('paste', (event) => {
+  pasteCellsFromClipboard(event).catch((error) => toast(error.message));
 });
 
 document.addEventListener('focusin', (event) => {

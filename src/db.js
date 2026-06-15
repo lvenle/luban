@@ -494,6 +494,7 @@ function hydrateRelationValues(appId, records) {
     const sourceFields = fieldsByEntity.get(row.sourceEntityId) || [];
     const field = sourceFields.find((item) => item.id === row.fieldId);
     const target = targetRecords.get(row.targetRecordId);
+    if (!target) continue;
     grouped.get(key).push({
       targetRecordId: row.targetRecordId,
       displayValue: relationDisplayValue(app, field, target)

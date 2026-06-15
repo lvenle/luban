@@ -215,7 +215,7 @@ async function handleApi(req, res, url) {
 
     if (method === 'GET' && parts[3] === 'records') {
       const entityId = url.searchParams.get('entity');
-      const records = entityId ? listRecords(appId, { entityId, q: url.searchParams.get('q') }) : [];
+      const records = listRecords(appId, { entityId: entityId || undefined, q: url.searchParams.get('q') });
       sendJson(res, 200, { records });
       return;
     }

@@ -49,6 +49,20 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /startCellRangeSelection/);
   assert.match(appJs, /copySelectedCellsToClipboard/);
   assert.match(appJs, /copySelectedCellsAsImage/);
+  assert.match(appJs, /isMultiCellMatrix/);
+  assert.match(appJs, /if \(isMultiCellMatrix\(matrix\)\) showCellCopyToolbar\(\)/);
+  assert.match(appJs, /finally \{\n    hideCellCopyToolbar\(\);/);
+  assert.match(appJs, /pasteCellsFromClipboard/);
+  assert.match(appJs, /pasteCellMatrix/);
+  assert.match(appJs, /fieldTypesCompatible/);
+  assert.match(appJs, /clipboardPayloadFromText/);
+  assert.match(appJs, /复制区域是 \$\{sourceRows\} 行 \$\{sourceCols\} 列/);
+  assert.doesNotMatch(appJs, /finishCellRangeSelection[\s\S]{0,260}copySelectedCellsToClipboard/);
+  assert.doesNotMatch(appJs, /finishCellRangeSelection[\s\S]{0,220}showCellCopyToolbar/);
+  assert.match(appJs, /selection-top/);
+  assert.match(appJs, /selection-bottom/);
+  assert.match(appJs, /selection-left/);
+  assert.match(appJs, /selection-right/);
   assert.match(appJs, /ClipboardItem/);
   assert.match(appJs, /compositionstart/);
   assert.match(appJs, /compositionend/);
@@ -119,13 +133,21 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /requestAiPlan/);
   assert.match(appJs, /executeAiPlan/);
   assert.match(appJs, /确认执行/);
+  assert.match(appJs, /document\.addEventListener\('paste'/);
   assert.match(appJs, /relation-options/);
   assert.match(appJs, /targetEntity/);
   assert.match(appJs, /displayField/);
   assert.match(appJs, /renderSelectTag/);
+  assert.match(appJs, /relationFieldDisplayText/);
+  assert.doesNotMatch(appJs, /label \|\| '未选择'/);
   assert.match(appJs, /openCreateTableModal/);
   assert.match(appJs, /新建表/);
   assert.match(appJs, /deleteField/);
+  assert.match(appJs, /loadCurrentPageRecords/);
+  assert.match(appJs, /pageEntityForRecordLoad/);
+  assert.match(appJs, /await loadCurrentPageRecords\(\);\n  const page = body\.app\.ui\.pages/);
+  assert.match(appJs, /async function quickAddRecord[\s\S]*await loadCurrentPageRecords\(\);/);
+  assert.doesNotMatch(appJs, /document\.querySelectorAll\('\\.cell-editing'\)\.forEach/);
 });
 
 test('frontend has styles for list config, form layout, inline edit, and logs', () => {
@@ -165,6 +187,8 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.quick-searches/);
   assert.match(css, /\.editable-cell/);
   assert.match(css, /\.selected-cell/);
+  assert.match(css, /border-color: #b7cdf6/);
+  assert.match(css, /\.editable-cell\.selected-cell\.selection-top/);
   assert.match(css, /\.cell-copy-toolbar/);
   assert.match(css, /\.image-thumb/);
   assert.match(css, /\.image-preview-full/);
