@@ -78,16 +78,22 @@ async function handleSend(text) {
   });
 }
 
-export function renderAssistantDrawer(container) {
+export function renderAssistantDrawer() {
   if (!chatView) init();
 
   const chatEl = chatView.render();
   const headActions = sessionManager.render();
   const sessionBar = h('div', { class: 'assistant-history-bar' });
 
+  const close = () => {
+    sseClient.disconnect();
+    backdrop.remove();
+    drawer.remove();
+  };
+
   const backdrop = h('div', {
     class: 'drawer-backdrop',
-    onclick: () => { close(); }
+    onclick: () => close()
   });
 
   const drawer = h('div', { class: 'assistant drawer' }, [
@@ -99,8 +105,6 @@ export function renderAssistantDrawer(container) {
     sessionBar,
     chatEl
   ]);
-
-  container.append(backdrop, drawer);
 
   sseClient
     .on('session_id', (data) => {
@@ -144,12 +148,7 @@ export function renderAssistantDrawer(container) {
 
   sessionManager.load(currentAppId);
 
-  function close() {
-    sseClient.disconnect();
-    backdrop.remove();
-    drawer.remove();
-    assistantOpen = false;
-  }
+  return [backdrop, drawer];
 }
 
 async function executeClientTool(data) {

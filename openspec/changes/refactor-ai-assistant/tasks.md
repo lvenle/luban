@@ -50,12 +50,12 @@
 
 ## 7. Frontend: Integrate into app.js
 
-- [ ] 7.1 Simplify state variables: `aiSession`, `aiStreaming`, `assistantOpen`, `assistantDraft`
-- [ ] 7.2 Replace old renderAssistantDrawer call with import from ai-assistant/index.js
-- [ ] 7.3 Remove ~600 lines of old AI assistant code from app.js
+- [x] 7.1 Simplify state variables: remove 12 old assistant vars, keep `assistantOpen`
+- [x] 7.2 Import renderAssistantDrawer/setAppId from ai-assistant module
+- [x] 7.3 Remove ~1068 lines of old AI assistant code from app.js
 
 ## 8. Styles and cleanup
 
 - [x] 8.1 Create `public/ai-assistant/style.css` with AI assistant styles (ported from styles.css)
 - [ ] 8.2 Remove AI assistant CSS (~300 lines) from `public/styles.css`
-- [ ] 8.3 Run tests and verify full flow
+- [x] 8.3 Run tests and verify full flow (5/5 pass)

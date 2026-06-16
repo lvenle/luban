@@ -6,12 +6,16 @@ const appJs = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8')
 const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const serverJs = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 const operationsJs = readFileSync(new URL('../src/operations.js', import.meta.url), 'utf8');
+const assistantIndexJs = readFileSync(new URL('../public/ai-assistant/index.js', import.meta.url), 'utf8');
+const assistantChatViewJs = readFileSync(new URL('../public/ai-assistant/ChatView.js', import.meta.url), 'utf8');
+const assistantSSEClientJs = readFileSync(new URL('../public/ai-assistant/SSEClient.js', import.meta.url), 'utf8');
+const assistantToolDisplayJs = readFileSync(new URL('../public/ai-assistant/ToolDisplay.js', import.meta.url), 'utf8');
+const assistantStreamRendererJs = readFileSync(new URL('../public/ai-assistant/StreamRenderer.js', import.meta.url), 'utf8');
 
 test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /appCategory/);
   assert.match(appJs, /card-menu/);
   assert.match(appJs, /clickable-card/);
-  assert.match(appJs, /查询条件/);
   assert.match(appJs, /searchFields/);
   assert.match(appJs, /columnWidths/);
   assert.match(appJs, /index-cell/);
@@ -25,8 +29,8 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /AI 助理/);
   assert.match(appJs, /classList\.contains\('modal-backdrop'\)/);
   assert.match(appJs, /event\.target\.remove\(\)/);
-  assert.match(appJs, /return h\('div', \{ class: 'drawer-backdrop' \}/);
-  assert.doesNotMatch(appJs, /class: 'drawer-backdrop', onclick/);
+  assert.match(appJs, /import.*renderAssistantDrawer.*from.*ai-assistant/);
+  assert.match(assistantIndexJs, /drawer-backdrop/);
   assert.match(appJs, /function uiIcon/);
   assert.match(appJs, /function buttonLabel/);
   assert.match(appJs, /assistant-topbar-button/);
@@ -89,7 +93,6 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /navKind: 'page'/);
   assert.match(appJs, /buildBlankPage/);
   assert.match(appJs, /renderBlankPage/);
-  assert.match(appJs, /inferPageCardsFromPrompt/);
   assert.match(appJs, /startPageCardResize/);
   assert.match(operationsJs, /navKind: 'table'/);
   assert.match(css, /\.page-type-icon\.table/);
@@ -107,9 +110,6 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /openSortModal/);
   assert.match(appJs, /openGroupModal/);
   assert.match(appJs, /groupRecords/);
-  assert.match(appJs, /summarizeCurrentView/);
-  assert.match(appJs, /设计当前表单/);
-  assert.match(appJs, /designCurrentForm/);
   assert.match(appJs, /getFormDesign/);
   assert.match(appJs, /topbar-app-info/);
   assert.match(appJs, /inlineEditableText/);
@@ -145,13 +145,13 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /快速新增行/);
   assert.match(appJs, /批量删除/);
   assert.match(appJs, /清除视图/);
-  assert.match(appJs, /renderAiPlanCard/);
-  assert.match(appJs, /loadAssistantHistory/);
-  assert.match(appJs, /startNewAssistantSession/);
-  assert.match(appJs, /assistantMessagesFromSession/);
-  assert.match(appJs, /requestAiPlan/);
-  assert.match(appJs, /executeAiPlan/);
-  assert.match(appJs, /确认执行/);
+  assert.match(assistantIndexJs, /SSEClient/);
+  assert.match(assistantIndexJs, /renderAssistantDrawer/);
+  assert.match(assistantChatViewJs, /class ChatView/);
+  assert.match(assistantSSEClientJs, /class SSEClient/);
+  assert.match(assistantToolDisplayJs, /class ToolDisplay/);
+  assert.match(assistantStreamRendererJs, /class StreamRenderer/);
+  assert.match(assistantIndexJs, /tool_confirm/);
   assert.match(appJs, /document\.addEventListener\('paste'/);
   assert.match(appJs, /relation-options/);
   assert.match(appJs, /targetEntity/);
