@@ -244,10 +244,14 @@ function topbar() {
       inRuntime ? renderTopbarAppInfo(state.currentApp) : null
     ]),
     h('div', { class: 'top-actions' }, [
-      h('button', { class: 'secondary', text: 'AI 助理', onclick: () => { state.assistantBusy = false; ensureAssistantConversation(); state.assistantOpen = !state.assistantOpen; state.currentApp ? renderRuntime() : renderHome(); } }),
+      h('button', {
+        class: `secondary icon-label-button assistant-topbar-button ${state.assistantOpen ? 'active' : ''}`,
+        title: state.assistantOpen ? '关闭 AI 助理' : '打开 AI 助理',
+        onclick: () => { state.assistantBusy = false; ensureAssistantConversation(); state.assistantOpen = !state.assistantOpen; state.currentApp ? renderRuntime() : renderHome(); }
+      }, buttonLabel('assistant', 'AI 助理')),
       inRuntime ? null : h('button', { class: 'secondary', text: '我的软件', onclick: goHome }),
       inRuntime ? null : h('button', { class: 'secondary', text: '导入 .sgpkg', onclick: openImportModal }),
-      h('button', { class: 'secondary', text: '设置', onclick: openSettingsModal })
+      h('button', { class: 'secondary icon-label-button', title: '设置', onclick: openSettingsModal }, buttonLabel('settings', '设置'))
     ])
   ]);
 }
@@ -714,21 +718,47 @@ function pageTypeIcon(navKind) {
       svgLine(4, 5, 14, 5),
       svgLine(4, 9, 14, 9),
       svgLine(4, 13, 14, 13)
-    ]);
+    ], 'page-type-svg');
   }
   return svgIcon('0 0 18 18', [
     svgPath('M7.25 6.1 6.1 7.25a3 3 0 0 0 4.24 4.24l1.15-1.15'),
     svgPath('M10.75 11.9 11.9 10.75a3 3 0 0 0-4.24-4.24L6.5 7.66'),
     svgLine(7.4, 10.6, 10.6, 7.4)
-  ]);
+  ], 'page-type-svg');
 }
 
-function svgIcon(viewBox, children) {
+function uiIcon(name) {
+  const icons = {
+    assistant: [svgPath('M12 3.5l1.15 3.35L16.5 8l-3.35 1.15L12 12.5l-1.15-3.35L7.5 8l3.35-1.15L12 3.5Z'), svgPath('M6.5 11.5 7.2 13.3 9 14l-1.8.7-.7 1.8-.7-1.8L4 14l1.8-.7.7-1.8Z')],
+    settings: [svgPath('M8.5 3.5h3l.45 1.65 1.45.6 1.5-.85 1.5 2.6-1.2 1.1v1.8l1.2 1.1-1.5 2.6-1.5-.85-1.45.6-.45 1.65h-3l-.45-1.65-1.45-.6-1.5.85-1.5-2.6 1.2-1.1V8.6L3.6 7.5l1.5-2.6 1.5.85 1.45-.6.45-1.65Z'), svgPath('M8 10a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z')],
+    add: [svgLine(10, 4, 10, 16), svgLine(4, 10, 16, 10)],
+    upload: [svgPath('M10 14V4'), svgPath('M6.5 7.5 10 4l3.5 3.5'), svgPath('M4 15.5h12')],
+    download: [svgPath('M10 4v10'), svgPath('M6.5 10.5 10 14l3.5-3.5'), svgPath('M4 15.5h12')],
+    trash: [svgPath('M4.5 6h11'), svgPath('M8 6V4.5h4V6'), svgPath('M6 6l.6 9.5h6.8L14 6')],
+    filter: [svgPath('M4 5h12l-4.8 5.5V15l-2.4 1v-5.5L4 5Z')],
+    sort: [svgPath('M7 4v12'), svgPath('M4.5 6.5 7 4l2.5 2.5'), svgPath('M13 16V4'), svgPath('M10.5 13.5 13 16l2.5-2.5')],
+    group: [svgPath('M5 5h10v3H5z'), svgPath('M5 12h10v3H5z'), svgLine(7, 8, 7, 12), svgLine(13, 8, 13, 12)],
+    fields: [svgPath('M4.5 5h11v10h-11z'), svgLine(8, 5, 8, 15), svgLine(12, 5, 12, 15)],
+    form: [svgPath('M5 4.5h10v11H5z'), svgLine(7, 8, 13, 8), svgLine(7, 11, 11, 11)],
+    view: [svgPath('M4.5 5.5h11v9h-11z'), svgLine(4.5, 8.5, 15.5, 8.5), svgLine(8, 8.5, 8, 14.5)],
+    close: [svgLine(5.5, 5.5, 14.5, 14.5), svgLine(14.5, 5.5, 5.5, 14.5)]
+  };
+  return svgIcon('0 0 20 20', icons[name] || icons.view, 'ui-icon');
+}
+
+function buttonLabel(iconName, label) {
+  return [
+    h('span', { class: 'button-label-icon' }, [uiIcon(iconName)]),
+    h('span', { class: 'button-label-text', text: label })
+  ];
+}
+
+function svgIcon(viewBox, children, className = 'page-type-svg') {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', viewBox);
   svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('focusable', 'false');
-  svg.classList.add('page-type-svg');
+  svg.classList.add(className);
   for (const child of children) svg.append(child);
   return svg;
 }
@@ -1518,11 +1548,10 @@ function renderListPage(page) {
     exportSelectedLink.setAttribute('aria-disabled', count ? 'false' : 'true');
   };
   const bulkDeleteButton = h('button', {
-    class: 'secondary danger-text',
-    text: '批量删除',
+    class: 'secondary icon-label-button danger-text',
     disabled: selectedCount() ? null : 'disabled',
     onclick: () => bulkDeleteRecords(entity, selectedIds, selectionKey)
-  });
+  }, buttonLabel('trash', '批量删除'));
   const bulkDeleteSlot = h('span', { class: 'bulk-delete-slot' });
   const updateSelectionState = () => {
     selectionLabel.textContent = selectedCount() ? `已选 ${selectedCount()} 条` : '';
@@ -1651,21 +1680,31 @@ function renderListPage(page) {
   return h('div', { class: 'panel table-panel' }, [
     renderViewBar(entity, listConfig),
     h('div', { class: 'table-command-row' }, [
+      h('div', { class: 'row action-row table-action-groups' }, [
+        h('div', { class: 'toolbar-action-group data-entry-group' }, [
+          h('button', { class: 'table-add-button icon-label-button', onclick: () => openRecordModal(entity) }, buttonLabel('add', '添加记录'))
+        ]),
+        h('div', { class: 'toolbar-action-group data-mutation-group' }, [
+          h('button', { class: 'secondary icon-label-button', onclick: () => importTableData(entity) }, buttonLabel('upload', '导入')),
+          bulkDeleteSlot,
+          selectionLabel
+        ]),
+        h('div', { class: 'toolbar-action-group view-rule-group' }, [
+          h('button', { class: 'secondary icon-label-button', onclick: () => openFilterModal(entity) }, buttonLabel('filter', '筛选')),
+          h('button', { class: 'secondary icon-label-button', onclick: () => openSortModal(entity) }, buttonLabel('sort', '排序')),
+          h('button', { class: 'secondary icon-label-button', onclick: () => openGroupModal(entity) }, buttonLabel('group', '分组'))
+        ]),
+        h('div', { class: 'toolbar-action-group structure-config-group' }, [
+          h('button', { class: 'secondary icon-label-button', onclick: () => openListConfigModal(entity) }, buttonLabel('fields', '字段设置')),
+          h('button', { class: 'secondary icon-label-button', onclick: () => openFormLayoutModal(entity) }, buttonLabel('form', '表单视图'))
+        ]),
+        h('div', { class: 'toolbar-action-group export-action-group' }, [
+          renderExportMenu(entity, exportSelectedLink)
+        ])
+      ]),
       h('div', { class: 'quick-searches' }, [
         h('div', { class: 'compact-field global-search' }, [h('label', { text: '搜索' }), globalSearch]),
         ...searchFields.map((field) => h('div', { class: 'compact-field' }, [h('label', { text: field.label }), searchInputs.get(field.id)]))
-      ]),
-      h('div', { class: 'row action-row' }, [
-        h('button', { class: 'table-add-button', text: '+ 添加记录', onclick: () => openRecordModal(entity) }),
-        h('button', { class: 'secondary', text: '导入', onclick: () => importTableData(entity) }),
-        bulkDeleteSlot,
-        selectionLabel,
-        h('button', { class: 'secondary', text: '筛选', onclick: () => openFilterModal(entity) }),
-        h('button', { class: 'secondary', text: '排序', onclick: () => openSortModal(entity) }),
-        h('button', { class: 'secondary', text: '分组', onclick: () => openGroupModal(entity) }),
-        h('button', { class: 'secondary', text: '字段设置', onclick: () => openListConfigModal(entity) }),
-        h('button', { class: 'secondary', text: '表单视图', onclick: () => openFormLayoutModal(entity) }),
-        renderExportMenu(entity, exportSelectedLink)
       ])
     ]),
     h('div', { class: 'table-wrap' }, [
@@ -1685,7 +1724,7 @@ function renderTableColgroup(visibleFields, listConfig) {
 
 function renderExportMenu(entity, exportSelectedLink) {
   return bindFloatingMenu(h('details', { class: 'export-menu', onclick: (event) => event.stopPropagation() }, [
-    h('summary', { class: 'secondary', title: '导出数据' }, '导出'),
+    h('summary', { class: 'secondary icon-label-button', title: '导出数据' }, buttonLabel('download', '导出')),
     h('div', { class: 'export-menu-popover' }, [
       h('a', { class: 'ghost-menu', href: exportXlsxHref(entity), download: exportFileName('all') }, '导出全部'),
       exportSelectedLink
@@ -1696,7 +1735,7 @@ function renderExportMenu(entity, exportSelectedLink) {
 function renderQuickAddRow(entity, visibleFields) {
   return h('tr', { class: 'quick-add-row' }, [
     h('td', { colspan: visibleFields.length + 3 }, [
-      h('button', { class: 'ghost quick-add-row-button', text: '+ 快速新增行', onclick: () => quickAddRecord(entity) })
+      h('button', { class: 'ghost quick-add-row-button icon-label-button', onclick: () => quickAddRecord(entity) }, buttonLabel('add', '快速新增行'))
     ])
   ]);
 }
@@ -1783,7 +1822,7 @@ function renderViewBar(entity, currentView) {
       ])
     )),
     h('div', { class: 'row' }, [
-      h('button', { class: 'secondary', text: '新建视图', onclick: () => createView(entity) })
+      h('button', { class: 'secondary icon-label-button', onclick: () => createView(entity) }, buttonLabel('view', '新建视图'))
     ])
   ]);
 }
@@ -3442,10 +3481,11 @@ function openListConfigModal(entity) {
 
 function openFormLayoutModal(entity) {
   const layout = getFormLayout(entity);
+  const design = getFormDesign(entity);
   let order = [...layout.order];
   let columns = layout.columns;
   const unusedList = h('div', { class: 'layout-list unused-list' });
-  const preview = h('div', { class: 'form-preview' });
+  const preview = h('div', { class: 'form-grid form-preview' });
   const columnSelect = h('select');
   for (const value of [2, 3, 4]) columnSelect.append(h('option', { value, text: `一行 ${value} 列` }));
   columnSelect.value = String(columns);
@@ -3468,22 +3508,13 @@ function openFormLayoutModal(entity) {
     for (const fieldId of order) {
       const field = entity.fields.find((item) => item.id === fieldId);
       if (!field) continue;
-      const previewField = h('div', { class: 'preview-field', draggable: 'true', 'data-field-id': field.id }, [
-        h('div', { class: 'preview-head' }, [
-          h('label', { text: field.label }),
-          h('button', { class: 'ghost preview-remove', text: '移除', onclick: () => { order = order.filter((id) => id !== field.id); renderRows(); } })
-        ]),
-        (() => {
-          if (field.type === 'file' || field.type === 'image') {
-            return h('div', { class: 'preview-input', text: field.type === 'image' ? '点击上传图片' : '点击上传文件' });
-          }
-          const input = inputForField(field, sampleFieldValue(field));
-          if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' || input.tagName === 'SELECT') {
-            input.disabled = true;
-          }
-          return input;
-        })()
-      ]);
+      const input = inputForField(field, sampleFieldValue(field));
+      disablePreviewInput(input);
+      const previewField = renderFormFieldBlock(field, input, design, {
+        className: 'preview-field',
+        attrs: { draggable: 'true', 'data-field-id': field.id },
+        actions: [h('button', { class: 'ghost preview-remove', text: '移除', onclick: () => { order = order.filter((id) => id !== field.id); renderRows(); } })]
+      });
       bindFormFieldDrag(previewField, field.id, () => renderRows());
       preview.append(previewField);
     }
@@ -3572,6 +3603,12 @@ function openFormLayoutModal(entity) {
     ])
   ]);
   document.body.append(backdrop);
+}
+
+function disablePreviewInput(input) {
+  if (input.tagName === 'TEXTAREA' || input.tagName === 'INPUT' || input.tagName === 'SELECT') {
+    input.disabled = true;
+  }
 }
 
 function sampleFieldValue(field) {
@@ -3674,7 +3711,7 @@ function renderAssistantDrawer() {
   const quickCommands = creating
     ? ['创建一个CRM', '创建进销存系统', '加客户和回款', '确认创建']
     : ['增加合同表', '客户表增加等级', '订单关联客户', '确认执行'];
-  return h('div', { class: 'drawer-backdrop', onclick: () => { state.assistantOpen = false; state.currentApp ? renderRuntime() : renderHome(); } }, [
+  return h('div', { class: 'drawer-backdrop' }, [
     h('aside', { class: 'assistant drawer', onclick: (event) => event.stopPropagation() }, [
       h('div', { class: 'assistant-head' }, [
         h('div', {}, [
@@ -4733,11 +4770,7 @@ function openRecordModal(entity, record = null) {
     const value = record?.data?.[field.id] ?? (!record ? design.defaults[field.id] : undefined);
     const input = inputForField(field, value);
     inputs[field.id] = input;
-    form.append(h('div', { class: 'field' }, [
-      h('label', { text: `${field.label}${field.required || design.requiredFields.includes(field.id) ? ' *' : ''}` }),
-      input,
-      design.descriptions[field.id] ? h('small', { class: 'field-hint', text: design.descriptions[field.id] }) : null
-    ]));
+    form.append(renderFormFieldBlock(field, input, design));
   }
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal' }, [
@@ -4765,6 +4798,20 @@ function openRecordModal(entity, record = null) {
     ])
   ]);
   document.body.append(backdrop);
+}
+
+function renderFormFieldBlock(field, input, design = {}, options = {}) {
+  const required = field.required || (design.requiredFields || []).includes(field.id);
+  const label = h('label', { text: `${field.label}${required ? ' *' : ''}` });
+  const labelNode = options.actions?.length
+    ? h('div', { class: 'field-label-row' }, [label, ...options.actions])
+    : label;
+  const description = design.descriptions?.[field.id];
+  return h('div', { class: `field ${options.className || ''}`.trim(), ...(options.attrs || {}) }, [
+    labelNode,
+    input,
+    description ? h('small', { class: 'field-hint', text: description }) : null
+  ]);
 }
 
 function createChoiceWidget(field, initialValue, onChange) {
@@ -5323,6 +5370,12 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('pointerdown', (event) => {
   if (clickedOutsideTableSelection(event.target)) clearActiveTableSelection();
+}, true);
+
+document.addEventListener('pointerdown', (event) => {
+  if (event.target instanceof HTMLElement && event.target.classList.contains('modal-backdrop')) {
+    event.target.remove();
+  }
 }, true);
 
 document.addEventListener('pointerup', finishCellRangeSelection);
