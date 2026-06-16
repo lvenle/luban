@@ -225,7 +225,7 @@ async function handleApi(req, res, url) {
       const entityId = body.entityId || app.schema.entities[0]?.id;
       if (!entityId) throw badRequest('请求缺少 entityId 且应用没有默认实体。');
       if (!app.schema.entities.some((entity) => entity.id === entityId)) throw notFound(`实体不存在：${entityId}`);
-      sendJson(res, 201, { record: createRecord(appId, entityId, body.data || {}) });
+      sendJson(res, 201, { record: createRecord(appId, entityId, body.data || {}, body._createdAt) });
       return;
     }
 
@@ -379,6 +379,11 @@ function serveStatic(res, pathname) {
   const requested = pathname === '/' ? '/index.html' : pathname;
   const filePath = normalize(join(PUBLIC_DIR, requested));
   if (!filePath.startsWith(PUBLIC_DIR) || !existsSync(filePath)) {
+    if (pathname.startsWith('/app/')) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(readFileSync(join(PUBLIC_DIR, 'index.html')));
+      return;
+    }
     sendText(res, 404, 'Not found', 'text/plain; charset=utf-8');
     return;
   }

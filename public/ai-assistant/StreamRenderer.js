@@ -54,8 +54,10 @@ export default class StreamRenderer {
   }
 
   scrollToBottom() {
-    const parent = this.container.closest('.assistant-messages') || this.container;
-    parent.scrollTop = parent.scrollHeight;
+    const parent = this.container;
+    setTimeout(() => {
+      parent.scrollTop = parent.scrollHeight;
+    }, 0);
   }
 
   reset() {

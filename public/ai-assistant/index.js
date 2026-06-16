@@ -71,11 +71,16 @@ async function handleSend(text) {
   chatView.addMessage('user', text);
 
   streamRenderer.startNewMessage();
-  sseClient.connect('/api/ai/chat', {
-    appId: currentAppId,
-    sessionId: currentSessionId || undefined,
-    message: text
-  });
+  try {
+    await sseClient.connect('/api/ai/chat', {
+      appId: currentAppId,
+      sessionId: currentSessionId || undefined,
+      message: text
+    });
+  } catch (error) {
+    streamRenderer.finishMessage(`连接失败: ${error.message}`);
+    chatView.setStreaming(false);
+  }
 }
 
 export function renderAssistantDrawer() {
@@ -148,7 +153,8 @@ export function renderAssistantDrawer() {
 
   sessionManager.load(currentAppId);
 
-  return [backdrop, drawer];
+  document.body.append(backdrop, drawer);
+  return null;
 }
 
 async function executeClientTool(data) {

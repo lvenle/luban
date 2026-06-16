@@ -189,7 +189,7 @@ async function boot() {
       await openApp(route.appId, { pageId: route.pageId, viewId: route.viewId, replace: true });
       return;
     } catch (error) {
-      history.replaceState(null, '', location.pathname);
+      history.replaceState(null, '', '/');
       toast(error.message);
     }
   }
@@ -198,18 +198,24 @@ async function boot() {
 
 function currentRoute() {
   const params = new URLSearchParams(location.search);
-  return { appId: params.get('app') || '', pageId: params.get('page') || '', viewId: params.get('view') || '' };
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  let appId = '', pageId = '';
+
+  if (pathParts[0] === 'app' && pathParts[1]) {
+    appId = pathParts[1];
+    if (pathParts[2] === 'page' && pathParts[3]) pageId = pathParts[3];
+  }
+  appId = appId || params.get('app') || '';
+  pageId = pageId || params.get('page') || '';
+
+  return { appId, pageId, viewId: params.get('view') || '' };
 }
 
 function writeRoute(appId, pageId, replace = false, viewId = state.currentViewId) {
-  const url = new URL(location.href);
-  if (appId) url.searchParams.set('app', appId);
-  else url.searchParams.delete('app');
-  if (pageId) url.searchParams.set('page', pageId);
-  else url.searchParams.delete('page');
-  if (viewId) url.searchParams.set('view', viewId);
-  else url.searchParams.delete('view');
-  const next = `${url.pathname}${url.search}${url.hash}`;
+  let path = appId ? `/app/${appId}` : '/';
+  if (pageId) path += `/page/${pageId}`;
+  const params = viewId ? `?view=${encodeURIComponent(viewId)}` : '';
+  const next = `${path}${params}`;
   if (replace) history.replaceState(null, '', next);
   else history.pushState(null, '', next);
 }
@@ -544,6 +550,7 @@ function renderSidebarContent(app, page) {
       toggle
     ]),
     h('div', { class: 'page-list' }, app.ui.pages.map((item) => renderPageNavItem(app, page, item))),
+    h('hr', { class: 'sidebar-divider' }),
     h('button', { class: 'page-button create-page-button', onclick: () => openCreatePageModal(page) }, [
       h('span', { class: 'button-icon page-icon' }, [pageTypeIcon('page')]),
       h('span', { text: '+ 新建页面' })
@@ -1668,20 +1675,18 @@ function renderListPage(page) {
         ]),
         h('div', { class: 'toolbar-action-group data-mutation-group' }, [
           h('button', { class: 'secondary icon-label-button', onclick: () => importTableData(entity) }, buttonLabel('upload', '导入')),
+          renderExportMenu(entity, exportSelectedLink),
           bulkDeleteSlot,
           selectionLabel
         ]),
         h('div', { class: 'toolbar-action-group view-rule-group' }, [
-          h('button', { class: 'secondary icon-label-button', onclick: () => openFilterModal(entity) }, buttonLabel('filter', '筛选')),
-          h('button', { class: 'secondary icon-label-button', onclick: () => openSortModal(entity) }, buttonLabel('sort', '排序')),
-          h('button', { class: 'secondary icon-label-button', onclick: () => openGroupModal(entity) }, buttonLabel('group', '分组'))
+          h('button', { class: `secondary icon-label-button${(listConfig.filters || []).length ? ' active' : ''}`, onclick: () => openFilterModal(entity) }, buttonLabel('filter', '筛选')),
+          h('button', { class: `secondary icon-label-button${(listConfig.sorts || []).length ? ' active' : ''}`, onclick: () => openSortModal(entity) }, buttonLabel('sort', '排序')),
+          h('button', { class: `secondary icon-label-button${listConfig.group?.field ? ' active' : ''}`, onclick: () => openGroupModal(entity) }, buttonLabel('group', '分组'))
         ]),
         h('div', { class: 'toolbar-action-group structure-config-group' }, [
           h('button', { class: 'secondary icon-label-button', onclick: () => openListConfigModal(entity) }, buttonLabel('fields', '字段设置')),
           h('button', { class: 'secondary icon-label-button', onclick: () => openFormLayoutModal(entity) }, buttonLabel('form', '表单视图'))
-        ]),
-        h('div', { class: 'toolbar-action-group export-action-group' }, [
-          renderExportMenu(entity, exportSelectedLink)
         ])
       ]),
       h('div', { class: 'quick-searches' }, [
@@ -1804,7 +1809,7 @@ function renderViewBar(entity, currentView) {
       ])
     )),
     h('div', { class: 'row' }, [
-      h('button', { class: 'secondary icon-label-button', onclick: () => createView(entity) }, buttonLabel('view', '新建视图'))
+      h('button', { class: 'secondary icon-label-button', onclick: () => createView(entity) }, buttonLabel('add', '新建视图'))
     ])
   ]);
 }
@@ -2170,6 +2175,39 @@ function openHeaderContextMenu(event, entity, field, listConfig) {
 
 function closeContextMenu() {
   document.querySelector('.context-menu')?.remove();
+}
+
+function openCellContextMenu(event, entity, record) {
+  event.preventDefault();
+  event.stopPropagation();
+  closeContextMenu();
+  const menu = h('div', { class: 'context-menu', style: `left:${event.clientX}px; top:${event.clientY}px` }, [
+    h('button', { class: 'ghost-menu', text: '向上插入行', onclick: () => { insertRowAround(entity, record, 'above'); closeContextMenu(); } }),
+    h('button', { class: 'ghost-menu', text: '向下插入行', onclick: () => { insertRowAround(entity, record, 'below'); closeContextMenu(); } }),
+    h('div', { class: 'context-menu-sep' }),
+    h('button', { class: 'danger ghost-menu', text: '删除行', onclick: () => { closeContextMenu(); removeRecord(record.id, entity.id); } })
+  ]);
+  document.body.append(menu);
+  setTimeout(() => document.addEventListener('click', closeContextMenu, { once: true }), 0);
+}
+
+async function insertRowAround(entity, referenceRecord, position) {
+  try {
+    const data = {};
+    for (const field of entity.fields) data[field.id] = defaultValueForField(field);
+    const refTime = new Date(referenceRecord.createdAt).getTime();
+    const offset = position === 'above' ? -1 : 1;
+    const _createdAt = new Date(refTime + offset).toISOString();
+    await api(`/api/apps/${state.currentApp.id}/records`, {
+      method: 'POST',
+      body: JSON.stringify({ entityId: entity.id, data, _createdAt })
+    });
+    await loadCurrentPageRecords();
+    renderRuntime();
+    toast(`已新增 1 行`);
+  } catch (error) {
+    toast(`新增行失败：${error.message}`);
+  }
 }
 
 function clearActiveTableSelection() {
@@ -3226,7 +3264,8 @@ function renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, s
         onpointerdown: (event) => startCellRangeSelection(event, event.currentTarget),
         onpointerenter: (event) => extendCellRangeSelection(event.currentTarget),
         onpointerup: finishCellRangeSelection,
-        ondblclick: (event) => startCellEdit(event.currentTarget, entity, record, field)
+        ondblclick: (event) => startCellEdit(event.currentTarget, entity, record, field),
+        oncontextmenu: (event) => openCellContextMenu(event, entity, record)
       });
       cell.append(renderFieldValue(record.data[field.id], field));
       return cell;
@@ -3969,13 +4008,30 @@ async function removeRecord(recordId, entityId) {
 }
 
 async function quickAddRecord(entity) {
-  const data = {};
-  for (const field of entity.fields) data[field.id] = defaultValueForField(field);
-  const body = await api(`/api/apps/${state.currentApp.id}/records`, { method: 'POST', body: JSON.stringify({ entityId: entity.id, data }) });
-  await loadCurrentPageRecords();
-  renderRuntime();
-  toast(`已新增 1 行，可直接双击单元格编辑。`);
-  return body.record;
+  try {
+    const data = {};
+    for (const field of entity.fields) data[field.id] = defaultValueForField(field);
+    const body = await api(`/api/apps/${state.currentApp.id}/records`, { method: 'POST', body: JSON.stringify({ entityId: entity.id, data }) });
+    
+    // 检查当前视图是否有筛选条件，如果有，提示用户或清除筛选
+    const currentView = getCurrentView(entity);
+    const hasFilters = currentView.filters && currentView.filters.length > 0;
+    
+    await loadCurrentPageRecords();
+    renderRuntime();
+    
+    if (hasFilters) {
+      toast(`已新增 1 行。注意：当前视图有筛选条件，新记录可能不在此视图中显示。`);
+    } else {
+      toast(`已新增 1 行，可直接双击单元格编辑。`);
+    }
+    
+    return body.record;
+  } catch (error) {
+    toast(`新增行失败：${error.message}`);
+    console.error('新增行错误：', error);
+    throw error;
+  }
 }
 
 function defaultValueForField(field) {

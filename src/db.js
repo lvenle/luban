@@ -278,13 +278,13 @@ export function listRecords(appId, options = {}) {
   return options.hydrateRelations === false ? records : hydrateRelationValues(appId, records);
 }
 
-export function createRecord(appId, entityId, data) {
+export function createRecord(appId, entityId, data, customCreatedAt) {
   const app = getApp(appId);
   if (!app) throw notFoundError('找不到应用。');
   if (!app.schema.entities.some((entity) => entity.id === entityId)) throw validationError(`实体不存在：${entityId}`);
   const { data: cleanData, relations } = splitRelationData(app, entityId, data);
   const id = createId('rec');
-  const createdAt = now();
+  const createdAt = customCreatedAt || now();
   getDb()
     .prepare('INSERT INTO records (id, appId, entityId, dataJson, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)')
     .run(id, appId, entityId, JSON.stringify(cleanData || {}), createdAt, createdAt);

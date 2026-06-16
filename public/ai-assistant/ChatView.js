@@ -90,7 +90,9 @@ export default class ChatView {
   }
 
   scrollToBottom() {
-    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    setTimeout(() => {
+      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    }, 0);
   }
 
   clear() {

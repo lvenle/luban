@@ -1445,6 +1445,11 @@ textarea {
   color: #27313f;
 }
 
+.table-panel .action-row button.secondary.active {
+  background: #eef4ff;
+  color: #2563eb;
+}
+
 .table-add-button {
   background: transparent;
   color: #2563eb;
@@ -2811,6 +2816,7 @@ thead .sticky-action-cell {
   background: #fff;
   padding: 0;
   box-shadow: var(--shadow);
+  z-index: 101;
 }
 
 .assistant-head {
@@ -3307,6 +3313,12 @@ button.assistant-send {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.sidebar-divider {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 8px 0;
 }
 
 .create-page-button {

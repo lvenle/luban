@@ -28,8 +28,12 @@ export default class SSEClient {
       });
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: 'Connection failed' }));
-        this.emit('error', { message: err.error || `HTTP ${response.status}` });
+        let errorMsg = `HTTP ${response.status}`;
+        try {
+          const err = await response.json();
+          errorMsg = err.error || errorMsg;
+        } catch {}
+        this.emit('error', { message: errorMsg });
         return;
       }
 
