@@ -13,6 +13,7 @@ let sseClient;
 let currentAppId = '';
 let currentSessionId = '';
 let assistantOpen = false;
+let currentContext = '';
 
 export function init() {
   chatView = new ChatView({
@@ -109,6 +110,10 @@ function startNewSession() {
   chatView.clear();
 }
 
+export function setAppContext(context) {
+  currentContext = context || '';
+}
+
 async function handleSend(text) {
   if (!text.trim()) return;
   chatView.setStreaming(true);
@@ -119,7 +124,8 @@ async function handleSend(text) {
     await sseClient.connect('/api/ai/chat', {
       appId: currentAppId,
       sessionId: currentSessionId || undefined,
-      message: text
+      message: text,
+      context: currentContext
     });
   } catch (error) {
     streamRenderer.finishMessage(`连接失败: ${error.message}`);

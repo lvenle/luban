@@ -1,4 +1,4 @@
-import { renderAssistantDrawer, setAppId, init as initAssistant } from './ai-assistant/index.js';
+import { renderAssistantDrawer, setAppId, setAppContext, init as initAssistant } from './ai-assistant/index.js';
 
 const state = {
   apps: [],
@@ -242,7 +242,7 @@ function topbar() {
       h('button', {
         class: `secondary icon-label-button assistant-topbar-button ${state.assistantOpen ? 'active' : ''}`,
         title: state.assistantOpen ? '关闭 AI 助理' : '打开 AI 助理',
-        onclick: () => { state.assistantOpen = !state.assistantOpen; setAppId(state.currentApp?.id || ''); state.currentApp ? renderRuntime() : renderHome(); }
+        onclick: () => { state.assistantOpen = !state.assistantOpen; setAppId(state.currentApp?.id || ''); if (state.currentApp) { setAppContext(buildAssistantContext()); renderRuntime(); } else { renderHome(); } }
       }, buttonLabel('assistant', 'AI 助理')),
       inRuntime ? null : h('button', { class: 'secondary', text: '我的软件', onclick: goHome }),
       inRuntime ? null : h('button', { class: 'secondary', text: '导入 .sgpkg', onclick: openImportModal }),
@@ -413,6 +413,7 @@ async function openApp(appId, options = {}) {
     state.currentViewId = views.some((view) => view.id === state.currentViewId) ? state.currentViewId : views[0]?.id || '';
   }
   writeRoute(body.app.id, state.currentPageId, Boolean(options.replace), state.currentViewId);
+  if (state.assistantOpen) setAppContext(buildAssistantContext());
   renderRuntime();
 }
 
@@ -488,6 +489,21 @@ async function createAppFromPrompt(prompt) {
   } catch (error) {
     toast(error.message);
   }
+}
+
+function buildAssistantContext() {
+  const app = state.currentApp;
+  if (!app) return '';
+  const page = app.ui.pages.find((p) => p.id === state.currentPageId) || app.ui.pages[0];
+  const entity = page?.entity ? entityFor(page) : null;
+  const parts = [`App: ${app.name}`];
+  if (page) parts.push(`Page: ${page.title} (${page.id})`);
+  if (entity) {
+    parts.push(`Entity: ${entity.name} (${entity.id})`);
+    const fields = entity.fields.map((f) => `${f.label||f.id} (${f.type})`).join(', ');
+    parts.push(`Fields: ${fields}`);
+  }
+  return parts.join(' | ');
 }
 
 function renderRuntime() {
@@ -681,6 +697,7 @@ function renderPageNavItem(app, activePage, item) {
         const views = getViews(nextEntity);
         state.currentViewId = views[0]?.id || '';
         writeRoute(app.id, item.id, false, state.currentViewId);
+        if (state.assistantOpen) setAppContext(buildAssistantContext());
         renderRuntime();
       }
     }),

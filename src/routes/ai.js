@@ -56,8 +56,8 @@ async function* streamOpenAI(settings, messages, tools) {
   }
 }
 
-function buildMessages(session, userMessage) {
-  const msgs = [{ role: 'system', content: `You are Software Garden's AI assistant. You help users build and manage their apps.
+function buildMessages(session, userMessage, context = '') {
+  let systemContent = `You are Software Garden's AI assistant. You help users build and manage their apps.
 
 You have access to tools that let you modify the app schema, manage pages, and work with data.
 
@@ -66,7 +66,11 @@ Guidelines:
 - When users ask to create or modify things, use the appropriate tools instead of just describing what to do
 - For high-risk operations (creating/deleting entities, fields, pages, records), the system will ask the user to confirm
 - After executing tools, summarize what was done
-- When the user's request is ambiguous, ask clarifying questions before using tools` }];
+- When the user's request is ambiguous, ask clarifying questions before using tools`;
+  if (context) {
+    systemContent += `\n\nCurrent context (the user is looking at this): ${context}`;
+  }
+  const msgs = [{ role: 'system', content: systemContent }];
   for (const msg of session.messages || []) {
     msgs.push({ role: msg.role, content: msg.content || '' });
   }
@@ -119,7 +123,7 @@ export async function handleAiApi(req, res, method, parts, url) {
 
     try {
       const tools = getToolDefinitions();
-      let messages = buildMessages(getAiSession(session.id), body.message);
+      let messages = buildMessages(getAiSession(session.id), body.message, body.context);
       let turnContent = '';
 
       for (let iteration = 0; iteration < 20; iteration++) {
