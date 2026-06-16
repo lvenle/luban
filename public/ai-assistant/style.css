@@ -1,0 +1,272 @@
+.assistant-chat {
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  height: 100%;
+  overflow: hidden;
+}
+
+.assistant-messages {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.assistant-msg {
+  display: flex;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.assistant-msg.user {
+  flex-direction: row-reverse;
+}
+
+.assistant-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex: 0 0 auto;
+  color: #fff;
+}
+
+.assistant-avatar.ai {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+
+.assistant-avatar.user {
+  background: #1e293b;
+}
+
+.assistant-bubble {
+  max-width: 90%;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.assistant-msg.ai .assistant-bubble {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.assistant-msg.user .assistant-bubble {
+  background: #2563eb;
+  color: #fff;
+}
+
+.assistant-bubble.streaming::after {
+  content: '|';
+  animation: blink 0.8s step-end infinite;
+  color: #2563eb;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+.stream-cursor {
+  animation: blink 0.8s step-end infinite;
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.assistant-quick {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  border-top: 1px solid #e2e8f0;
+}
+
+.assistant-chip {
+  font-size: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  padding: 5px 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  color: #475569;
+  flex: 0 0 auto;
+}
+
+.assistant-chip:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.assistant-input {
+  border-top: 1px solid #e2e8f0;
+  padding: 8px 12px;
+}
+
+.assistant-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.assistant-input-field {
+  flex: 1;
+  min-height: 40px;
+  max-height: 120px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+}
+
+.assistant-input-field:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.assistant-send {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.assistant-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.assistant-send:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.tool-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 4px 0;
+  font-size: 12px;
+  background: #fff;
+}
+
+.tool-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.tool-card-icon {
+  font-size: 14px;
+}
+
+.tool-card-name {
+  font-weight: 700;
+  color: #334155;
+  flex: 1;
+}
+
+.tool-card-spinner {
+  font-size: 14px;
+}
+
+.tool-card-args pre {
+  margin: 4px 0;
+  font-size: 11px;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 6px 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.tool-card-result {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: #f0fdf4;
+  border-radius: 4px;
+  color: #166534;
+  font-size: 11px;
+}
+
+.tool-error .tool-card-result {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.tool-card.tool-done {
+  opacity: 0.85;
+}
+
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.32);
+  display: grid;
+  place-items: center;
+  z-index: 200;
+  padding: 20px;
+}
+
+.confirm-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 20px 48px rgba(16, 24, 40, 0.2);
+}
+
+.confirm-header {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #1e293b;
+}
+
+.confirm-body p {
+  font-size: 13px;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.confirm-tool-info {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.confirm-tool-info strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #334155;
+}
+
+.confirm-tool-info pre {
+  font-size: 11px;
+  color: #64748b;
+  margin: 0;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

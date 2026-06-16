@@ -316,7 +316,7 @@ function productManagementPlan() {
   };
 }
 
-function chatCompletionsUrl(baseUrl = 'https://api.openai.com/v1') {
+export function chatCompletionsUrl(baseUrl = 'https://api.openai.com/v1') {
   const clean = String(baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
   if (clean.endsWith('/chat')) return `${clean}/completions`;
   if (clean.endsWith('/chat/completions')) return clean;
