@@ -13,8 +13,7 @@ export default class ToolDisplay {
         h('span', { class: 'tool-card-icon', text: '🔧' }),
         h('span', { class: 'tool-card-name', text: data.name }),
         h('span', { class: 'tool-card-spinner', text: '⏳' })
-      ]),
-      h('div', { class: 'tool-card-args' }, [this.formatArgs(data.arguments)])
+      ])
     ]);
     this.pendingToolCalls.set(id, { card, data });
     return card;
@@ -24,10 +23,9 @@ export default class ToolDisplay {
     const card = h('div', { class: 'tool-card tool-pending' }, [
       h('div', { class: 'tool-card-header' }, [
         h('span', { class: 'tool-card-icon', text: '🌐' }),
-        h('span', { class: 'tool-card-name', text: `${data.name} (浏览器中执行)` }),
+        h('span', { class: 'tool-card-name', text: data.name }),
         h('span', { class: 'tool-card-spinner', text: '⏳' })
-      ]),
-      h('div', { class: 'tool-card-args' }, [this.formatArgs(data.arguments)])
+      ])
     ]);
     this.pendingToolCalls.set(data.id, { card, data });
     return card;
@@ -42,17 +40,6 @@ export default class ToolDisplay {
     if (spinner) spinner.textContent = statusIcon;
     existing.card.classList.remove('tool-pending');
     existing.card.classList.add(`tool-${data.status}`);
-
-    const resultDiv = existing.card.querySelector('.tool-card-result') || h('div', { class: 'tool-card-result' });
-    if (data.status === 'success') {
-      const output = typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2);
-      resultDiv.textContent = output;
-      existing.card.append(resultDiv);
-    } else if (data.status === 'error') {
-      resultDiv.textContent = `错误: ${data.output}`;
-      resultDiv.style.color = '#dc2626';
-      existing.card.append(resultDiv);
-    }
     this.pendingToolCalls.delete(data.id);
     existing.card.classList.add('tool-done');
     return existing.card;

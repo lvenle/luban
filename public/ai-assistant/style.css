@@ -58,6 +58,29 @@
   color: #1e293b;
 }
 
+.assistant-msg.ai .assistant-bubble code {
+  background: #e2e8f0;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.assistant-msg.ai .assistant-bubble pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 10px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 6px 0;
+}
+
+.assistant-msg.ai .assistant-bubble pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .assistant-msg.user .assistant-bubble {
   background: #2563eb;
   color: #fff;
