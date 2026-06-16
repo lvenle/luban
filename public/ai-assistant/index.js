@@ -19,6 +19,7 @@ export function init() {
     onSend: handleSend
   });
 
+  chatView.render();
   streamRenderer = new StreamRenderer(chatView.getMessageContainer());
 
   toolDisplay = new ToolDisplay(async (confirmId, confirmed) => {
@@ -57,60 +58,10 @@ export function init() {
   });
 
   sseClient = new SSEClient();
+  registerSSEHandlers();
 }
 
-function startNewSession() {
-  currentSessionId = '';
-  sessionManager.setCurrent('');
-  chatView.clear();
-}
-
-async function handleSend(text) {
-  if (!text.trim()) return;
-  chatView.setStreaming(true);
-  chatView.addMessage('user', text);
-
-  streamRenderer.startNewMessage();
-  try {
-    await sseClient.connect('/api/ai/chat', {
-      appId: currentAppId,
-      sessionId: currentSessionId || undefined,
-      message: text
-    });
-  } catch (error) {
-    streamRenderer.finishMessage(`连接失败: ${error.message}`);
-    chatView.setStreaming(false);
-  }
-}
-
-export function renderAssistantDrawer() {
-  if (!chatView) init();
-
-  const chatEl = chatView.render();
-  const headActions = sessionManager.render();
-  const sessionBar = h('div', { class: 'assistant-history-bar' });
-
-  const close = () => {
-    sseClient.disconnect();
-    backdrop.remove();
-    drawer.remove();
-  };
-
-  const backdrop = h('div', {
-    class: 'drawer-backdrop',
-    onclick: () => close()
-  });
-
-  const drawer = h('div', { class: 'assistant drawer' }, [
-    h('div', { class: 'assistant-head' }, [
-      h('h3', { text: 'AI 助理' }),
-      headActions,
-      h('button', { class: 'ghost', text: '×', onclick: () => close() })
-    ]),
-    sessionBar,
-    chatEl
-  ]);
-
+function registerSSEHandlers() {
   sseClient
     .on('session_id', (data) => {
       currentSessionId = data.sessionId;
@@ -150,6 +101,60 @@ export function renderAssistantDrawer() {
         chatView.setStreaming(false);
       }
     });
+}
+
+function startNewSession() {
+  currentSessionId = '';
+  sessionManager.setCurrent('');
+  chatView.clear();
+}
+
+async function handleSend(text) {
+  if (!text.trim()) return;
+  chatView.setStreaming(true);
+  chatView.addMessage('user', text);
+
+  try {
+    streamRenderer.startNewMessage();
+    await sseClient.connect('/api/ai/chat', {
+      appId: currentAppId,
+      sessionId: currentSessionId || undefined,
+      message: text
+    });
+  } catch (error) {
+    streamRenderer.finishMessage(`连接失败: ${error.message}`);
+    chatView.setStreaming(false);
+  }
+}
+
+export function renderAssistantDrawer() {
+  if (!chatView) init();
+
+  const chatEl = chatView.render();
+  streamRenderer.container = chatView.getMessageContainer();
+  const headActions = sessionManager.render();
+  const sessionBar = h('div', { class: 'assistant-history-bar' });
+
+  const close = () => {
+    sseClient.disconnect();
+    backdrop.remove();
+    drawer.remove();
+  };
+
+  const backdrop = h('div', {
+    class: 'drawer-backdrop',
+    onclick: () => close()
+  });
+
+  const drawer = h('div', { class: 'assistant drawer' }, [
+    h('div', { class: 'assistant-head' }, [
+      h('h3', { text: 'AI 助理' }),
+      headActions,
+      h('button', { class: 'ghost', text: '×', onclick: () => close() })
+    ]),
+    sessionBar,
+    chatEl
+  ]);
 
   sessionManager.load(currentAppId);
 
