@@ -261,26 +261,27 @@
 
 .tool-confirm-card {
   border-left: 3px solid #f59e0b;
+  padding: 10px 12px;
 }
 
 .tool-confirm-card .confirm-body p {
-  margin: 2px 0;
-  font-size: 11px;
-  color: #475569;
+  margin: 4px 0;
+  font-size: 13px;
+  color: #1e293b;
 }
 
 .tool-confirm-actions {
   display: flex;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .tool-confirm-btn,
 .tool-reject-btn {
   border: 0;
-  border-radius: 4px;
-  padding: 3px 10px;
-  font-size: 11px;
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
   cursor: pointer;
 }
 
