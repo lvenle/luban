@@ -87,6 +87,25 @@
   color: #1e40af;
 }
 
+.assistant-msg.ai .assistant-bubble table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  margin: 6px 0;
+}
+
+.assistant-msg.ai .assistant-bubble th,
+.assistant-msg.ai .assistant-bubble td {
+  border: 1px solid #cbd5e1;
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.assistant-msg.ai .assistant-bubble th {
+  background: #e2e8f0;
+  font-weight: 700;
+}
+
 .assistant-bubble.streaming::after {
   content: '|';
   animation: blink 0.8s step-end infinite;
