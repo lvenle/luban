@@ -248,7 +248,7 @@ function topbar() {
   const inRuntime = Boolean(state.currentApp);
   return h('header', { class: 'topbar' }, [
     h('div', { class: 'topbar-left' }, [
-      h('button', { class: 'brand brand-button', onclick: goHome, title: '返回首页' }, [h('div', { class: 'brand-mark' }), h('span', { text: '软件花园' })]),
+      h('button', { class: 'brand brand-button', onclick: goHome, title: '返回首页' }, [h('div', { class: 'brand-mark' }), h('span', { text: 'MetroSoft' })]),
       inRuntime ? renderTopbarAppInfo(state.currentApp) : null
     ]),
     h('div', { class: 'top-actions' }, [
@@ -257,8 +257,7 @@ function topbar() {
         title: state.assistantOpen ? '关闭 AI 助理' : '打开 AI 助理',
         onclick: () => { state.assistantOpen = !state.assistantOpen; setAppId(state.currentApp?.id || ''); if (state.currentApp) { setAppContext(buildAssistantContext()); renderRuntime(); } else { renderHome(); } }
       }, buttonLabel('assistant', 'AI 助理')),
-      inRuntime ? null : h('button', { class: 'secondary', text: '我的软件', onclick: goHome }),
-      inRuntime ? null : h('button', { class: 'secondary', text: '导入 .sgpkg', onclick: openImportModal }),
+      
       h('button', { class: 'secondary icon-label-button', title: '设置', onclick: openSettingsModal }, buttonLabel('settings', '设置'))
     ])
   ]);
@@ -329,13 +328,15 @@ function renderHome() {
       topbar(),
       h('main', { class: 'container' }, [
         h('section', { class: 'hero' }, [
-          h('h1', { text: '软件花园' }),
-          h('p', { text: '把自然语言生成的软件、数据结构、页面、动作和提示词一起运行和分发。创建新软件已收进右下角 AI 助理。' }),
+          h('h1', { text: 'MetroSoft智能软件工厂' }),
+          h('p', { text: '这是一个AI智能软件工厂，内置AI助理，可通过对话轻松完成软件创建' }),
           h('div', { class: 'hero-meta' }, [
-            h('span', { text: '结构化生成' }),
-            h('span', { text: '动态表单' }),
-            h('span', { text: '导入导出' }),
-            h('span', { text: 'AI 修改' })
+            h('button', {
+              text: 'AI助理创建软件',
+              class: 'primary',
+              onclick: () => { state.assistantOpen = !state.assistantOpen; setAppId(state.currentApp?.id || ''); if (state.currentApp) { setAppContext(buildAssistantContext()); renderRuntime(); } else { renderHome(); } }
+            }),
+            h('button', { class: 'secondary', text: '导入 .sgpkg', onclick: openImportModal }),
           ])
         ]),
         h('div', { class: 'section-heading' }, [
