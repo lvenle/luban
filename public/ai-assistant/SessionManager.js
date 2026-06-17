@@ -16,6 +16,9 @@ export default class SessionManager {
       const body = await res.json();
       this.sessions = body.sessions || [];
       this.renderSelect();
+      if (this.sessions.length && !this.currentSessionId) {
+        this.onSwitch(this.sessions[0].id);
+      }
     } catch { /* ignore */ }
   }
 
