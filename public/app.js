@@ -3341,7 +3341,6 @@ function renderNumericSummary(records, field, label = '合计') {
   if (!values.length) return h('span', { class: 'summary-empty', text: '无数据' });
   const sum = values.reduce((total, value) => total + value, 0);
   return h('span', { class: 'numeric-summary', title: `${label}：${values.length} 个数字` }, [
-    h('span', { class: 'summary-prefix', text: '¥' }),
     h('span', { text: formatNumberSummary(sum, field) })
   ]);
 }
@@ -3352,7 +3351,7 @@ function summaryCellClass(field) {
 
 function formatNumberSummary(value, field) {
   if (field.format === 'integer') return String(Math.round(value));
-  if (field.format === 'currency') return `¥${value.toFixed(2)}`;
+  if (field.format === 'currency') return value.toFixed(2);
   if (field.format === 'percent') return `${(value * 100).toFixed(2)}%`;
   if (field.format === 'decimal2') return value.toFixed(2);
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(6)));

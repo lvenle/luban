@@ -1552,14 +1552,14 @@ tbody tr:hover {
 }
 
 .numeric-summary-cell {
-  text-align: right;
+  text-align: left;
 }
 
 .numeric-summary {
   display: inline-flex;
   max-width: 100%;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 4px;
   color: #253044;
   overflow: hidden;
