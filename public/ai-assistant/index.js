@@ -160,10 +160,10 @@ export function renderAssistantDrawer(onClose) {
   const drawer = h('div', { class: 'assistant drawer' }, [
     h('div', { class: 'assistant-head' }, [
       h('h3', { text: 'AI 助理' }),
-      headActions,
+      h('span', { class: 'assistant-head-tip', text: '帮助你快速创建表，添加字段，修改字段，分析数据' }),
       h('button', { class: 'ghost', text: '×', onclick: () => close() })
     ]),
-    sessionBar,
+    headActions,
     chatEl
   ]);
 

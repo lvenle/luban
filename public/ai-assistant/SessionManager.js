@@ -52,8 +52,8 @@ export default class SessionManager {
     });
 
     return h('div', { class: 'assistant-head-actions' }, [
-      select,
-      newBtn
+      newBtn,
+      select
     ]);
   }
 
