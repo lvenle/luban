@@ -2846,8 +2846,16 @@ thead .sticky-action-cell {
 .assistant-head-actions .ghost {
   white-space: nowrap;
   flex-shrink: 0;
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 5px 12px;
+  font-size: 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.assistant-head-actions .ghost:hover {
+  background: #eef1f5;
 }
 
 .assistant-history-bar {
