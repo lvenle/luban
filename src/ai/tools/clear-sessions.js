@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { clearAiSessions } from '../../aiSession.js';
+import { clearAiSessions, createAiSession } from '../../aiSession.js';
 
 register({
   name: 'clear_sessions',
@@ -19,6 +19,8 @@ register({
     }
   },
   handler: async (args) => {
-    return clearAiSessions(args.appId || null);
+    clearAiSessions(args.appId || null);
+    const newSession = createAiSession({ appId: args.appId || null, status: 'idle' });
+    return { ok: true, newSessionId: newSession.id };
   }
 });

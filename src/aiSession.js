@@ -105,19 +105,16 @@ export function addAiMessage(sessionId, role, content, structuredContent = null)
 
 export function clearAiSessions(appId) {
   const database = getDb();
-  const sessions = appId
-    ? database.prepare('SELECT id FROM ai_sessions WHERE appId = ?').all(appId)
-    : database.prepare('SELECT id FROM ai_sessions WHERE appId IS NULL').all();
-  const ids = sessions.map((s) => s.id);
-  if (!ids.length) return { deletedCount: 0 };
-  database.exec('BEGIN');
-  for (const id of ids) {
-    database.prepare('DELETE FROM ai_messages WHERE sessionId = ?').run(id);
-    database.prepare('DELETE FROM ai_execution_logs WHERE sessionId = ?').run(id);
-    database.prepare('DELETE FROM ai_sessions WHERE id = ?').run(id);
+  if (appId) {
+    database.prepare('DELETE FROM ai_execution_logs WHERE sessionId IN (SELECT id FROM ai_sessions WHERE appId = ?)').run(appId);
+    database.prepare('DELETE FROM ai_messages WHERE sessionId IN (SELECT id FROM ai_sessions WHERE appId = ?)').run(appId);
+    const result = database.prepare('DELETE FROM ai_sessions WHERE appId = ?').run(appId);
+    return { deletedCount: result.changes };
   }
-  database.exec('COMMIT');
-  return { deletedCount: ids.length };
+  const allLogs = database.prepare('DELETE FROM ai_execution_logs').run();
+  const allMsgs = database.prepare('DELETE FROM ai_messages').run();
+  const result = database.prepare('DELETE FROM ai_sessions WHERE appId IS NULL').run();
+  return { deletedCount: result.changes };
 }
 
 export function addAiExecutionLog(sessionId, stepName, status, options = {}) {
