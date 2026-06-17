@@ -43,10 +43,12 @@ export function init() {
           chatView.clear();
           for (const msg of body.session.messages || []) {
             if (msg.role === 'user') chatView.addMessage('user', msg.content);
-            else if (msg.role === 'assistant' && msg.structuredContent?.type === 'plan') {
+            else if (msg.role === 'assistant' && msg.content) {
+              const bubble = h('div', { class: 'assistant-bubble' });
+              bubble.innerHTML = streamRenderer.renderMarkdown(msg.content);
               const card = h('div', { class: 'assistant-msg ai' }, [
                 h('div', { class: 'assistant-avatar ai', text: 'AI' }),
-                h('div', { class: 'assistant-bubble', text: msg.content })
+                bubble
               ]);
               chatView.addElement(card);
             }
