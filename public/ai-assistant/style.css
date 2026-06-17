@@ -1,7 +1,7 @@
 .assistant-chat {
   display: grid;
   grid-template-rows: 1fr auto auto;
-  height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
