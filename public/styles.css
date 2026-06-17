@@ -2820,25 +2820,34 @@ thead .sticky-action-cell {
 }
 
 .assistant-head {
-  min-height: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border-bottom: 1px solid var(--line);
-  padding: 12px 14px;
-}
-
-.assistant-head h3,
-.assistant-head p {
-  margin: 0;
-}
-
-.assistant-head-actions,
-.assistant-history-bar {
+  min-height: 48px;
   display: flex;
   align-items: center;
   gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+}
+
+.assistant-head h3 {
+  margin: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.assistant-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.assistant-head-actions .ghost {
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 12px;
 }
 
 .assistant-history-bar {
@@ -2850,9 +2859,11 @@ thead .sticky-action-cell {
 }
 
 .assistant-history-select {
-  width: min(260px, 62%);
-  height: 30px;
-  border-radius: 8px;
+  width: auto;
+  min-width: 80px;
+  max-width: 200px;
+  height: 28px;
+  border-radius: 6px;
   font-size: 12px;
 }
 
