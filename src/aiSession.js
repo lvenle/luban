@@ -103,6 +103,20 @@ export function addAiMessage(sessionId, role, content, structuredContent = null)
     .run(createId('aim'), sessionId, role, content || '', structuredContent ? JSON.stringify(structuredContent) : null, now());
 }
 
+export function clearAiSessions(appId) {
+  const database = getDb();
+  const sessions = database
+    .prepare('SELECT id FROM ai_sessions WHERE appId = ?')
+    .all(appId);
+  const ids = sessions.map((s) => s.id);
+  if (!ids.length) return { deletedCount: 0 };
+  const placeholders = ids.map(() => '?').join(',');
+  database.prepare(`DELETE FROM ai_execution_logs WHERE sessionId IN (${placeholders})`).run(...ids);
+  database.prepare(`DELETE FROM ai_messages WHERE sessionId IN (${placeholders})`).run(...ids);
+  const result = database.prepare(`DELETE FROM ai_sessions WHERE id IN (${placeholders})`).run(...ids);
+  return { deletedCount: result.changes };
+}
+
 export function addAiExecutionLog(sessionId, stepName, status, options = {}) {
   getDb()
     .prepare(`

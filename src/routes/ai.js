@@ -104,7 +104,7 @@ export async function handleAiApi(req, res, method, parts, url) {
     }
 
     const app = body.appId ? getApp(body.appId) : null;
-    const session = body.sessionId ? getAiSession(body.sessionId) : createAiSession({ appId: app?.id || null, status: 'idle' });
+    const session = (body.sessionId && getAiSession(body.sessionId)) || createAiSession({ appId: app?.id || null, status: 'idle' });
     updateAiSession(session.id, { appId: app?.id || session.appId || null });
     addAiMessage(session.id, 'user', body.message || '');
 
