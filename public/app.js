@@ -184,6 +184,19 @@ async function boot() {
   const body = await api('/api/apps');
   state.apps = body.apps;
   const route = currentRoute();
+  document.body.addEventListener('ai-message-end', async () => {
+    if (!state.currentApp) return;
+    try {
+      const body = await api(`/api/apps/${state.currentApp.id}`);
+      const prevPageId = state.currentPageId;
+      state.currentApp = body.app;
+      if (prevPageId && body.app.ui.pages.some((p) => p.id === prevPageId)) {
+        await loadCurrentPageRecords();
+      }
+      renderRuntime();
+    } catch {}
+  });
+
   if (route.appId) {
     try {
       await openApp(route.appId, { pageId: route.pageId, viewId: route.viewId, replace: true });

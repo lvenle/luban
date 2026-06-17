@@ -91,6 +91,7 @@ function registerSSEHandlers() {
       streamRenderer.finishMessage();
       chatView.setStreaming(false);
       sessionManager.load(currentAppId);
+      document.body.dispatchEvent(new CustomEvent('ai-message-end', { detail: { appId: currentAppId } }));
     })
     .on('error', (data) => {
       streamRenderer.finishMessage(`错误: ${data.message}`);
