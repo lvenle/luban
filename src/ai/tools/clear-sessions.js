@@ -13,13 +13,12 @@ register({
       parameters: {
         type: 'object',
         properties: {
-          appId: { type: 'string', description: 'App ID' }
-        },
-        required: ['appId']
+          appId: { type: 'string', description: 'App ID (optional, leave empty to clear sessions without an app)' }
+        }
       }
     }
   },
   handler: async (args) => {
-    return clearAiSessions(args.appId);
+    return clearAiSessions(args.appId || null);
   }
 });

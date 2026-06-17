@@ -105,9 +105,9 @@ export function addAiMessage(sessionId, role, content, structuredContent = null)
 
 export function clearAiSessions(appId) {
   const database = getDb();
-  const sessions = database
-    .prepare('SELECT id FROM ai_sessions WHERE appId = ?')
-    .all(appId);
+  const sessions = appId
+    ? database.prepare('SELECT id FROM ai_sessions WHERE appId = ?').all(appId)
+    : database.prepare('SELECT id FROM ai_sessions WHERE appId IS NULL').all();
   const ids = sessions.map((s) => s.id);
   if (!ids.length) return { deletedCount: 0 };
   const placeholders = ids.map(() => '?').join(',');
