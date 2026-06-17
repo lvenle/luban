@@ -111,8 +111,6 @@ export function clearAiSessions(appId) {
   const ids = sessions.map((s) => s.id);
   if (!ids.length) return { deletedCount: 0 };
   const placeholders = ids.map(() => '?').join(',');
-  database.prepare(`DELETE FROM ai_execution_logs WHERE sessionId IN (${placeholders})`).run(...ids);
-  database.prepare(`DELETE FROM ai_messages WHERE sessionId IN (${placeholders})`).run(...ids);
   const result = database.prepare(`DELETE FROM ai_sessions WHERE id IN (${placeholders})`).run(...ids);
   return { deletedCount: result.changes };
 }
