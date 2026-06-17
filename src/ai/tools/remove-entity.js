@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { getApp } from '../../db.js';
+import { getApp } from '../../models/app.js';
 import { deleteTableInApp } from '../../operations.js';
 
 register({

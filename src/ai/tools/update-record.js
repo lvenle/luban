@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { updateRecord, getRecord } from '../../db.js';
+import { updateRecord, getRecord } from '../../models/record.js';
 
 register({
   name: 'update_record',

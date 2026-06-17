@@ -1,5 +1,5 @@
-import { createId } from './ids.js';
-import { getDb } from './db.js';
+import { getDb } from '../db.js';
+import { createId } from '../ids.js';
 
 function now() {
   return new Date().toISOString();
@@ -136,4 +136,19 @@ export function addAiExecutionLog(sessionId, stepName, status, options = {}) {
       options.error || null,
       now()
     );
+}
+
+export function getSetting(key) {
+  const row = getDb().prepare('SELECT valueJson FROM settings WHERE key = ?').get(key);
+  return row ? JSON.parse(row.valueJson) : null;
+}
+
+export function setSetting(key, value) {
+  getDb()
+    .prepare(`
+      INSERT INTO settings (key, valueJson, updatedAt) VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET valueJson = excluded.valueJson, updatedAt = excluded.updatedAt
+    `)
+    .run(key, JSON.stringify(value), now());
+  return value;
 }

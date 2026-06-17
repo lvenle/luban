@@ -1,5 +1,7 @@
-import { getApp, getPackageFromApp, getSetting, getRecord, createAppFromPackage } from '../db.js';
-import { getAiSession, createAiSession, listAiSessions, updateAiSession, addAiMessage, addAiExecutionLog } from '../aiSession.js';
+import { getPackageFromApp } from '../db.js';
+import { getApp, createAppFromPackage } from '../models/app.js';
+import { getRecord } from '../models/record.js';
+import { getSetting, getAiSession, createAiSession, listAiSessions, updateAiSession, addAiMessage, addAiExecutionLog } from '../models/session.js';
 import { chatCompletionsUrl, generatePlanFromPrompt, planToPackage } from '../ai.js';
 import { buildPlanningPrompt, describePlan, understandAgentRequest } from '../agent.js';
 import { applyPatch, preparePackage } from '../packageProtocol.js';

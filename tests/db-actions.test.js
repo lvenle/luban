@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
-import { createAppFromPackage, createRecord, exportAppPayload, listRecords, resetDbForTests, updateRecord } from '../src/db.js';
+import { resetDbForTests } from '../src/db.js';
+import { createAppFromPackage, exportAppPayload } from '../src/models/app.js';
+import { createRecord, listRecords, updateRecord } from '../src/models/record.js';
 import { runAction } from '../src/actions.js';
 import { createBudgetPackage } from '../src/samplePackages.js';
 
@@ -29,13 +31,13 @@ test('runs built-in actions without executing arbitrary code', async () => {
   assert.match(result.result, /已分析 1 条记录/);
 });
 
-test('exports app structure by default', () => {
+test('exports app structure by default', async () => {
   const dbPath = join(process.cwd(), 'data', 'test-export.sqlite');
   rmSync(dbPath, { force: true });
   resetDbForTests(dbPath);
   const app = createAppFromPackage(createBudgetPackage());
   createRecord(app.id, 'transaction', { type: '支出', amount: 12 });
-  const payload = exportAppPayload(app.id);
+  const payload = await exportAppPayload(app.id);
   assert.equal(payload.manifest.id, 'budget-book');
   assert.equal(payload.sampleData, undefined);
 });

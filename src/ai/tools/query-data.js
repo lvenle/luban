@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { listRecords } from '../../db.js';
+import { listRecords } from '../../models/record.js';
 
 register({
   name: 'query_data',

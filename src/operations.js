@@ -1,4 +1,6 @@
-import { getDb, getPackageFromApp, updateAppPackage, createRecord } from './db.js';
+import { getDb, getPackageFromApp } from './db.js';
+import { updateAppPackage } from './models/app.js';
+import { createRecord } from './models/record.js';
 import { normalizeFieldId } from './ids.js';
 import { importRowsFromFile } from './importData.js';
 

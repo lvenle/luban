@@ -1,6 +1,7 @@
 import { register } from '../registry.js';
 import { generatePackageFromPrompt } from '../../ai.js';
-import { createAppFromPackage, getSetting } from '../../db.js';
+import { createAppFromPackage } from '../../models/app.js';
+import { getSetting } from '../../models/session.js';
 import { pickSamplePackage } from '../../samplePackages.js';
 
 register({

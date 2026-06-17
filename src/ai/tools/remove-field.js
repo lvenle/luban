@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { getApp } from '../../db.js';
+import { getApp } from '../../models/app.js';
 import { deleteFieldInApp } from '../../operations.js';
 
 register({

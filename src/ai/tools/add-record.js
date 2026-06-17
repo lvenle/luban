@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { createRecord } from '../../db.js';
+import { createRecord } from '../../models/record.js';
 
 register({
   name: 'add_record',

@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { clearAiSessions, createAiSession } from '../../aiSession.js';
+import { clearAiSessions, createAiSession } from '../../models/session.js';
 
 register({
   name: 'clear_sessions',

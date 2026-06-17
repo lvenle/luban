@@ -1,5 +1,6 @@
 import { register } from '../registry.js';
-import { getApp, getPackageFromApp, updateAppPackage } from '../../db.js';
+import { getPackageFromApp } from '../../db.js';
+import { getApp, updateAppPackage } from '../../models/app.js';
 
 register({
   name: 'add_relation',
