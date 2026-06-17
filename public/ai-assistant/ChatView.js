@@ -15,6 +15,8 @@ export default class ChatView {
   render() {
     const messages = h('div', { class: 'assistant-messages' });
     this.messagesEl = messages;
+    const tip = h('div', { class: 'assistant-tip', text: '帮助你快速创建表，添加字段，修改字段，分析数据' });
+    messages.append(tip);
 
     const quick = h('div', { class: 'assistant-quick' }, [
       h('button', { class: 'assistant-chip', text: '创建任务管理', onclick: () => this.setInput('创建一个任务管理软件') }),
@@ -97,6 +99,8 @@ export default class ChatView {
 
   clear() {
     this.messagesEl.innerHTML = '';
+    const tip = h('div', { class: 'assistant-tip', text: '帮助你快速创建表，添加字段，修改字段，分析数据' });
+    this.messagesEl.append(tip);
   }
 
   getMessageContainer() {
