@@ -33,7 +33,8 @@ export default class SessionManager {
       const preview = session.preview ? session.preview.slice(0, 30) : session.status;
       const icons = { completed: '✅', failed: '❌', idle: '💬', clarifying: '❓', planning: '📋', executing: '⏳', cancelled: '⏭️' };
       const icon = icons[session.status] || '💬';
-      this.selectEl.append(h('option', { value: session.id, text: `${preview} ${icon}` }));
+      const time = session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+      this.selectEl.append(h('option', { value: session.id, text: `[${time}] ${preview} ${icon}` }));
     }
   }
 
