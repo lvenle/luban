@@ -144,7 +144,7 @@ export function renderAssistantDrawer(onClose) {
   const chatEl = chatView.render();
   streamRenderer.container = chatView.getMessageContainer();
   const headActions = sessionManager.render();
-  const sessionBar = h('div', { class: 'assistant-history-bar' });
+  const sessionBar = h('div', { class: 'assistant-history-bar', text: '帮助你快速创建表，添加字段，修改字段，分析数据' });
 
   const close = () => {
     sseClient.disconnect();
