@@ -31,7 +31,9 @@ export default class SessionManager {
     }
     for (const session of this.sessions) {
       const preview = session.preview ? session.preview.slice(0, 30) : session.status;
-      this.selectEl.append(h('option', { value: session.id, text: `${session.status}: ${preview}` }));
+      const icons = { completed: '✅', failed: '❌', idle: '💬', clarifying: '❓', planning: '📋', executing: '⏳', cancelled: '⏭️' };
+      const icon = icons[session.status] || '💬';
+      this.selectEl.append(h('option', { value: session.id, text: `${preview} ${icon}` }));
     }
   }
 
