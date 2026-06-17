@@ -6,6 +6,7 @@ export default class StreamRenderer {
     this.currentMessageEl = null;
     this.cursorEl = null;
     this.accumulatedText = '';
+    this.thinkingEl = null;
   }
 
   startNewMessage() {
@@ -14,9 +15,29 @@ export default class StreamRenderer {
       h('div', { class: 'assistant-bubble streaming' })
     ]);
     this.container.append(this.currentMessageEl);
+    const bubble = this.currentMessageEl.querySelector('.assistant-bubble');
+    const placeholder = document.createTextNode('思考中...');
+    this.thinkingEl = placeholder;
+    bubble.append(placeholder);
     this.cursorEl = h('span', { class: 'stream-cursor', text: '|' });
-    this.currentMessageEl.querySelector('.assistant-bubble').append(this.cursorEl);
+    bubble.append(this.cursorEl);
     this.accumulatedText = '';
+    this.scrollToBottom();
+  }
+
+  appendToken(text) {
+    if (!this.currentMessageEl) return;
+    this.accumulatedText += text;
+    const bubble = this.currentMessageEl.querySelector('.assistant-bubble');
+    if (this.thinkingEl) {
+      this.thinkingEl.remove();
+      this.thinkingEl = null;
+    }
+    if (this.cursorEl) {
+      bubble.insertBefore(document.createTextNode(text), this.cursorEl);
+    } else {
+      bubble.append(document.createTextNode(text));
+    }
     this.scrollToBottom();
   }
 
@@ -39,6 +60,10 @@ export default class StreamRenderer {
     if (this.cursorEl) {
       this.cursorEl.remove();
       this.cursorEl = null;
+    }
+    if (this.thinkingEl) {
+      this.thinkingEl.remove();
+      this.thinkingEl = null;
     }
     const content = html || this.accumulatedText;
     if (content) bubble.innerHTML = this.renderMarkdown(content);

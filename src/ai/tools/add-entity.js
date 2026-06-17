@@ -5,7 +5,7 @@ import { getApp, getPackageFromApp, updateAppPackage } from '../../db.js';
 register({
   name: 'add_entity',
   description: 'Create a new table/entity in an app. The table will automatically get a default list page.',
-  risk: 'high',
+  risk: 'medium',
   schema: {
     type: 'function',
     function: {

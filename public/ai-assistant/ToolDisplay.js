@@ -46,19 +46,20 @@ export default class ToolDisplay {
   }
 
   showConfirmModal(data) {
+    const args = data.arguments || {};
+    const entries = Object.entries(args).filter(([k]) => k !== 'appId');
+    const body = h('div', { class: 'confirm-body' });
+    for (const [key, value] of entries) {
+      const display = Array.isArray(value) ? value.join(', ') : String(value);
+      body.append(h('p', { text: `${key}: ${display}` }));
+    }
     const backdrop = h('div', { class: 'confirm-backdrop' }, [
       h('div', { class: 'confirm-modal' }, [
-        h('div', { class: 'confirm-header', text: '确认执行操作' }),
-        h('div', { class: 'confirm-body' }, [
-          h('p', { text: `AI 将执行以下高风险操作:` }),
-          h('div', { class: 'confirm-tool-info' }, [
-            h('strong', { text: data.name }),
-            h('pre', { text: JSON.stringify(data.arguments, null, 2) })
-          ])
-        ]),
+        h('div', { class: 'confirm-header', text: `确认${data.name === 'add_entity' ? '创建表' : '执行操作'}` }),
+        body,
         h('div', { class: 'confirm-actions' }, [
           h('button', { class: 'secondary', text: '拒绝', onclick: () => { backdrop.remove(); this.onConfirm(data.confirmId, false); } }),
-          h('button', { text: '确认执行', onclick: () => { backdrop.remove(); this.onConfirm(data.confirmId, true); } })
+          h('button', { text: '确认', onclick: () => { backdrop.remove(); this.onConfirm(data.confirmId, true); } })
         ])
       ])
     ]);
