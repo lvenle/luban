@@ -53,17 +53,19 @@ export default class ToolDisplay {
       const display = Array.isArray(value) ? value.join(', ') : String(value);
       body.append(h('p', { text: `${key}: ${display}` }));
     }
-    const backdrop = h('div', { class: 'confirm-backdrop' }, [
-      h('div', { class: 'confirm-modal' }, [
-        h('div', { class: 'confirm-header', text: `确认${data.name === 'add_entity' ? '创建表' : '执行操作'}` }),
-        body,
-        h('div', { class: 'confirm-actions' }, [
-          h('button', { class: 'secondary', text: '拒绝', onclick: () => { backdrop.remove(); this.onConfirm(data.confirmId, false); } }),
-          h('button', { text: '确认', onclick: () => { backdrop.remove(); this.onConfirm(data.confirmId, true); } })
-        ])
-      ])
+    const confirmBtn = h('button', { class: 'tool-confirm-btn', text: '确认' });
+    const rejectBtn = h('button', { class: 'tool-reject-btn', text: '拒绝' });
+    const card = h('div', { class: 'tool-card tool-confirm-card' }, [
+      h('div', { class: 'tool-card-header' }, [
+        h('span', { class: 'tool-card-icon', text: '📋' }),
+        h('span', { class: 'tool-card-name', text: `确认${data.name === 'add_entity' ? '创建表' : '执行操作'}` })
+      ]),
+      body,
+      h('div', { class: 'tool-confirm-actions' }, [rejectBtn, confirmBtn])
     ]);
-    document.body.append(backdrop);
+    confirmBtn.onclick = () => { this.onConfirm(data.confirmId, true); card.remove(); };
+    rejectBtn.onclick = () => { this.onConfirm(data.confirmId, false); card.remove(); };
+    return card;
   }
 
   formatArgs(args) {

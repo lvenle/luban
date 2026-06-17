@@ -84,7 +84,8 @@ function registerSSEHandlers() {
       if (card) chatView.addElement(card);
     })
     .on('tool_confirm', (data) => {
-      toolDisplay.showConfirmModal(data);
+      const card = toolDisplay.showConfirmModal(data);
+      if (card) chatView.addElement(card);
     })
     .on('message_end', () => {
       streamRenderer.finishMessage();

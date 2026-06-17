@@ -33,10 +33,18 @@ export default class StreamRenderer {
       this.thinkingEl.remove();
       this.thinkingEl = null;
     }
-    if (this.cursorEl) {
-      bubble.insertBefore(document.createTextNode(text), this.cursorEl);
-    } else {
-      bubble.append(document.createTextNode(text));
+    const parts = text.split('\n');
+    for (let i = 0; i < parts.length; i++) {
+      if (i > 0) {
+        const br = document.createElement('br');
+        if (this.cursorEl) bubble.insertBefore(br, this.cursorEl);
+        else bubble.append(br);
+      }
+      if (this.cursorEl) {
+        bubble.insertBefore(document.createTextNode(parts[i]), this.cursorEl);
+      } else {
+        bubble.append(document.createTextNode(parts[i]));
+      }
     }
     this.scrollToBottom();
   }
