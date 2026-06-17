@@ -339,10 +339,16 @@ function renderHome() {
           ))
         ]),
         cards
-      ]),
-      state.assistantOpen ? renderAssistantDrawer() : null
+      ])
     ])
   );
+  if (state.assistantOpen) {
+    renderAssistantDrawer(() => {
+      state.assistantOpen = false;
+      const btn = document.querySelector('.assistant-topbar-button');
+      if (btn) btn.classList.remove('active');
+    });
+  }
 }
 
 function appCard(app) {
