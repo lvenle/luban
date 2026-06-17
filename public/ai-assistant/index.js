@@ -132,7 +132,7 @@ async function handleSend(text) {
   }
 }
 
-export function renderAssistantDrawer() {
+export function renderAssistantDrawer(onClose) {
   if (!chatView) init();
 
   if (document.querySelector('.assistant.drawer')) return null;
@@ -146,6 +146,7 @@ export function renderAssistantDrawer() {
     sseClient.disconnect();
     backdrop.remove();
     drawer.remove();
+    if (onClose) onClose();
   };
 
   const backdrop = h('div', {

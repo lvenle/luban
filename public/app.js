@@ -537,7 +537,11 @@ function renderRuntime() {
   );
 
   if (state.assistantOpen) {
-    renderAssistantDrawer();
+    renderAssistantDrawer(() => {
+      state.assistantOpen = false;
+      const btn = document.querySelector('.assistant-topbar-button');
+      if (btn) btn.classList.remove('active');
+    });
   } else {
     document.querySelector('.drawer-backdrop')?.remove();
     document.querySelector('.assistant.drawer')?.remove();
