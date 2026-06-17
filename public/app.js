@@ -531,11 +531,17 @@ function renderRuntime() {
           onpointerdown: startSidebarResize,
           ondblclick: toggleSidebarCollapsed
         }),
-        h('section', { class: 'workspace' }, [renderPage(page)]),
-      state.assistantOpen ? renderAssistantDrawer() : null
+        h('section', { class: 'workspace' }, [renderPage(page)])
       ])
     ])
   );
+
+  if (state.assistantOpen) {
+    renderAssistantDrawer();
+  } else {
+    document.querySelector('.drawer-backdrop')?.remove();
+    document.querySelector('.assistant.drawer')?.remove();
+  }
 
   // 恢复表格滚动位置
   if (savedScrollTop > 0 || savedScrollLeft > 0) {

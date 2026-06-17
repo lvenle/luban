@@ -20,7 +20,6 @@ export function init() {
     onSend: handleSend
   });
 
-  chatView.render();
   streamRenderer = new StreamRenderer(chatView.getMessageContainer());
 
   toolDisplay = new ToolDisplay(async (confirmId, confirmed) => {
@@ -136,6 +135,8 @@ async function handleSend(text) {
 export function renderAssistantDrawer() {
   if (!chatView) init();
 
+  if (document.querySelector('.assistant.drawer')) return null;
+
   const chatEl = chatView.render();
   streamRenderer.container = chatView.getMessageContainer();
   const headActions = sessionManager.render();
@@ -148,8 +149,7 @@ export function renderAssistantDrawer() {
   };
 
   const backdrop = h('div', {
-    class: 'drawer-backdrop',
-    onclick: () => close()
+    class: 'drawer-backdrop'
   });
 
   const drawer = h('div', { class: 'assistant drawer' }, [
