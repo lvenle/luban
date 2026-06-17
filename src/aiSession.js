@@ -67,8 +67,8 @@ export function listAiSessions({ appId = null, limit = 20 } = {}) {
         .all(limit);
   return rows.map((row) => {
     const message = database
-      .prepare('SELECT content FROM ai_messages WHERE sessionId = ? ORDER BY createdAt DESC LIMIT 1')
-      .get(row.id);
+      .prepare('SELECT content, role FROM ai_messages WHERE sessionId = ? AND role = ? ORDER BY createdAt ASC LIMIT 1')
+      .get(row.id, 'user');
     const messageCount = database
       .prepare('SELECT COUNT(*) AS count FROM ai_messages WHERE sessionId = ?')
       .get(row.id)?.count || 0;

@@ -304,6 +304,15 @@
   color: #475569;
 }
 
+.tool-reject-btn:hover {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.tool-confirm-btn:hover {
+  background: #1d4ed8;
+}
+
 .confirm-backdrop {
   position: fixed;
   inset: 0;
