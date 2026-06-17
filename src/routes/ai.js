@@ -234,10 +234,6 @@ export async function handleAiApi(req, res, method, parts, url) {
             addAiExecutionLog(session.id, `执行 ${tc.function.name}`, 'success', { toolName: tc.function.name, output: result });
             const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
             messages.push({ role: 'tool', tool_call_id: tc.id, content: resultStr });
-            if (tc.function.name === 'clear_sessions' && result?.newSessionId) {
-              session = getAiSession(result.newSessionId);
-              sseEvent(res, 'session_id', { sessionId: session.id });
-            }
             sseEvent(res, 'tool_result', { id: tc.id, status: 'success', output: result });
           } catch (error) {
             addAiExecutionLog(session.id, `执行 ${tc.function.name}`, 'failed', { toolName: tc.function.name, error: error.message });

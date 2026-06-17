@@ -103,17 +103,19 @@ export function addAiMessage(sessionId, role, content, structuredContent = null)
     .run(createId('aim'), sessionId, role, content || '', structuredContent ? JSON.stringify(structuredContent) : null, now());
 }
 
-export function clearAiSessions(appId) {
+export function clearAiSessions(appId, excludeSessionId) {
   const database = getDb();
+  const excludeSql = excludeSessionId ? ' AND id != ?' : '';
+  const excludeParams = excludeSessionId ? [excludeSessionId] : [];
   if (appId) {
-    database.prepare('DELETE FROM ai_execution_logs WHERE sessionId IN (SELECT id FROM ai_sessions WHERE appId = ?)').run(appId);
-    database.prepare('DELETE FROM ai_messages WHERE sessionId IN (SELECT id FROM ai_sessions WHERE appId = ?)').run(appId);
-    const result = database.prepare('DELETE FROM ai_sessions WHERE appId = ?').run(appId);
+    database.prepare(`DELETE FROM ai_execution_logs WHERE sessionId IN (SELECT id FROM ai_sessions WHERE appId = ?${excludeSql})`).run(appId, ...excludeParams);
+    database.prepare(`DELETE FROM ai_messages WHERE sessionId IN (SELECT id FROM ai_sessions WHERE appId = ?${excludeSql})`).run(appId, ...excludeParams);
+    const result = database.prepare(`DELETE FROM ai_sessions WHERE appId = ?${excludeSql}`).run(appId, ...excludeParams);
     return { deletedCount: result.changes };
   }
-  const allLogs = database.prepare('DELETE FROM ai_execution_logs').run();
-  const allMsgs = database.prepare('DELETE FROM ai_messages').run();
-  const result = database.prepare('DELETE FROM ai_sessions WHERE appId IS NULL').run();
+  database.prepare(`DELETE FROM ai_execution_logs WHERE sessionId IN (SELECT id FROM ai_sessions WHERE appId IS NULL${excludeSql})`).run(...excludeParams);
+  database.prepare(`DELETE FROM ai_messages WHERE sessionId IN (SELECT id FROM ai_sessions WHERE appId IS NULL${excludeSql})`).run(...excludeParams);
+  const result = database.prepare(`DELETE FROM ai_sessions WHERE appId IS NULL${excludeSql}`).run(...excludeParams);
   return { deletedCount: result.changes };
 }
 

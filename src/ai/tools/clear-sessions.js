@@ -18,9 +18,9 @@ register({
       }
     }
   },
-  handler: async (args) => {
-    clearAiSessions(args.appId || null);
-    const newSession = createAiSession({ appId: args.appId || null, status: 'idle' });
-    return { ok: true, newSessionId: newSession.id };
+  handler: async (args, context) => {
+    const sessionId = context?.session?.id;
+    clearAiSessions(args.appId || null, sessionId);
+    return { ok: true };
   }
 });
