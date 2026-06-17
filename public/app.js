@@ -502,7 +502,7 @@ function buildAssistantContext() {
   if (!app) return '';
   const page = app.ui.pages.find((p) => p.id === state.currentPageId) || app.ui.pages[0];
   const entity = page?.entity ? entityFor(page) : null;
-  const parts = [`App: ${app.name}`];
+  const parts = [`App ID: ${app.id}`, `App Name: ${app.name}`];
   if (page) parts.push(`Page: ${page.title} (${page.id})`);
   if (entity) {
     parts.push(`Entity: ${entity.name} (${entity.id})`);

@@ -56,7 +56,7 @@ async function* streamOpenAI(settings, messages, tools) {
   }
 }
 
-function buildMessages(session, userMessage, context = '') {
+function buildMessages(session, userMessage, context = '', app = null) {
   let systemContent = `You are Software Garden's AI assistant. You help users build and manage their apps.
 
 You have access to tools that let you modify the app schema, manage pages, and work with data.
@@ -67,9 +67,22 @@ Guidelines:
 - For high-risk operations (creating/deleting entities, fields, pages, records), the system will ask the user to confirm
 - After executing tools, summarize what was done
 - When the user's request is ambiguous, ask clarifying questions before using tools`;
-  if (context) {
-    systemContent += `\n\nCurrent context (the user is looking at this): ${context}`;
+
+  if (app) {
+    const entityDescs = (app.schema?.entities || []).map((entity) => {
+      const fields = (entity.fields || []).map((field) => {
+        const opts = field.options ? field.options.map((o) => o.label || o.value || o).join(', ') : '';
+        return `  - ${field.label || field.id} (${field.id}): ${field.type}${opts ? ` [options: ${opts}]` : ''}`;
+      }).join('\n');
+      return `Entity: ${entity.name} (${entity.id})\nFields:\n${fields}`;
+    }).join('\n\n');
+    systemContent += `\n\n## Current App\nApp ID: ${app.id}\nApp Name: ${app.name}\n\n## App Schema\n${entityDescs || 'No entities yet'}`;
   }
+
+  if (context) {
+    systemContent += `\n\n## Current Context\nThe user is currently looking at: ${context}`;
+  }
+
   const msgs = [{ role: 'system', content: systemContent }];
   for (const msg of session.messages || []) {
     msgs.push({ role: msg.role, content: msg.content || '' });
@@ -123,7 +136,7 @@ export async function handleAiApi(req, res, method, parts, url) {
 
     try {
       const tools = getToolDefinitions();
-      let messages = buildMessages(getAiSession(session.id), body.message, body.context);
+      let messages = buildMessages(getAiSession(session.id), body.message, body.context, app);
       let turnContent = '';
 
       for (let iteration = 0; iteration < 20; iteration++) {
