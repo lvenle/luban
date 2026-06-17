@@ -2906,9 +2906,13 @@ thead .sticky-action-cell {
 }
 
 .assistant-msg.user .assistant-bubble {
-  border-color: #111827;
-  background: #111827;
-  color: #fff;
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.assistant-msg.ai .assistant-bubble {
+  background: #dcfce7;
+  color: #166534;
 }
 
 .assistant-bubble-title {

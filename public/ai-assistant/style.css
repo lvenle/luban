@@ -12,6 +12,7 @@
   padding: 12px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .assistant-msg {

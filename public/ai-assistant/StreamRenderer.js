@@ -75,9 +75,25 @@ export default class StreamRenderer {
   renderMarkdown(text) {
     let html = String(text || '');
     html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    html = html.replace(/\n\s*[-*]\s/g, '\n• ');
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
     html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+    html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(/((?:\|.+\|\n?)+)/g, (match) => {
+      const lines = match.trim().split('\n').filter((l) => l.startsWith('|'));
+      if (lines.length < 2) return match;
+      const isSep = (l) => /^\|[\s:-]+\|$/.test(l);
+      const sepIdx = lines.findIndex(isSep);
+      if (sepIdx < 0 || sepIdx > 1) return match;
+      const headers = lines[0].split('|').filter(Boolean).map((c) => `<th>${c.trim()}</th>`).join('');
+      let body = '';
+      for (let i = sepIdx + 1; i < lines.length; i++) {
+        const cells = lines[i].split('|').filter(Boolean).map((c) => `<td>${c.trim()}</td>`).join('');
+        if (cells) body += `<tr>${cells}</tr>`;
+      }
+      return `<table><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>`;
+    });
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
     html = html.replace(/\n/g, '<br>');
