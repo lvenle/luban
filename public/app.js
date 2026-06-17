@@ -1331,10 +1331,9 @@ function normalizeView(entity, view = {}) {
   const next = { ...fallback, ...view };
   next.id = next.id || makeViewId();
   next.name = String(next.name || '未命名视图').trim() || '未命名视图';
-  const knownFields = new Set(next.allFields || []);
   next.visibleFields = (next.visibleFields || []).filter((id) => fieldSet.has(id));
   for (const field of entity.fields) {
-    if (!knownFields.has(field.id) && !next.visibleFields.includes(field.id)) {
+    if (!next.visibleFields.includes(field.id)) {
       next.visibleFields.push(field.id);
     }
   }
