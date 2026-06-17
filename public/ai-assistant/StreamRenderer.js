@@ -41,18 +41,6 @@ export default class StreamRenderer {
     this.scrollToBottom();
   }
 
-  appendToken(text) {
-    if (!this.currentMessageEl) return;
-    this.accumulatedText += text;
-    const bubble = this.currentMessageEl.querySelector('.assistant-bubble');
-    if (this.cursorEl) {
-      bubble.insertBefore(document.createTextNode(text), this.cursorEl);
-    } else {
-      bubble.append(document.createTextNode(text));
-    }
-    this.scrollToBottom();
-  }
-
   finishMessage(html) {
     if (!this.currentMessageEl) return;
     const bubble = this.currentMessageEl.querySelector('.assistant-bubble');
@@ -83,7 +71,7 @@ export default class StreamRenderer {
     html = html.replace(/((?:\|.+\|\n?)+)/g, (match) => {
       const lines = match.trim().split('\n').filter((l) => l.startsWith('|'));
       if (lines.length < 2) return match;
-      const isSep = (l) => /^\|[\s:-]+\|$/.test(l);
+      const isSep = (l) => /^\|[\s:-]+(\|[\s:-]+)*\|$/.test(l);
       const sepIdx = lines.findIndex(isSep);
       if (sepIdx < 0 || sepIdx > 1) return match;
       const headers = lines[0].split('|').filter(Boolean).map((c) => `<th>${c.trim()}</th>`).join('');

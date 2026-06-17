@@ -29,13 +29,17 @@ register({
     const pkg = getPackageFromApp(app);
     const entity = pkg.schema.entities.find((e) => e.id === args.sourceEntityId);
     if (!entity) throw new Error('Source entity not found');
+    const targetEntity = pkg.schema.entities.find((e) => e.id === args.targetEntityId);
+    if (!targetEntity) throw new Error('Target entity not found');
+    const displayField = targetEntity.fields.find((f) => f.type === 'text' || f.type === 'textarea' || f.type === 'email' || f.type === 'phone') || targetEntity.fields[0];
     const id = `rel_${args.targetEntityId}`;
     entity.fields.push({
       id,
       label: args.label,
       type: 'relation',
       targetEntity: args.targetEntityId,
-      multiple: args.multiple || false
+      multiple: args.multiple || false,
+      displayField: displayField?.id || null
     });
     return updateAppPackage(app.id, pkg);
   }
