@@ -59,11 +59,12 @@ async function* streamOpenAI(settings, messages, tools) {
 function buildMessages(session, userMessage, context = '', app = null) {
   let systemContent = `You are Software Garden's AI assistant. You help users build and manage their apps.
 
-You have access to tools that let you modify the app schema, manage pages, and work with data.
+You have access to tools that let you create new apps, modify the app schema, manage pages, and work with data.
 
 Guidelines:
 - Always respond in the same language as the user's message
 - When users ask to create or modify things, use the appropriate tools instead of just describing what to do
+- When the user asks to create a new app and no app is currently open, use the create_app tool. Do not use add_entity for new app creation.
 - For high-risk operations (creating/deleting entities, fields, pages, records), the system will ask the user to confirm
 - After executing tools, summarize what was done
 - When the user's request is ambiguous, ask clarifying questions before using tools`;
@@ -116,7 +117,7 @@ export async function handleAiApi(req, res, method, parts, url) {
       return;
     }
 
-    const app = body.appId ? getApp(body.appId) : null;
+    let app = body.appId ? getApp(body.appId) : null;
     const session = (body.sessionId && getAiSession(body.sessionId)) || createAiSession({ appId: app?.id || null, status: 'idle' });
     updateAiSession(session.id, { appId: app?.id || session.appId || null });
     addAiMessage(session.id, 'user', body.message || '');
@@ -235,6 +236,9 @@ export async function handleAiApi(req, res, method, parts, url) {
             const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
             messages.push({ role: 'tool', tool_call_id: tc.id, content: resultStr });
             sseEvent(res, 'tool_result', { id: tc.id, status: 'success', output: result });
+            if (tc.function.name === 'create_app' && result?.appId) {
+              app = getApp(result.appId);
+            }
           } catch (error) {
             addAiExecutionLog(session.id, `执行 ${tc.function.name}`, 'failed', { toolName: tc.function.name, error: error.message });
             messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ error: error.message }) });

@@ -200,22 +200,60 @@ export function createCrmPackage() {
 
 export function pickSamplePackage(prompt) {
   let text = String(prompt || '');
+  let userText = text;
   // 提取实际用户输入：如果 prompt 是 JSON，只取 request 部分
   try {
     const parsed = JSON.parse(text);
     if (parsed.request) {
       text = parsed.request;
+      userText = parsed.request;
     }
   } catch {}
   
+  const requestedName = extractAppName(userText);
   text = text.toLowerCase();
   
-  if (text.includes('公众号') || text.includes('文章') || text.includes('写作')) return createArticlePackage();
-  const scenario = bestScenarioMatch(text);
-  if (scenario) return createScenarioPackage(scenario);
-  if (text.includes('客户') || text.includes('crm')) return createCrmPackage();
-  if (text.includes('待办') || text.includes('todo') || text.includes('任务')) return createTodoPackage();
-  return createBudgetPackage();
+  let pkg;
+  if (text.includes('公众号') || text.includes('文章') || text.includes('写作')) {
+    pkg = createArticlePackage();
+  } else {
+    const scenario = bestScenarioMatch(text);
+    if (scenario) {
+      pkg = createScenarioPackage(scenario);
+    } else if (text.includes('客户') || text.includes('crm')) {
+      pkg = createCrmPackage();
+    } else if (text.includes('待办') || text.includes('todo') || text.includes('任务')) {
+      pkg = createTodoPackage();
+    } else {
+      pkg = createBudgetPackage();
+    }
+  }
+  
+  if (requestedName) {
+    pkg.manifest.name = requestedName;
+  }
+  return pkg;
+}
+
+function extractAppName(text) {
+  let name = String(text || '').trim();
+  if (!name) return null;
+
+  name = name.replace(/[,，。.、；;：:！!？?\n\r]+[\s\S]*$/g, '').trim();
+  if (!name || name.length < 2) return null;
+
+  name = name.replace(/^(请|帮我|给我|我要|我想|麻烦你|能不能|可以帮我)\s*/g, '');
+  name = name.replace(/^((创建|制作|生成|设计|搭建|新建|开发|写|做)(一个)?个?)\s*/g, '');
+  name = name.replace(/^(一个|个)\s*/g, '');
+  name = name.replace(/^(create|make|build|design|generate)\s+(a|an)\s+/gi, '');
+  name = name.replace(/^(create|make|build|design|generate)\s+/gi, '');
+  name = name.replace(/^(a|an)\s+/gi, '');
+  name = name.replace(/^(i want|i need|help me|please)\s+/gi, '');
+  name = name.replace(/\s*(应用|软件|系统|工具|程序|平台|页面|模块|功能|app|application|tool|system|software|platform|module|page)$/gi, '');
+
+  name = name.trim();
+  if (!name || name.length < 2) return null;
+  return name;
 }
 
 function bestScenarioMatch(text) {

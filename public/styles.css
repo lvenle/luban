@@ -828,6 +828,10 @@ textarea {
   gap: 8px;
 }
 
+.page-button:hover {
+  background: #eef1f5;
+}
+
 .page-button.active {
   background: #eef4ff;
   color: var(--brand);

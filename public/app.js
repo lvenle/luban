@@ -3389,6 +3389,7 @@ function startCellEdit(cell, entity, record, field) {
   cell.append(input);
   input.focus();
   if (input.select) input.select();
+  if (input.type === 'date' || input.type === 'datetime-local') input.showPicker();
   let saved = false;
   let composing = false;
   let blurDuringComposition = false;
