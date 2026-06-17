@@ -110,9 +110,14 @@ export function clearAiSessions(appId) {
     : database.prepare('SELECT id FROM ai_sessions WHERE appId IS NULL').all();
   const ids = sessions.map((s) => s.id);
   if (!ids.length) return { deletedCount: 0 };
-  const placeholders = ids.map(() => '?').join(',');
-  const result = database.prepare(`DELETE FROM ai_sessions WHERE id IN (${placeholders})`).run(...ids);
-  return { deletedCount: result.changes };
+  database.exec('PRAGMA foreign_keys = OFF;');
+  for (const id of ids) {
+    database.prepare('DELETE FROM ai_messages WHERE sessionId = ?').run(id);
+    database.prepare('DELETE FROM ai_execution_logs WHERE sessionId = ?').run(id);
+    database.prepare('DELETE FROM ai_sessions WHERE id = ?').run(id);
+  }
+  database.exec('PRAGMA foreign_keys = ON;');
+  return { deletedCount: ids.length };
 }
 
 export function addAiExecutionLog(sessionId, stepName, status, options = {}) {
