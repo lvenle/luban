@@ -58,7 +58,7 @@ export default class ToolDisplay {
       update_entity: '修改表', update_field: '修改字段', add_page: '添加页面',
       remove_page: '删除页面', add_record: '添加记录', update_record: '修改记录'
     };
-    const args = data.arguments || {};
+    const args = data.friendlyArgs || data.arguments || {};
     const entries = Object.entries(args).filter(([k]) => k !== 'appId');
     const body = h('div', { class: 'confirm-body' });
     for (const [key, value] of entries) {

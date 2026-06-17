@@ -195,7 +195,28 @@ export async function handleAiApi(req, res, method, parts, url) {
           if (tool.risk === 'high') {
             const confirmId = `${session.id}:${tc.id}`;
             PENDING_CONFIRMS.set(confirmId, { tool, args, sessionId: session.id, toolCallId: tc.id });
-            sseEvent(res, 'tool_confirm', { id: tc.id, name: tc.function.name, arguments: args, confirmId });
+            const entities = app?.schema?.entities || [];
+            const resolveName = (id) => {
+              const e = entities.find((e) => e.id === id);
+              if (e) return e.name;
+              for (const e of entities) {
+                const f = e.fields?.find((f) => f.id === id);
+                if (f) return f.label || f.id;
+              }
+              return id;
+            };
+            const friendlyArgs = {};
+            for (const [key, value] of Object.entries(args)) {
+              if (key === 'appId') { friendlyArgs[key] = value; continue; }
+              if (key === 'entityId' || key === 'sourceEntityId' || key === 'targetEntityId') {
+                friendlyArgs[key] = resolveName(value);
+              } else if (key === 'fieldId') {
+                friendlyArgs[key] = resolveName(value);
+              } else {
+                friendlyArgs[key] = value;
+              }
+            }
+            sseEvent(res, 'tool_confirm', { id: tc.id, name: tc.function.name, arguments: args, friendlyArgs, confirmId });
 
             const confirmResult = await waitForConfirm(confirmId);
             PENDING_CONFIRMS.delete(confirmId);
