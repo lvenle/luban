@@ -2851,6 +2851,16 @@ thead .sticky-action-cell {
   border-bottom: 1px solid var(--line);
 }
 
+.history-label {
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.assistant-head-actions .ghost:last-child {
+  margin-left: auto;
+}
+
 .assistant-head-actions .ghost {
   white-space: nowrap;
   flex-shrink: 0;

@@ -52,8 +52,9 @@ export default class SessionManager {
     });
 
     return h('div', { class: 'assistant-head-actions' }, [
-      newBtn,
-      select
+      h('span', { class: 'history-label', text: '历史会话' }),
+      select,
+      newBtn
     ]);
   }
 
