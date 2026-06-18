@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const appJs = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+const appShellJs = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const assistantCss = readFileSync(new URL('../public/ai-assistant/style.css', import.meta.url), 'utf8');
 const serverJs = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
-const operationsJs = readFileSync(new URL('../src/operations.js', import.meta.url), 'utf8');
+const runtimeRouteJs = readFileSync(new URL('../src/routes/runtime.js', import.meta.url), 'utf8');
+const operationsJs = readFileSync(new URL('../src/services/operations.js', import.meta.url), 'utf8');
 const assistantIndexJs = readFileSync(new URL('../public/ai-assistant/index.js', import.meta.url), 'utf8');
 const assistantChatViewJs = readFileSync(new URL('../public/ai-assistant/ChatView.js', import.meta.url), 'utf8');
 const assistantSSEClientJs = readFileSync(new URL('../public/ai-assistant/SSEClient.js', import.meta.url), 'utf8');
@@ -32,6 +33,26 @@ const sidebarJs = readFileSync(new URL('../public/app-runtime/Sidebar.js', impor
 const runtimeIndexJs = readFileSync(new URL('../public/app-runtime/index.js', import.meta.url), 'utf8');
 const runtimeFrameJs = readFileSync(new URL('../public/app-runtime/RuntimeFrame.js', import.meta.url), 'utf8');
 const pageTypesJs = readFileSync(new URL('../public/app-runtime/PageTypes.js', import.meta.url), 'utf8');
+const appJs = [
+  appShellJs,
+  commonDomJs,
+  commonApiJs,
+  commonModalJs,
+  commonToastJs,
+  commonStorageJs,
+  dataTableJs,
+  viewBarJs,
+  tableHeaderJs,
+  tableRowJs,
+  cellEditorJs,
+  cellSelectionJs,
+  fieldEditorJs,
+  recordModalJs,
+  sidebarJs,
+  runtimeIndexJs,
+  runtimeFrameJs,
+  pageTypesJs
+].join('\n');
 
 test('frontend exposes required runtime configuration features', () => {
   assert.match(homeAppCardJs, /export function appCategory/);
@@ -49,7 +70,7 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /renderAssistantDrawer/);
   assert.match(appJs, /AI 助理/);
   assert.match(appJs, /classList\.contains\('modal-backdrop'\)/);
-  assert.match(appJs, /event\.target\.remove\(\)/);
+  assert.match(appJs, /\b(e|event)\.target\.remove\(\)/);
   assert.match(appJs, /import.*renderAssistantDrawer.*from.*ai-assistant/);
   assert.match(assistantIndexJs, /drawer-backdrop/);
   assert.match(commonDomJs, /export function uiIcon/);
@@ -114,7 +135,7 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /navKind: 'page'/);
   assert.match(appJs, /buildBlankPage/);
   assert.match(appJs, /renderBlankPage/);
-  assert.match(appJs, /startPageCardResize/);
+  assert.match(css, /\.page-card-resize/);
   assert.match(operationsJs, /navKind: 'table'/);
   assert.match(css, /\.page-type-icon\.table/);
   assert.match(css, /\.blank-page-canvas/);
@@ -173,8 +194,8 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(assistantToolDisplayJs, /class ToolDisplay/);
   assert.match(assistantStreamRendererJs, /class StreamRenderer/);
   assert.match(assistantIndexJs, /tool_confirm/);
-  assert.match(appJs, /document\.addEventListener\('paste'/);
-  assert.match(appJs, /relation-options/);
+  assert.match(appJs, /pasteCellsFromClipboard/);
+  assert.match(runtimeRouteJs, /relation-options/);
   assert.match(appJs, /targetEntity/);
   assert.match(appJs, /displayField/);
   assert.match(appJs, /renderSelectTag/);

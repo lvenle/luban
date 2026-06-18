@@ -1,5 +1,5 @@
 import { createZip } from './zip.js';
-import { displayExportValue } from './utils/export.js';
+import { displayExportValue } from './export.js';
 
 function xml(value) {
   return String(value ?? '')

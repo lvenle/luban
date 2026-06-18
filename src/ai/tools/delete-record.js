@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { getDb } from '../../db.js';
+import { getDb } from '../../storage/db.js';
 
 register({
   name: 'delete_record',

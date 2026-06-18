@@ -1,10 +1,10 @@
-import { getPackageFromApp } from '../db.js';
+import { getPackageFromApp } from '../storage/db.js';
 import { getApp, createAppFromPackage } from '../models/app.js';
 import { getRecord } from '../models/record.js';
 import { getSetting, getAiSession, createAiSession, listAiSessions, updateAiSession, addAiMessage, addAiExecutionLog } from '../models/session.js';
-import { chatCompletionsUrl, generatePlanFromPrompt, planToPackage } from '../ai.js';
-import { buildPlanningPrompt, describePlan, understandAgentRequest } from '../agent.js';
-import { applyPatch, preparePackage } from '../packageProtocol.js';
+import { chatCompletionsUrl, generatePlanFromPrompt, planToPackage } from '../ai/service.js';
+import { buildPlanningPrompt, describePlan, understandAgentRequest } from '../ai/agent.js';
+import { applyPatch, preparePackage } from '../core/packageProtocol.js';
 import { getToolDefinitions, getTool, discoverTools } from '../ai/registry.js';
 
 discoverTools();

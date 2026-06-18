@@ -17,8 +17,8 @@ export function renderHome() {
       topbar(),
       h('main', { class: 'container' }, [
         h('section', { class: 'hero' }, [
-          h('h1', { text: 'MetroSoft智能软件工厂' }),
-          h('p', { text: '这是一个AI智能软件工厂，内置AI助理，可通过对话轻松完成软件创建' }),
+          h('h1', { text: '鲁班AI系统' }),
+          h('p', { text: 'AI 原生软件自定义平台，用自然语言创建、运行和持续改造属于你的业务软件。' }),
           h('div', { class: 'hero-meta' }, [
             h('button', {
               text: 'AI助理创建软件',

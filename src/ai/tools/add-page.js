@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { getPackageFromApp } from '../../db.js';
+import { getPackageFromApp } from '../../storage/db.js';
 import { getApp, updateAppPackage } from '../../models/app.js';
 
 register({

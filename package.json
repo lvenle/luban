@@ -2,7 +2,8 @@
   "name": "software-garden-mvp",
   "version": "0.1.0",
   "private": true,
-  "description": "Software Garden MVP: AI-generated structured personal apps with a SQLite-backed runtime.",
+  "description": "Luban AI System MVP: AI-generated structured personal apps with a SQLite-backed runtime.",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "start": "node src/server.js",

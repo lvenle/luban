@@ -1,7 +1,13 @@
 node_modules/
+openspec/
 data/
 coverage/
 dist/
+samples/
+spec/
+
+.codex/
+.opencode/
 .playwright-cli/
 
 .env

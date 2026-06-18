@@ -1,6 +1,6 @@
 import { register } from '../registry.js';
 import { getApp } from '../../models/app.js';
-import { createFieldInApp } from '../../operations.js';
+import { createFieldInApp } from '../../services/operations.js';
 
 register({
   name: 'add_field',

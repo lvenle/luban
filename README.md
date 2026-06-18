@@ -1,46 +1,243 @@
-# 软件花园 MVP
+# 鲁班AI系统
 
-软件花园是一个面向个人用户的 AI 软件创造平台 MVP。用户用自然语言描述需求，系统生成结构化软件包，并由 Runtime 立即运行。
+> AI 原生软件自定义平台
 
-这个版本采用零外部依赖实现，方便直接启动和验收：
+![鲁班AI原生系统](public/images/introduce.png)
 
-- Node.js 内置 HTTP 服务
+鲁班AI系统是一个面向个人、团队和业务场景的 AI 原生软件创造平台。它希望把“做软件”从传统的代码工程，推进到“用自然语言表达需求、由 AI 生成结构化软件、再由运行时即时运行”的新模式。
+
+你可以把它理解为一个软件工坊：用户描述想要的工具，系统自动生成数据模型、页面、表单、操作能力和建议指令，并把它安装成一个可以立刻使用、持续修改、可导入导出的轻量应用。
+
+## 系统介绍
+
+鲁班AI系统以“用 AI 打造未来的软件”为产品方向，把软件创建拆成一套可被 AI 理解和执行的结构化流程：先理解自然语言需求，再生成数据表、字段、页面、视图、动作和提示词，最后由 Runtime 直接运行。
+
+它不是一次性生成静态页面，而是围绕“软件资产”持续演化。用户可以先创建一个能用的应用，再在真实使用过程中继续通过 AI 助手追加功能，例如增加字段、创建统计页、添加数据表、建立表关系、生成导出动作或调整页面结构。
+
+<img src="public/images/logo.png" alt="鲁班AI系统 Logo" width="180" />
+
+## 愿景
+
+过去，软件通常由开发者预先设计，再交付给用户使用。鲁班AI系统尝试反过来：让用户从自己的工作流出发，用自然语言定义软件，让 AI 负责把需求转化为可验证、可运行、可迭代的应用结构。
+
+它关注的不是生成一段临时代码，而是生成一套稳定的软件资产：
+
+- 有明确协议的软件包
+- 有结构化数据模型
+- 有可渲染的页面与表单
+- 有可执行的内置 Action
+- 有可持续修改的 AI Patch 流程
+- 有本地持久化、导入、导出和运行时
+
+最终目标是让每个人都能拥有适合自己流程的小软件，而不是被迫适应通用工具。
+
+## 核心能力
+
+- **自然语言创建软件**：输入一句需求，生成可运行的软件应用。
+- **结构化软件包协议**：使用 `manifest`、`schema`、`ui`、`actions`、`prompts` 描述一个应用。
+- **即时 Runtime**：根据生成的结构自动渲染列表、表单、详情、仪表盘、图表和编辑器页面。
+- **AI 助手持续修改**：在应用内部通过对话添加字段、页面、表、关系和 Action。
+- **Patch 驱动迭代**：AI 修改输出 Patch，应用后重新校验完整软件包，避免整包失控重写。
+- **多表与关系字段**：支持跨实体关系、关系选项搜索和关联数据展示。
+- **数据管理**：支持新增、编辑、删除、搜索、排序、行内编辑和字段显示配置。
+- **导入导出**：支持 `.sgpkg` 软件包导入导出，也支持 CSV / XLSX 数据导出。
+- **AI / Mock 双模式**：未配置 API Key 时使用本地 Mock AI，方便离线演示；配置后可连接 OpenAI-compatible API。
+- **本地优先存储**：使用 SQLite 保存应用结构、用户数据、AI 会话和执行日志。
+
+## 可以创建什么
+
+鲁班AI系统适合生成面向数据、流程和内容的小型业务软件，例如：
+
+- 家庭记账本
+- 待办事项工具
+- 客户管理
+- 公众号文章生成器
+- 库存管理
+- 项目管理
+- 会议纪要管管理
+- 工单管理器
+- 产品需求池
+- 知识库管理
+- 课程反馈收集
+- 线索管理器
+- 直播排期管理
+- 用户访谈记录
+- 竞品分析库
+
+项目内置了多类 Mock 场景，便于在没有真实模型配置的情况下验证“从需求到软件”的完整闭环。
+
+## 界面预览
+
+### 首页
+
+![鲁班AI系统首页](public/images/home-page.png)
+
+首页是用户的软件工厂入口，集中展示本地已经创建或导入的软件。用户可以通过 AI 助手创建新软件，也可以导入 `.sgpkg` 软件包继续使用已有应用。软件卡片按分类组织，支持快速筛选、打开、导出和继续改造。
+
+### AI 助理创建应用
+
+![AI 助理创建应用](public/images/ai_create_app.png)
+
+AI 助理是鲁班AI系统的软件创建入口。用户只需要描述想要的软件，例如任务管理、客户管理、内容生成或项目跟踪，系统会把需求转化为结构化应用方案，并生成可运行的软件包。创建过程保留对话上下文，后续还可以继续通过 AI 助理追加字段、页面、表关系和自动化动作。
+
+### 软件详情页
+
+![鲁班AI系统软件详情页](public/images/app-detail-page.png)
+
+软件详情页是每个应用的运行工作台。左侧是由 `ui.json` 自动生成的页面与数据表导航，中间是当前页面的运行区域，顶部提供新增记录、导入、导出、筛选、排序、分组、字段设置和表单视图等操作。右上角保留 AI 助手入口，用户可以在使用软件的同时继续提出修改需求，让应用持续演化。
+
+## 技术架构
+
+当前版本是一个便于本地运行和验证的 MVP，尽量减少外部依赖：
+
+- Node.js 内置 HTTP Server
 - Node.js 内置 `node:sqlite`
 - 原生浏览器前端
-- `.sgpkg` zip 软件包导入导出
-- Mock AI 默认可用，配置 API Key 后可调用 OpenAI-compatible API
+- 原生模块化 JavaScript
+- 本地 SQLite 数据库
+- `.sgpkg` zip 软件包协议
+- Mock AI 与 OpenAI-compatible API 双模式
 
-## 环境要求
+```text
+Browser SPA
+  ├─ 首页应用列表
+  ├─ Runtime 三栏工作台
+  ├─ AI 助手抽屉
+  └─ 设置面板
 
-需要 Node.js 25 或更高版本，因为本项目使用 Node 内置 SQLite。
+Node.js Server
+  ├─ App CRUD
+  ├─ Record CRUD
+  ├─ Table / Field 管理
+  ├─ Relation 管理
+  ├─ AI Plan / Patch / Execute
+  ├─ Action Runner
+  ├─ Import / Export
+  └─ Settings
+
+SQLite
+  ├─ apps
+  ├─ records
+  ├─ record_relations
+  ├─ ai_sessions
+  ├─ ai_messages
+  ├─ ai_execution_logs
+  └─ settings
+```
+
+## 软件包协议
+
+`.sgpkg` 是鲁班AI系统的软件包格式，本质是一个 zip 包：
+
+```text
+app.sgpkg
+├── manifest.json
+├── schema.json
+├── ui.json
+├── actions.json
+├── prompts.json
+└── sample-data.json
+```
+
+默认导出只包含应用结构，不包含真实用户数据。
+
+## 支持的模型元素
+
+字段类型包括：
+
+```text
+text, textarea, number, date, datetime, select, multiSelect,
+boolean, relation, image, file, richText, email, phone, url,
+color, rating
+```
+
+页面类型包括：
+
+```text
+blank, list, form, detail, dashboard, chart, editor
+```
+
+Action 类型包括：
+
+```text
+ai.generateText, ai.rewriteText, ai.summarize,
+data.createRecord, data.updateRecord, data.queryRecords,
+export.markdown, export.json, export.csv
+```
+
+## 快速开始
+
+### 环境要求
+
+本项目使用 Node.js 内置 SQLite，因此需要 Node.js 25 或更高版本。
 
 ```bash
 node -v
 ```
 
-## 启动
+### 安装依赖
+
+```bash
+npm install
+```
+
+### 启动服务
 
 ```bash
 npm start
 ```
 
-打开：
+打开浏览器访问：
 
 ```text
 http://localhost:5173
 ```
 
+开发模式：
+
+```bash
+npm run dev
+```
+
 ## 初始化示例
 
 ```bash
-node src/initSamples.js
+node src/scripts/initSamples.js
 ```
 
-脚本会：
+该脚本会：
 
-- 写入四个示例软件包到 `samples/`
+- 写入示例软件包到 `samples/`
 - 生成对应 `.sgpkg`
-- 如果数据库为空，把四个示例安装到本地 SQLite
+- 如果数据库为空，将示例安装到本地 SQLite
+
+## AI 配置
+
+首页右上角进入“设置”，可填写：
+
+- API Base URL
+- API Key
+- Model
+
+如果 API Key 为空，系统会使用本地 Mock AI。这样即使没有模型服务，也可以完成软件创建、修改和验收演示。
+
+## 示例 Prompt
+
+```text
+帮我创建一个家庭记账本，可以记录收入、支出、分类、日期、备注，并统计每月支出。
+```
+
+```text
+帮我创建一个客户管理器，记录客户姓名、电话、来源、跟进状态、备注。
+```
+
+```text
+帮我创建一个公众号文章生成器，可以输入主题、目标读者、文章风格，然后生成文章标题、大纲和正文。
+```
+
+```text
+给这个客户管理器增加一个跟进提醒日期，并增加一个统计不同跟进状态的页面。
+```
 
 ## 测试
 
@@ -56,17 +253,19 @@ npm test
 - Action runner
 - `.sgpkg` 导入导出
 - HTTP API 核心闭环
+- UI 功能场景
+- 多类自然语言生成场景
 
-## 数据存储
+## 数据目录
 
 默认数据目录：
 
 ```text
 data/
-  db.sqlite
-  apps/
-  uploads/
-  exports/
+├── db.sqlite
+├── apps/
+├── uploads/
+└── exports/
 ```
 
 应用结构保存在 `apps` 表中：
@@ -77,57 +276,30 @@ data/
 - `actionsJson`
 - `promptsJson`
 
-用户记录统一保存在 `records.dataJson`，并通过 `entityId` 区分实体。
+用户记录统一保存在 `records.dataJson`，并通过 `entityId` 区分不同实体。
 
-## 软件包格式
+## 当前限制
 
-`.sgpkg` 是 zip 包：
+这是一个 MVP 版本，当前主要聚焦“AI 生成结构化软件并即时运行”的核心闭环。
 
-```text
-app.sgpkg
-├── manifest.json
-├── schema.json
-├── ui.json
-├── actions.json
-├── prompts.json
-└── sample-data.json 可选
-```
-
-默认导出只包含应用结构，不包含真实用户数据。
-
-## AI 配置
-
-首页右上角进入“设置”，可填写：
-
-- API Base URL
-- API Key
-- Model
-
-如果 API Key 为空，系统使用本地 Mock AI，方便离线演示和验收。
-
-## 示例 Prompt
-
-```text
-帮我创建一个家庭记账本，可以记录收入、支出、分类、日期、备注，并统计每月支出。
-```
-
-```text
-帮我创建一个待办事项工具，可以记录任务、截止日期、优先级、完成状态。
-```
-
-```text
-帮我创建一个公众号文章生成器，可以输入主题、目标读者、文章风格，然后生成文章标题、大纲和正文。
-```
-
-```text
-帮我创建一个客户管理器，记录客户姓名、电话、来源、跟进状态、备注。
-```
-
-## MVP 限制
-
-- 不支持多用户和登录。
-- 不支持云同步。
+- 暂不支持多用户和登录。
+- 暂不支持云同步。
 - 不执行 AI 生成的任意代码。
-- 富文本编辑器在 MVP 中用 TextArea 替代。
-- 图表使用轻量原生条形展示，后续可替换为 Recharts。
-- 当前实现为了可直接运行，未引入 React/Fastify/Prisma；后续工程化版本可以平滑迁移。
+- 富文本编辑器在 MVP 中使用 TextArea 替代。
+- 图表使用轻量原生展示，后续可替换为更完整的图表组件。
+- 当前实现为了便于直接运行，未引入 React、Fastify、Prisma 等工程化框架。
+
+## 项目定位
+
+鲁班AI系统不是一个表单生成器，也不是一个简单的 Chatbot 外壳。它更像一个 AI 原生软件操作系统的早期原型：用协议约束 AI 输出，用运行时承载软件结构，用持续对话完成软件演化。
+
+它的长期方向是：
+
+- 从“生成页面”走向“生成软件”
+- 从“聊天回答”走向“可执行工作流”
+- 从“模板工具”走向“按需定制的个人与团队系统”
+- 从“一次性生成”走向“持续演化的软件资产”
+
+## License
+
+本项目采用 [GNU Affero General Public License v3.0](LICENSE) 开源协议。

@@ -1,5 +1,5 @@
-import { normalizeFieldId } from './ids.js';
-import { normalizeOptions, SELECT_COLORS } from './packageProtocol.js';
+import { normalizeFieldId } from '../core/ids.js';
+import { normalizeOptions, SELECT_COLORS } from '../core/packageProtocol.js';
 import { pickSamplePackage } from './samplePackages.js';
 
 function firstEntity(pkg) {

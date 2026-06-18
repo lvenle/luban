@@ -1,6 +1,6 @@
 import { register } from '../registry.js';
-import { createTableInApp } from '../../operations.js';
-import { getPackageFromApp } from '../../db.js';
+import { createTableInApp } from '../../services/operations.js';
+import { getPackageFromApp } from '../../storage/db.js';
 import { getApp, updateAppPackage } from '../../models/app.js';
 
 register({

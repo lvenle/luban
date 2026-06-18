@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { updateTableInApp } from '../../operations.js';
+import { updateTableInApp } from '../../services/operations.js';
 
 register({
   name: 'update_entity',

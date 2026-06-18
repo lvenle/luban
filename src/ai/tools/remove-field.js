@@ -1,6 +1,6 @@
 import { register } from '../registry.js';
 import { getApp } from '../../models/app.js';
-import { deleteFieldInApp } from '../../operations.js';
+import { deleteFieldInApp } from '../../services/operations.js';
 
 register({
   name: 'remove_field',

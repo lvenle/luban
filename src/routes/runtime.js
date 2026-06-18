@@ -1,14 +1,14 @@
-import { getPackageFromApp } from '../db.js';
+import { getPackageFromApp } from '../storage/db.js';
 import { getApp, updateAppMetadata, updateAppPackage, exportAppPayload } from '../models/app.js';
 import { createRecord, deleteRecord, getRecordRelations, listRecords, listRelationOptions, updateRecord, updateRecordRelations } from '../models/record.js';
 import { getSetting } from '../models/session.js';
-import { generatePatchFromPrompt } from '../ai.js';
-import { applyPatch } from '../packageProtocol.js';
-import { runAction } from '../actions.js';
+import { generatePatchFromPrompt } from '../ai/service.js';
+import { applyPatch } from '../core/packageProtocol.js';
+import { runAction } from '../services/actions.js';
 import { toCsv } from '../utils/export.js';
-import { packageToZipPayload } from '../zip.js';
-import { recordsToXlsx } from '../xlsx.js';
-import { createTableInApp, updateTableInApp, deleteTableInApp, clearTableRecordsInApp, importTableRecordsInApp, createFieldInApp, updateFieldInApp, deleteFieldInApp } from '../operations.js';
+import { packageToZipPayload } from '../utils/zip.js';
+import { recordsToXlsx } from '../utils/xlsx.js';
+import { createTableInApp, updateTableInApp, deleteTableInApp, clearTableRecordsInApp, importTableRecordsInApp, createFieldInApp, updateFieldInApp, deleteFieldInApp } from '../services/operations.js';
 import { sendJson, sendText, sendBinary, readJson, requireFields, notFound, badRequest, saveUploadedFile } from './_helpers.js';
 
 export async function handleRuntimeApi(req, res, method, url) {

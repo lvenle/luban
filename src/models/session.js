@@ -1,5 +1,5 @@
-import { getDb } from '../db.js';
-import { createId } from '../ids.js';
+import { getDb } from '../storage/db.js';
+import { createId } from '../core/ids.js';
 
 function now() {
   return new Date().toISOString();

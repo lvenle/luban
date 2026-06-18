@@ -1,5 +1,5 @@
-import { listRecords } from './models/record.js';
-import { toCsv, toMarkdown } from './utils/export.js';
+import { listRecords } from '../models/record.js';
+import { toCsv, toMarkdown } from '../utils/export.js';
 
 export async function runAction(app, actionId) {
   const action = app.actions.actions.find((item) => item.id === actionId);

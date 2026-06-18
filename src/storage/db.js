@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { slugify } from './ids.js';
+import { slugify } from '../core/ids.js';
 
 const DATA_DIR = join(process.cwd(), 'data');
 const DB_PATH = join(DATA_DIR, 'db.sqlite');

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
-import { resetDbForTests } from '../src/db.js';
+import { resetDbForTests } from '../src/storage/db.js';
 import { createAppServer } from '../src/server.js';
 
 async function withServer(fn) {

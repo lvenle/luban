@@ -73,7 +73,10 @@ export function topbar() {
   const inRuntime = Boolean(state.currentApp);
   return h('header', { class: 'topbar' }, [
     h('div', { class: 'topbar-left' }, [
-      h('button', { class: 'brand brand-button', onclick: goHome, title: '返回首页' }, [h('div', { class: 'brand-mark' }), h('span', { text: 'MetroSoft' })]),
+      h('button', { class: 'brand brand-button', onclick: goHome, title: '返回首页' }, [
+        h('img', { class: 'brand-logo', src: '/images/logo.png', alt: '鲁班AI系统' }),
+        h('span', { text: '鲁班AI系统' })
+      ]),
       inRuntime ? renderTopbarAppInfo(state.currentApp) : null
     ]),
     h('div', { class: 'top-actions' }, [

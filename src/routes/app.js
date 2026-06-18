@@ -1,8 +1,8 @@
 import { getSetting } from '../models/session.js';
-import { generatePackageFromPrompt } from '../ai.js';
-import { preparePackage } from '../packageProtocol.js';
+import { generatePackageFromPrompt } from '../ai/service.js';
+import { preparePackage } from '../core/packageProtocol.js';
 import { createAppFromPackage, deleteApp, importAppPayload, listApps } from '../models/app.js';
-import { zipPayloadToPackage } from '../zip.js';
+import { zipPayloadToPackage } from '../utils/zip.js';
 import { sendJson, readJson, readBuffer, requireFields, notFound } from './_helpers.js';
 
 export async function handleAppApi(req, res, method) {

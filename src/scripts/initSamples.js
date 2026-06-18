@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createAppFromPackage, listApps } from './models/app.js';
-import { allSamplePackages } from './samplePackages.js';
-import { packageToZipPayload } from './zip.js';
+import { createAppFromPackage, listApps } from '../models/app.js';
+import { allSamplePackages } from '../ai/samplePackages.js';
+import { packageToZipPayload } from '../utils/zip.js';
 
 const SAMPLE_DIR = join(process.cwd(), 'samples');
 

@@ -1,6 +1,6 @@
-import { getDb, rowToApp, getPackageFromApp } from '../db.js';
-import { preparePackage } from '../packageProtocol.js';
-import { createId, slugify } from '../ids.js';
+import { getDb, rowToApp, getPackageFromApp } from '../storage/db.js';
+import { preparePackage } from '../core/packageProtocol.js';
+import { createId, slugify } from '../core/ids.js';
 
 function now() {
   return new Date().toISOString();

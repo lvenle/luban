@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generatePackageFromPrompt, generatePatchFromPrompt } from '../src/ai.js';
-import { applyPatch, preparePackage } from '../src/packageProtocol.js';
-import { allSamplePackages } from '../src/samplePackages.js';
+import { generatePackageFromPrompt, generatePatchFromPrompt } from '../src/ai/service.js';
+import { applyPatch, preparePackage } from '../src/core/packageProtocol.js';
+import { allSamplePackages } from '../src/ai/samplePackages.js';
 
 const GENERATION_SCENARIOS = allSamplePackages().map((pkg) => `帮我创建一个${pkg.manifest.name}，${pkg.manifest.description}`);
 

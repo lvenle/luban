@@ -366,6 +366,14 @@ textarea {
   background: #2563eb;
 }
 
+.brand-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+}
+
 .top-actions {
   display: flex;
   align-items: center;

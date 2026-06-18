@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyPatch, preparePackage } from '../src/packageProtocol.js';
-import { generatePlanFromPrompt, planToPackage } from '../src/ai.js';
-import { createBudgetPackage } from '../src/samplePackages.js';
-import { packageToZipPayload, zipPayloadToPackage } from '../src/zip.js';
+import { applyPatch, preparePackage } from '../src/core/packageProtocol.js';
+import { generatePlanFromPrompt, planToPackage } from '../src/ai/service.js';
+import { createBudgetPackage } from '../src/ai/samplePackages.js';
+import { packageToZipPayload, zipPayloadToPackage } from '../src/utils/zip.js';
 
 test('validates and normalizes a software package', () => {
   const pkg = preparePackage(createBudgetPackage());
