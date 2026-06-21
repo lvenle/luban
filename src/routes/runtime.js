@@ -15,15 +15,15 @@ export async function handleRuntimeApi(req, res, method, url) {
   const parts = url.pathname.split('/').filter(Boolean);
   const appId = parts[2];
 
+  const app = getApp(appId);
+  if (!app) throw notFound('找不到应用。');
+
   if (method === 'DELETE' && parts.length === 3) {
     const { deleteApp } = await import('../models/app.js');
     deleteApp(appId);
     sendJson(res, 200, { ok: true });
     return;
   }
-
-  const app = getApp(appId);
-  if (!app) throw notFound('找不到应用。');
 
   if (method === 'GET' && parts.length === 3) {
     sendJson(res, 200, { app });

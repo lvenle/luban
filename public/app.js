@@ -292,4 +292,8 @@ export function renderPage(page) {
 window.addEventListener('popstate', () => boot().catch((e) => { root.textContent = e.message; }));
 document.addEventListener('click', (e) => { if (!e.target.closest?.('details.card-menu, details.view-menu, details.export-menu, details.page-menu')) closeFloatingMenus(); });
 document.addEventListener('pointerdown', (e) => { if (e.target instanceof HTMLElement && e.target.classList.contains('modal-backdrop')) e.target.remove(); }, true);
-boot().catch((e) => { root.textContent = e.message; });
+document.addEventListener('focusin', (e) => { if (!e.target.closest?.('details.card-menu, details.view-menu, details.export-menu, details.page-menu')) closeFloatingMenus(); });
+import('./app-runtime/CellSelection.js')
+  .then(({ bindCellSelectionEvents }) => bindCellSelectionEvents())
+  .then(() => boot())
+  .catch((e) => { root.textContent = e.message; });

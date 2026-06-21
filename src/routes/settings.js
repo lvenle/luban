@@ -1,5 +1,5 @@
 import { getSetting, setSetting } from '../models/session.js';
-import { sendJson, readJson } from './_helpers.js';
+import { sendJson, readJson, notFound } from './_helpers.js';
 
 export async function handleSettingsApi(req, res, method) {
   if (method === 'GET') {
@@ -11,4 +11,5 @@ export async function handleSettingsApi(req, res, method) {
     sendJson(res, 200, { ai: setSetting('ai', body.ai || {}) });
     return;
   }
+  throw notFound('API 不存在。');
 }

@@ -7,6 +7,31 @@ import { fieldTypeLabel } from './FieldEditor.js';
 import { closeContextMenu } from './TableHeader.js';
 import { defaultValueForField, fieldValuesEqual, relationDisplayValue, displayValue, hasDisplayValue } from './CellEditor.js';
 
+let cellSelectionEventsBound = false;
+
+export function bindCellSelectionEvents() {
+  if (cellSelectionEventsBound) return;
+  cellSelectionEventsBound = true;
+
+  document.addEventListener('pointerdown', (event) => {
+    if (clickedOutsideTableSelection(event.target)) clearActiveTableSelection();
+  }, true);
+  document.addEventListener('pointerup', finishCellRangeSelection);
+  document.addEventListener('pointermove', moveCellRangeSelection);
+  document.addEventListener('copy', (event) => {
+    const matrix = selectedCellMatrix();
+    if (!matrix.length) return;
+    event.preventDefault();
+    state.cellClipboard = selectedCellPayload();
+    event.clipboardData?.setData('text/plain', matrix.map((row) => row.join('\t')).join('\n'));
+    if (isMultiCellMatrix(matrix)) showCellCopyToolbar();
+    toast('已复制选区');
+  });
+  document.addEventListener('paste', (event) => {
+    pasteCellsFromClipboard(event).catch((error) => toast(error.message));
+  });
+}
+
 export function startCellRangeSelection(event, cell) {
   if (event.button !== 0 || cell.classList.contains('cell-editing')) return;
   const activeEditorInput = document.querySelector('.editable-cell.cell-editing input, .editable-cell.cell-editing textarea');
