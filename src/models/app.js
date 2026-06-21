@@ -1,6 +1,7 @@
 import { getDb, rowToApp, getPackageFromApp } from '../storage/db.js';
 import { preparePackage } from '../core/packageProtocol.js';
 import { createId, slugify } from '../core/ids.js';
+import { formulaDependents } from '../core/formula.js';
 
 function now() {
   return new Date().toISOString();
@@ -61,6 +62,8 @@ export function createAppFromPackage(pkg, options = {}) {
 
 export function updateAppPackage(appId, pkg) {
   const database = getDb();
+  const existing = getApp(appId);
+  if (existing) validateFormulaDependencyChanges(existing, pkg);
   const clean = preparePackage(pkg);
   const updatedAt = now();
   database.prepare(`
@@ -82,6 +85,26 @@ export function updateAppPackage(appId, pkg) {
     appId
   );
   return getApp(appId);
+}
+
+function validateFormulaDependencyChanges(existing, nextPackage) {
+  for (const oldEntity of existing.schema?.entities || []) {
+    const nextEntity = nextPackage.schema?.entities?.find((item) => item.id === oldEntity.id);
+    if (!nextEntity) continue;
+    for (const oldField of oldEntity.fields || []) {
+      const dependents = formulaDependents(oldEntity, oldField.id)
+        .filter((formula) => nextEntity.fields?.some((field) => field.id === formula.id && field.type === 'formula'));
+      if (!dependents.length) continue;
+      const nextField = nextEntity.fields?.find((field) => field.id === oldField.id);
+      if (!nextField || nextField.type !== oldField.type) {
+        const action = nextField ? '修改类型' : '删除';
+        const error = new Error(`不能${action}字段「${oldField.label}」，以下公式正在引用它：${dependents.map((item) => item.label).join('、')}`);
+        error.status = 409;
+        error.details = { fieldId: oldField.id, formulaFields: dependents.map((item) => ({ id: item.id, label: item.label })) };
+        throw error;
+      }
+    }
+  }
 }
 
 export function updateAppMetadata(appId, metadata = {}) {

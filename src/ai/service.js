@@ -62,7 +62,7 @@ export async function generatePlanFromPrompt(prompt, settings = {}, currentPacka
       {
         role: 'system',
         content:
-          '你是 Software Garden V2 的多维表规划助手。只输出 JSON plan。创建应用时 type=app_creation_plan，包含 appName、description、tables、relations、views。views 可以包含多个页面，且允许多个页面引用同一张表；view.type 可用 grid/list、chart、dashboard、editor。字段类型只用 text、textarea、number、date、datetime、boolean、select、multiSelect、relation；select/multiSelect options 必须包含 id、label、color。不要执行，只规划。'
+          '你是 Software Garden V2 的多维表规划助手。只输出 JSON plan。创建应用时 type=app_creation_plan，包含 appName、description、tables、relations、views。views 可以包含多个页面，且允许多个页面引用同一张表；view.type 可用 grid/list、chart、dashboard、editor。字段类型可用 text、textarea、number、date、datetime、boolean、select、multiSelect、relation、formula；formula 必须包含 config.expression 和 config.resultType(number/date/text)，表达式用 {字段名} 引用同表原始字段。select/multiSelect options 必须包含 id、label、color。不要执行，只规划。'
       },
       { role: 'user', content: prompt }
     ]);
@@ -265,6 +265,7 @@ function planFieldToPackageField(field) {
     required: Boolean(field.required)
   };
   if (type === 'select' || type === 'multiSelect') next.options = normalizeOptions(field.config?.options || field.options || []);
+  if (type === 'formula') next.formula = { expression: field.config?.expression || field.expression || '', resultType: field.config?.resultType || field.resultType || 'number' };
   return next;
 }
 
@@ -381,5 +382,4 @@ function parseJsonContent(content) {
     throw new Error('AI 返回内容不是合法 JSON。');
   }
 }
-
 

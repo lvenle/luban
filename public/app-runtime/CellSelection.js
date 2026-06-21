@@ -275,6 +275,7 @@ export function fieldTypesCompatible(sourceType, targetType) {
 }
 
 export function normalizePastedValue(value, field) {
+  if (field.type === 'formula') return { ok: false, message: `「${field.label}」是公式字段，不能直接粘贴。` };
   if (value === null || value === undefined) return { ok: true, value: defaultValueForField(field) };
   if (field.type === 'number') {
     const normalized = String(value).replace(/[¥,%\s]/g, '');

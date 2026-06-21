@@ -1,6 +1,7 @@
 import { getDb, rowToApp } from '../storage/db.js';
 import { getApp } from './app.js';
 import { createId } from '../core/ids.js';
+import { calculateFormulaFields } from '../core/formula.js';
 
 function now() {
   return new Date().toISOString();
@@ -36,11 +37,13 @@ export function listRecords(appId, options = {}) {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   }));
+  if (options.hydrateRelations !== false) records = hydrateRelationValues(appId, records);
+  records = records.map((record) => calculateRecordFormulas(record));
   if (options.q) {
     const q = String(options.q).toLowerCase();
     records = records.filter((record) => JSON.stringify(record.data).toLowerCase().includes(q));
   }
-  return options.hydrateRelations === false ? records : hydrateRelationValues(appId, records);
+  return records;
 }
 
 export function createRecord(appId, entityId, data, customCreatedAt) {
@@ -54,7 +57,7 @@ export function createRecord(appId, entityId, data, customCreatedAt) {
     .prepare('INSERT INTO records (id, appId, entityId, dataJson, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)')
     .run(id, appId, entityId, JSON.stringify(cleanData || {}), createdAt, createdAt);
   setRecordRelationValues(appId, entityId, id, relations);
-  return getRecord(id);
+  return calculateRecordFormulas(getRecord(id));
 }
 
 export function getRecord(id) {
@@ -87,7 +90,7 @@ export function updateRecord(recordId, data) {
   if (relationsChanged) {
     setRecordRelationValues(existing.appId, existing.entityId, recordId, relations);
   }
-  return getRecord(recordId);
+  return calculateRecordFormulas(getRecord(recordId));
 }
 
 function relationsChangedSince(recordId, relations) {
@@ -155,14 +158,26 @@ export function updateRecordRelations(recordId, fieldId, targetRecordIds = []) {
 function splitRelationData(app, entityId, data = {}) {
   const fields = entityFields(app, entityId).filter((field) => field.type === 'relation');
   const relationIds = new Set(fields.map((field) => field.id));
+  const formulaIds = new Set(entityFields(app, entityId).filter((field) => field.type === 'formula').map((field) => field.id));
   const cleanData = {};
   for (const [key, value] of Object.entries(data || {})) {
-    if (!relationIds.has(key)) cleanData[key] = normalizeStoredValue(value);
+    if (!relationIds.has(key) && !formulaIds.has(key)) cleanData[key] = normalizeStoredValue(value);
   }
   const relations = fields
     .filter((field) => Object.prototype.hasOwnProperty.call(data || {}, field.id))
     .map((field) => ({ field, targetIds: normalizeTargetIds(data[field.id], field) }));
   return { data: cleanData, relations };
+}
+
+function calculateRecordFormulas(record) {
+  if (!record) return record;
+  const app = getApp(record.appId);
+  const entity = app?.schema?.entities?.find((item) => item.id === record.entityId);
+  if (!entity) return record;
+  const calculated = calculateFormulaFields(entity, record.data, {
+    timeZone: app.manifest?.timezone || 'Asia/Shanghai'
+  });
+  return { ...record, data: calculated.data, formulaErrors: calculated.formulaErrors };
 }
 
 function normalizeStoredValue(value) {

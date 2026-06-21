@@ -4,7 +4,7 @@ import { toast } from '../common/toast.js';
 import { openConfirmDialog } from '../common/modal.js';
 import { state } from '../app.js';
 import { getViews, setViews, normalizeView, getListConfig, setListConfig } from './ViewBar.js';
-import { saveCurrentPackage, renderRuntime } from './index.js';
+import { saveCurrentPackage, loadCurrentPageRecords, renderRuntime } from './index.js';
 
 const OPTION_COLORS = [
   'gray', 'red', 'orange', 'yellow', 'lime', 'green', 
@@ -30,7 +30,8 @@ export function fieldTypes() {
     ['file', '附件'],
     ['boolean', '复选框'],
     ['date', '日期'],
-    ['datetime', '日期时间']
+    ['datetime', '日期时间'],
+    ['formula', '公式']
   ];
 }
 
@@ -88,6 +89,26 @@ export function openFieldEditModal(entity, field = null, options = {}) {
       advanced.append(h('div', { class: 'field-setting-list' }, [
         h('label', { class: 'field-setting-row' }, [h('span', { text: '数字格式' }), format])
       ]));
+      return;
+    }
+    if (type === 'formula') {
+      const resultType = selectFromOptions([['number', '数字'], ['date', '日期'], ['text', '文本']], draft.formula?.resultType || 'number');
+      resultType.dataset.fieldEditor = 'formulaResultType';
+      const expression = h('textarea', { 'data-field-editor': 'formulaExpression', placeholder: '例如：{单价} * {数量} + 100' });
+      expression.value = draft.formula?.expression || '';
+      const tokens = h('div', { class: 'formula-field-tokens' }, state.currentApp.schema.entities
+        .find((item) => item.id === entity.id)?.fields
+        .filter((item) => item.id !== field?.id && !['formula', 'relation'].includes(item.type))
+        .map((item) => h('button', { class: 'secondary formula-token', type: 'button', text: item.label, onclick: () => insertFormulaToken(expression, item.label) })) || []);
+      advanced.append(
+        h('div', { class: 'field-setting-list' }, [
+          h('label', { class: 'field-setting-row' }, [h('span', { text: '结果类型' }), resultType]),
+          h('label', { class: 'field formula-expression-field' }, [h('span', { text: '计算公式' }), expression])
+        ]),
+        h('div', { class: 'field-popover-subtitle', text: '插入字段' }),
+        tokens,
+        h('p', { class: 'field-help', text: '支持四则、比较、IF、ROUND、CONCAT、DATEADD、DATEDIFF、ABS、MIN、MAX、LEN、UPPER、LOWER、TODAY。' })
+      );
       return;
     }
     if (type === 'date' || type === 'datetime') {
@@ -181,8 +202,28 @@ export function fieldPatchFromEditor(label, type, advanced) {
     patch.enableSearch = true;
     patch.allowCreateTargetRecord = false;
   }
+  if (type === 'formula') {
+    patch.formula = {
+      expression: advanced.querySelector('[data-field-editor="formulaExpression"]')?.value.trim() || '',
+      resultType: advanced.querySelector('[data-field-editor="formulaResultType"]')?.value || 'number'
+    };
+    patch.required = false;
+  }
   if (type !== 'select' && type !== 'multiSelect') patch.options = [];
   return patch;
+}
+
+export function effectiveFieldType(field) {
+  return field?.type === 'formula' ? field.formula?.resultType || 'number' : field?.type;
+}
+
+export function insertFormulaToken(input, label) {
+  const token = `{${label}}`;
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? start;
+  input.value = `${input.value.slice(0, start)}${token}${input.value.slice(end)}`;
+  input.focus();
+  input.setSelectionRange(start + token.length, start + token.length);
 }
 
 export function renderOptionEditor(options = []) {
@@ -371,6 +412,7 @@ export async function updateField(entityId, fieldId, patch) {
     if (!field) return;
     Object.assign(field, patch);
   });
+  await loadCurrentPageRecords();
   renderRuntime();
 }
 
@@ -382,6 +424,7 @@ export async function createField(entity, patch, nearField = null, side = 'right
     target.fields.splice(Math.max(0, index + (side === 'right' ? 1 : 0)), 0, { id, ...patch });
   });
   addFieldToView(entity.id, id, nearField?.id || entity.fields.at(-1)?.id, side);
+  await loadCurrentPageRecords();
   renderRuntime();
 }
 
@@ -393,6 +436,7 @@ export async function duplicateField(entity, field) {
     target.fields.splice(index + 1, 0, { ...field, id, label: `${field.label} 副本` });
   });
   addFieldToView(entity.id, id, field.id, 'right');
+  await loadCurrentPageRecords();
   toast('字段已复制');
   renderRuntime();
 }
@@ -414,6 +458,7 @@ export function deleteField(entity, field) {
         const config = getListConfig(entity);
         const visibleFields = (config.visibleFields || []).filter((id) => id !== field.id);
         setListConfig(entity, { ...config, visibleFields });
+        await loadCurrentPageRecords();
         toast('字段已删除');
         renderRuntime();
       } catch (error) {

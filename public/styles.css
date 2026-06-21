@@ -3172,6 +3172,277 @@ button.assistant-send {
   display: none;
 }
 
+.typed-view-panel {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.typed-view-toolbar {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 12px;
+}
+
+.typed-view-meta {
+  justify-content: flex-end;
+}
+
+.invalid-record-button {
+  color: var(--danger);
+  padding: 4px 6px;
+}
+
+.quadrant-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+}
+
+.quadrant-cell {
+  min-width: 0;
+  min-height: 260px;
+  background: #fff;
+  padding: 10px;
+}
+
+.quadrant-head {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 2px 8px;
+}
+
+.quadrant-head .muted {
+  margin-left: auto;
+}
+
+.compact-record-table-wrap {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--line);
+}
+
+.compact-record-table {
+  width: 100%;
+  min-width: 420px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.compact-record-table th,
+.compact-record-table td {
+  height: 34px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.compact-record-table th {
+  background: #f8fafc;
+  color: #5f6875;
+  font-weight: 650;
+}
+
+.compact-record-table tbody tr {
+  cursor: pointer;
+}
+
+.compact-record-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.formula-error-cell,
+.formula-error-value {
+  color: var(--danger);
+  background: #fef2f2;
+}
+
+.gantt-scroll {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.gantt-chart {
+  width: calc(180px + var(--timeline-width));
+  min-width: 100%;
+  background: #fff;
+}
+
+.gantt-axis-row,
+.gantt-row {
+  width: 100%;
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: 180px var(--timeline-width);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: #fff;
+  color: var(--text);
+  padding: 0;
+  text-align: left;
+}
+
+.gantt-row:hover {
+  background: #f8fafc;
+}
+
+.gantt-label {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  background: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 10px;
+}
+
+.gantt-axis-label {
+  background: #f8fafc;
+  color: #5f6875;
+  font-weight: 650;
+}
+
+.gantt-axis {
+  display: flex;
+  min-height: 40px;
+  background: #f8fafc;
+}
+
+.gantt-tick {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--line);
+  color: #64748b;
+  font-size: 11px;
+}
+
+.gantt-track {
+  position: relative;
+  display: block;
+  min-height: 40px;
+  background-image: linear-gradient(to right, transparent calc(100% - 1px), #eef1f5 calc(100% - 1px));
+  background-size: 76px 100%;
+}
+
+.gantt-bar {
+  position: absolute;
+  top: 9px;
+  height: 22px;
+  min-width: 8px;
+  border-radius: 4px;
+  background: #2f6fed;
+}
+
+.typed-empty {
+  padding: 24px;
+}
+
+.view-type-config {
+  display: grid;
+  gap: 10px;
+}
+
+.formula-field-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.formula-token {
+  min-height: 26px;
+  padding: 4px 7px;
+  font-size: 12px;
+}
+
+.formula-expression-field textarea {
+  min-height: 88px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.formula-readonly-cell,
+.formula-readonly-input {
+  background: #f8fafc;
+  color: #475569;
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    min-width: 0;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .topbar-left {
+    flex: 1;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  .brand-button > span,
+  .topbar-separator,
+  .topbar-app-info .category-pill,
+  .topbar-app-desc,
+  .top-actions .button-label-text {
+    display: none;
+  }
+
+  .topbar-app-name {
+    max-width: min(160px, 40vw);
+  }
+
+  .top-actions {
+    flex-shrink: 0;
+    gap: 4px;
+  }
+
+  .top-actions .icon-label-button {
+    width: 34px;
+    min-width: 34px;
+    padding: 6px;
+  }
+
+  .typed-view-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .quadrant-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quadrant-cell {
+    min-height: 220px;
+  }
+
+  .gantt-chart {
+    width: calc(140px + var(--timeline-width));
+  }
+
+  .gantt-axis-row,
+  .gantt-row {
+    grid-template-columns: 140px var(--timeline-width);
+  }
+}
+
 .option-color-option {
   display: flex;
   align-items: center;

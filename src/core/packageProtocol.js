@@ -1,4 +1,5 @@
 import { normalizeFieldId, slugify } from './ids.js';
+import { compileFormula, normalizeFormulaField } from './formula.js';
 
 export const FIELD_TYPES = new Set([
   'text',
@@ -12,8 +13,11 @@ export const FIELD_TYPES = new Set([
   'relation',
   'image',
   'file',
-  'richText'
+  'richText',
+  'formula'
 ]);
+
+export const TABLE_VIEW_TYPES = new Set(['list', 'quadrant', 'gantt']);
 
 export const SELECT_COLORS = [
   'gray', 'red', 'orange', 'yellow', 'lime', 'green', 
@@ -86,6 +90,9 @@ export function normalizePackage(pkg) {
         normalizeRelationField(field);
       }
     }
+    for (const field of entity.fields) {
+      if (field.type === 'formula') normalizeFormulaField(field, entity);
+    }
   }
 
   next.ui.pages ||= [];
@@ -95,6 +102,8 @@ export function normalizePackage(pkg) {
     page.type = normalizePageType(page.type || 'list');
     if (!page.entity && page.bindEntity) page.entity = normalizeFieldId(page.bindEntity, 'entity');
     if (page.entity) page.entity = normalizeFieldId(page.entity, 'entity');
+    const entity = next.schema.entities.find((item) => item.id === page.entity);
+    if (Array.isArray(page.views)) page.views = page.views.map((view, index) => normalizeTableView(view, entity, index));
   }
   if (!next.ui.home) {
     next.ui.home = { layout: 'dashboard', cards: [] };
@@ -187,6 +196,43 @@ function normalizePageType(type) {
     statistics: 'chart'
   };
   return map[value] || value;
+}
+
+export function normalizeTableView(view = {}, entity, index = 0) {
+  const fieldIds = (entity?.fields || []).map((field) => field.id);
+  const fieldSet = new Set(fieldIds);
+  const next = { ...view };
+  next.id = normalizeFieldId(next.id || `view_${index + 1}`, `view_${index + 1}`);
+  next.name = String(next.name || (index === 0 ? '全部记录' : '未命名视图')).trim() || '未命名视图';
+  next.type = TABLE_VIEW_TYPES.has(next.type) ? next.type : 'list';
+  next.visibleFields = (next.visibleFields || fieldIds).filter((id) => fieldSet.has(id));
+  next.fieldOrder = (next.fieldOrder || fieldIds).filter((id) => fieldSet.has(id));
+  for (const id of fieldIds) {
+    if (!next.visibleFields.includes(id)) next.visibleFields.push(id);
+    if (!next.fieldOrder.includes(id)) next.fieldOrder.push(id);
+  }
+  next.searchFields = (next.searchFields || []).filter((id) => fieldSet.has(id));
+  next.columnWidths = Object.fromEntries(Object.entries(next.columnWidths || {}).filter(([id]) => fieldSet.has(id)));
+  next.actionWidth = Math.max(84, Number(next.actionWidth || 112));
+  next.filters = (next.filters || []).filter((filter) => fieldSet.has(filter.field));
+  next.sorts = (next.sorts || []).filter((sort) => fieldSet.has(sort.field));
+  if (next.group && !fieldSet.has(next.group.field)) next.group = null;
+  if (next.type === 'quadrant') {
+    next.quadrant = {
+      fieldId: next.quadrant?.fieldId || next.fieldId || '',
+      optionIds: [...new Set(next.quadrant?.optionIds || next.optionIds || [])].slice(0, 4)
+    };
+  }
+  if (next.type === 'gantt') {
+    next.gantt = {
+      titleField: next.gantt?.titleField || next.titleField || '',
+      startField: next.gantt?.startField || next.startField || '',
+      endField: next.gantt?.endField || next.endField || ''
+    };
+  }
+  delete next.fieldId; delete next.optionIds; delete next.titleField; delete next.startField; delete next.endField;
+  next.allFields = fieldIds;
+  return next;
 }
 
 function normalizeActionType(type) {
@@ -291,6 +337,15 @@ export function validatePackage(pkg) {
           if (!SELECT_COLORS.includes(option?.color)) errors.push(`字段 ${field.id} 的选项颜色不支持：${option?.color}`);
         }
       }
+      if (field.type === 'formula') {
+        try {
+          const compiled = compileFormula(field.formula?.expression, entity, field.formula?.bindings || {});
+          if (!['number', 'date', 'text'].includes(field.formula?.resultType)) errors.push(`公式字段 ${field.id} 缺少有效结果类型。`);
+          if (compiled.dependencies.some((id) => !(field.formula?.dependencies || []).includes(id))) errors.push(`公式字段 ${field.id} 的依赖配置无效。`);
+        } catch (error) {
+          errors.push(`公式字段 ${field.id} 无效：${error.message}`);
+        }
+      }
     }
   }
   for (const entity of entities) {
@@ -312,6 +367,21 @@ export function validatePackage(pkg) {
     pageIds.add(page.id);
     if (!PAGE_TYPES.has(page.type)) errors.push(`页面 ${page.id} 类型不支持：${page.type}`);
     if (page.entity && !entityIds.has(page.entity)) errors.push(`页面 ${page.id} 引用了不存在的实体：${page.entity}`);
+    const entity = entities.find((item) => item.id === page.entity);
+    for (const view of page.views || []) {
+      if (!TABLE_VIEW_TYPES.has(view.type)) errors.push(`视图 ${view.id} 类型不支持：${view.type}`);
+      if (view.type === 'quadrant') {
+        const field = entity?.fields?.find((item) => item.id === view.quadrant?.fieldId);
+        if (field?.type !== 'select' || (view.quadrant?.optionIds || []).length !== 4) errors.push(`四象限视图 ${view.id} 配置无效。`);
+        if ((view.quadrant?.optionIds || []).some((id) => !(field?.options || []).some((option) => option.id === id))) errors.push(`四象限视图 ${view.id} 引用了不存在的选项。`);
+      }
+      if (view.type === 'gantt') {
+        const title = entity?.fields?.find((item) => item.id === view.gantt?.titleField);
+        const start = entity?.fields?.find((item) => item.id === view.gantt?.startField);
+        const end = entity?.fields?.find((item) => item.id === view.gantt?.endField);
+        if (!title || !['date', 'datetime'].includes(start?.type) || !['date', 'datetime'].includes(end?.type)) errors.push(`甘特视图 ${view.id} 配置无效。`);
+      }
+    }
   }
   for (const action of pkg?.actions?.actions || []) {
     if (!ACTION_TYPES.has(action.type)) errors.push(`Action ${action.id} 类型不支持：${action.type}`);

@@ -8,6 +8,7 @@ import { startCellEdit, renderFieldValue, formatFieldValue, inputForField, sampl
 import { openCellContextMenu } from './TableHeader.js';
 import { openRecordModal, removeRecord } from './RecordModal.js';
 import { getListConfig, setListConfig } from './ViewBar.js';
+import { effectiveFieldType } from './FieldEditor.js';
 
 export function renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, selectedIds = new Set(), syncSelection = () => {}, updateSelectionLabel = () => {}, rowIndex = rowNumber - 1) {
   return h('tr', { class: 'editable-row', title: '双击单元格编辑' }, [
@@ -26,7 +27,7 @@ export function renderRecordRow(entity, visibleFields, record, listConfig, rowNu
     h('td', { class: 'index-cell', text: rowNumber }),
     ...visibleFields.map((field, colIndex) => {
       const cell = h('td', {
-        class: 'editable-cell',
+        class: `editable-cell ${field.type === 'formula' ? 'formula-readonly-cell' : ''}`,
         style: columnWidthStyle(listConfig, field),
         'data-row-index': rowIndex,
         'data-col-index': colIndex,
@@ -40,7 +41,12 @@ export function renderRecordRow(entity, visibleFields, record, listConfig, rowNu
         ondblclick: (event) => startCellEdit(event.currentTarget, entity, record, field),
         oncontextmenu: (event) => openCellContextMenu(event, entity, record)
       });
-      cell.append(renderFieldValue(record.data[field.id], field));
+      const formulaError = record.formulaErrors?.[field.id];
+      if (formulaError) {
+        cell.classList.add('formula-error-cell');
+        cell.title = formulaError;
+        cell.append(h('span', { class: 'formula-error-value', text: '计算错误' }));
+      } else cell.append(renderFieldValue(record.data[field.id], field));
       return cell;
     }),
     h('td', { class: 'sticky-action-cell action-cell', style: actionColumnStyle(listConfig) }, [
@@ -61,7 +67,7 @@ export function renderSummaryRow(records, visibleFields, listConfig, label = '�
 }
 
 export function renderNumericSummary(records, field, label = '合计') {
-  if (field.type !== 'number') return document.createTextNode('');
+  if (effectiveFieldType(field) !== 'number') return document.createTextNode('');
   const values = records
     .map((record) => Number(record.data?.[field.id]))
     .filter((value) => Number.isFinite(value));
@@ -73,7 +79,7 @@ export function renderNumericSummary(records, field, label = '合计') {
 }
 
 export function summaryCellClass(field) {
-  return field.type === 'number' ? 'summary-cell numeric-summary-cell' : 'summary-cell';
+  return effectiveFieldType(field) === 'number' ? 'summary-cell numeric-summary-cell' : 'summary-cell';
 }
 
 export function formatNumberSummary(value, field) {

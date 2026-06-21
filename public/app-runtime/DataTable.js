@@ -12,6 +12,7 @@ import {
 import { renderRecordRow, renderSummaryRow, summaryCellClass, renderNumericSummary, openListConfigModal, openFormLayoutModal } from './TableRow.js';
 import { searchInputForField, renderFieldValue, formatFieldValue } from './CellEditor.js';
 import { openRecordModal, quickAddRecord, bulkDeleteRecords } from './RecordModal.js';
+import { renderTypedTableView } from './TypedViews.js';
 
 export function renderExportMenu(entity, exportSelectedLink) {
   return bindFloatingMenu(h('details', { class: 'export-menu', onclick: (event) => event.stopPropagation() }, [
@@ -94,6 +95,7 @@ export function renderListPage(page) {
   const entity = entityFor(page);
   const records = recordsFor(entity.id);
   const listConfig = getListConfig(entity);
+  if (listConfig.type !== 'list') return renderTypedTableView(page, entity, records, listConfig);
   const visibleFields = viewOrderedFields(entity, listConfig).filter((field) => listConfig.visibleFields.includes(field.id));
   const globalSearch = h('input', { placeholder: '搜索全部记录' });
   const searchInputs = new Map();

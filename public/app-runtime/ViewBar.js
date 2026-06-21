@@ -4,8 +4,8 @@ import { toast } from '../common/toast.js';
 import { openConfirmDialog, openConfigModal, closeTopModal, closeFloatingMenus } from '../common/modal.js';
 import { readStorage, writeStorage } from '../common/storage.js';
 import { state, writeRoute, formatFieldValue, dateKey, storageKey } from '../app.js';
-import { renderRuntime } from './index.js';
-import { optionObject } from './FieldEditor.js';
+import { renderRuntime, saveCurrentPackage } from './index.js';
+import { optionObject, effectiveFieldType } from './FieldEditor.js';
 import { dateInputValue } from './DateFormat.js';
 
 function defaultView(entity) {
@@ -13,6 +13,7 @@ function defaultView(entity) {
   return normalizeView(entity, {
     id: 'default',
     name: '全部记录',
+    type: 'list',
     visibleFields: legacy?.visibleFields,
     fieldOrder: legacy?.fieldOrder,
     searchFields: legacy?.searchFields,
@@ -24,14 +25,29 @@ function defaultView(entity) {
 }
 
 export function getViews(entity) {
-  const stored = readStorage(storageKey('views', entity.id), null);
+  const page = currentViewPage(entity);
+  if (Array.isArray(page?.views) && page.views.length) return page.views.map((view) => normalizeView(entity, view));
+  const legacyKey = storageKey('views', entity.id);
+  const stored = readStorage(legacyKey, null);
   const views = Array.isArray(stored) && stored.length ? stored : [defaultView(entity)];
   const normalized = views.map((view) => normalizeView(entity, view)).filter(Boolean);
-  return normalized.length ? normalized : [defaultView(entity)];
+  const result = normalized.length ? normalized : [defaultView(entity)];
+  if (page) {
+    page.views = result;
+    if (Array.isArray(stored) && stored.length) persistViews(legacyKey);
+  }
+  return result;
 }
 
 export function setViews(entity, views) {
-  writeStorage(storageKey('views', entity.id), views.map((view) => normalizeView(entity, view)));
+  const normalized = views.map((view) => normalizeView(entity, view));
+  const page = currentViewPage(entity);
+  if (page) {
+    page.views = normalized;
+    persistViews();
+  } else {
+    writeStorage(storageKey('views', entity.id), normalized);
+  }
 }
 
 export function getCurrentView(entity) {
@@ -68,6 +84,7 @@ export function normalizeView(entity, view = {}) {
   const next = { ...fallback, ...view };
   next.id = next.id || makeViewId();
   next.name = String(next.name || '未命名视图').trim() || '未命名视图';
+  next.type = ['list', 'quadrant', 'gantt'].includes(next.type) ? next.type : 'list';
   next.visibleFields = (next.visibleFields || []).filter((id) => fieldSet.has(id));
   for (const field of entity.fields) {
     if (!next.visibleFields.includes(field.id)) {
@@ -89,6 +106,16 @@ export function normalizeView(entity, view = {}) {
   next.sorts = (next.sorts || []).filter((sort) => fieldSet.has(sort.field));
   if (next.group && !fieldSet.has(next.group.field)) next.group = null;
   next.group = next.group ? { field: next.group.field, mode: next.group.mode || 'value', collapsed: next.group.collapsed || [] } : null;
+  if (next.type === 'quadrant') {
+    next.quadrant = { fieldId: next.quadrant?.fieldId || '', optionIds: [...new Set(next.quadrant?.optionIds || [])].slice(0, 4) };
+  }
+  if (next.type === 'gantt') {
+    next.gantt = {
+      titleField: next.gantt?.titleField || '',
+      startField: next.gantt?.startField || '',
+      endField: next.gantt?.endField || ''
+    };
+  }
   next.allFields = fieldIds;
   return next;
 }
@@ -111,6 +138,8 @@ export function renderViewBar(entity, currentView) {
     h('div', { class: 'view-tabs' }, views.map((view) =>
       h('div', {
         class: `view-tab ${view.id === currentView.id ? 'active' : ''}`,
+        role: 'button',
+        tabindex: '0',
         ondblclick: (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -121,6 +150,13 @@ export function renderViewBar(entity, currentView) {
           state.currentViewId = view.id;
           writeRoute(state.currentApp.id, state.currentPageId, false, view.id);
           renderRuntime();
+        },
+        onkeydown: (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          state.currentViewId = view.id;
+          writeRoute(state.currentApp.id, state.currentPageId, false, view.id);
+          renderRuntime();
         }
       }, [
         h('span', { class: 'view-tab-name', text: view.name }),
@@ -128,7 +164,7 @@ export function renderViewBar(entity, currentView) {
       ])
     )),
     h('div', { class: 'row' }, [
-      h('button', { class: 'secondary icon-label-button', onclick: () => createView(entity) }, buttonLabel('add', '新建视图'))
+      h('button', { class: 'secondary icon-label-button', onclick: () => openCreateViewModal(entity) }, buttonLabel('add', '新建视图'))
     ])
   ]);
 }
@@ -203,6 +239,90 @@ export function createView(entity, name = '新视图', patch = {}) {
   state.currentViewId = view.id;
   writeRoute(state.currentApp.id, state.currentPageId, false, view.id);
   renderRuntime();
+}
+
+export function openCreateViewModal(entity) {
+  const nameInput = h('input', { value: '新视图', placeholder: '视图名称' });
+  const typeSelect = selectFromOptions([
+    ['list', '表格视图'],
+    ['quadrant', '四象限视图'],
+    ['gantt', '甘特视图']
+  ], 'list');
+  const config = h('div', { class: 'view-type-config' });
+  const renderConfig = () => {
+    config.innerHTML = '';
+    if (typeSelect.value === 'quadrant') {
+      const fields = entity.fields.filter((field) => field.type === 'select' && (field.options || []).length >= 4);
+      const fieldSelect = selectFromOptions(fields.map((field) => [field.id, field.label]), fields[0]?.id || '');
+      fieldSelect.dataset.viewConfig = 'quadrantField';
+      config.append(h('label', { class: 'field' }, [h('span', { text: '四象限字段' }), fieldSelect]),
+        fields.length ? h('p', { class: 'muted field-hint', text: '创建时锁定该字段的前 4 个选项。' }) : h('p', { class: 'field-error', text: '需要至少一个包含 4 个选项的单选字段。' }));
+    }
+    if (typeSelect.value === 'gantt') {
+      const titleFields = entity.fields.filter((field) => field.type !== 'formula' || field.formula?.resultType === 'text');
+      const dateFields = entity.fields.filter((field) => ['date', 'datetime'].includes(field.type) || (field.type === 'formula' && field.formula?.resultType === 'date'));
+      const title = selectFromOptions(titleFields.map((field) => [field.id, field.label]), titleFields[0]?.id || '');
+      const start = selectFromOptions(dateFields.map((field) => [field.id, field.label]), dateFields[0]?.id || '');
+      const end = selectFromOptions(dateFields.map((field) => [field.id, field.label]), dateFields[1]?.id || dateFields[0]?.id || '');
+      title.dataset.viewConfig = 'titleField'; start.dataset.viewConfig = 'startField'; end.dataset.viewConfig = 'endField';
+      config.append(
+        h('label', { class: 'field' }, [h('span', { text: '标题字段' }), title]),
+        h('label', { class: 'field' }, [h('span', { text: '开始日期' }), start]),
+        h('label', { class: 'field' }, [h('span', { text: '结束日期' }), end]),
+        dateFields.length >= 2 ? null : h('p', { class: 'field-error', text: '甘特视图需要至少两个日期或日期时间字段。' })
+      );
+    }
+  };
+  typeSelect.addEventListener('change', renderConfig);
+  renderConfig();
+  const backdrop = h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal compact-modal' }, [
+      h('div', { class: 'toolbar' }, [h('h3', { text: '新建视图' }), h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })]),
+      h('label', { class: 'field' }, [h('span', { text: '视图名称' }), nameInput]),
+      h('label', { class: 'field' }, [h('span', { text: '视图类型' }), typeSelect]),
+      config,
+      h('div', { class: 'row', style: 'margin-top:14px' }, [
+        h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
+        h('button', { text: '创建', onclick: () => {
+          const type = typeSelect.value;
+          const patch = { type };
+          if (type === 'quadrant') {
+            const field = entity.fields.find((item) => item.id === config.querySelector('[data-view-config="quadrantField"]')?.value);
+            if (!field || (field.options || []).length < 4) return toast('请选择至少包含 4 个选项的单选字段。');
+            patch.quadrant = { fieldId: field.id, optionIds: field.options.slice(0, 4).map((option) => optionObject(option).id) };
+          }
+          if (type === 'gantt') {
+            const titleField = config.querySelector('[data-view-config="titleField"]')?.value;
+            const startField = config.querySelector('[data-view-config="startField"]')?.value;
+            const endField = config.querySelector('[data-view-config="endField"]')?.value;
+            if (!titleField || !startField || !endField || startField === endField) return toast('请选择标题字段以及两个不同的日期字段。');
+            patch.gantt = { titleField, startField, endField };
+          }
+          createView(entity, nameInput.value.trim() || '新视图', patch);
+          backdrop.remove();
+        } })
+      ])
+    ])
+  ]);
+  document.body.append(backdrop);
+  nameInput.focus(); nameInput.select();
+}
+
+function currentViewPage(entity) {
+  return state.currentApp?.ui?.pages?.find((page) => page.id === state.currentPageId && page.entity === entity.id) || null;
+}
+
+let persistTimer = null;
+function persistViews(legacyKey = '') {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(async () => {
+    try {
+      await saveCurrentPackage(() => {});
+      if (legacyKey) localStorage.removeItem(legacyKey);
+    } catch (error) {
+      toast(`视图保存失败：${error.message}`);
+    }
+  }, 80);
 }
 
 export function cloneView(entity) {
@@ -352,14 +472,15 @@ export function selectFromOptions(options, value) {
 }
 
 export function filterOperators(field) {
-  if (field.type === 'number') return [
+  const type = effectiveFieldType(field);
+  if (type === 'number') return [
     { op: 'eq', label: '等于' },
     { op: 'gt', label: '大于' },
     { op: 'lt', label: '小于' },
     { op: 'empty', label: '为空' },
     { op: 'notEmpty', label: '不为空' }
   ];
-  if (field.type === 'date' || field.type === 'datetime') return [
+  if (type === 'date' || type === 'datetime') return [
     { op: 'eq', label: '等于' },
     { op: 'before', label: '早于' },
     { op: 'after', label: '晚于' },
@@ -395,13 +516,14 @@ export function filterValueInput(field, filter) {
     return select;
   }
   if (field.type === 'boolean') return selectFromOptions([['true', '是'], ['false', '否']], String(filter.value ?? 'true'));
-  const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : 'text';
-  const inputValue = field.type === 'date' || field.type === 'datetime' ? dateInputValue(filter.value, field.type) : filter.value || '';
+  const effectiveType = effectiveFieldType(field);
+  const type = effectiveType === 'number' ? 'number' : effectiveType === 'date' ? 'date' : effectiveType === 'datetime' ? 'datetime-local' : 'text';
+  const inputValue = effectiveType === 'date' || effectiveType === 'datetime' ? dateInputValue(filter.value, effectiveType) : filter.value || '';
   return h('input', { type, value: inputValue });
 }
 
 export function valueFromFilterInput(input, field) {
   if (field.type === 'boolean') return input.value === 'true';
-  if (field.type === 'number') return input.value === '' ? '' : Number(input.value);
+  if (effectiveFieldType(field) === 'number') return input.value === '' ? '' : Number(input.value);
   return input.value;
 }

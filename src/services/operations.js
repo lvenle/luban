@@ -3,6 +3,7 @@ import { updateAppPackage } from '../models/app.js';
 import { createRecord } from '../models/record.js';
 import { normalizeFieldId } from '../core/ids.js';
 import { importRowsFromFile } from '../utils/importData.js';
+import { formulaDependents, renameFormulaBinding } from '../core/formula.js';
 
 function notFound(message) {
   const error = new Error(message);
@@ -27,7 +28,7 @@ export function createTableInApp(app, body = {}) {
     description: body.description || '',
     fields: [{ id: 'name', label: '名称', type: 'text', required: true }]
   });
-  pkg.ui.pages.push({ id: `${entityId}-list`, title: `${name}列表`, type: 'list', entity: entityId, navKind: 'table', features: ['create', 'edit', 'delete', 'search', 'export'] });
+  pkg.ui.pages.push({ id: `${entityId}-list`, title: `${name}列表`, type: 'list', entity: entityId, navKind: 'table', features: ['create', 'edit', 'delete', 'search', 'export'], views: [{ id: 'default', name: '全部记录', type: 'list' }] });
   return updateAppPackage(app.id, pkg);
 }
 
@@ -136,6 +137,11 @@ export function updateFieldInApp(app, entityId, fieldId, patch = {}) {
   const entity = pkg.schema.entities.find((item) => item.id === entityId);
   const field = entity?.fields?.find((item) => item.id === fieldId);
   if (!field) throw notFound('找不到字段。');
+  const dependents = formulaDependents(entity, fieldId);
+  if (patch.type && patch.type !== field.type && dependents.length) throw formulaDependencyError(field, dependents, '修改类型');
+  if (patch.label && patch.label !== field.label) {
+    for (const formulaField of entity.fields) renameFormulaBinding(formulaField, fieldId, String(patch.label).trim());
+  }
   Object.assign(field, patch);
   return updateAppPackage(app.id, pkg);
 }
@@ -144,10 +150,20 @@ export function deleteFieldInApp(app, entityId, fieldId) {
   const pkg = getPackageFromApp(app);
   const entity = pkg.schema.entities.find((item) => item.id === entityId);
   if (!entity) throw notFound('找不到表。');
-  if (!entity.fields.some((field) => field.id === fieldId)) throw notFound('找不到字段。');
+  const field = entity.fields.find((item) => item.id === fieldId);
+  if (!field) throw notFound('找不到字段。');
+  const dependents = formulaDependents(entity, fieldId);
+  if (dependents.length) throw formulaDependencyError(field, dependents, '删除');
   entity.fields = entity.fields.filter((field) => field.id !== fieldId);
   getDb().prepare('DELETE FROM record_relations WHERE appId = ? AND sourceEntityId = ? AND fieldId = ?').run(app.id, entityId, fieldId);
   return updateAppPackage(app.id, pkg);
+}
+
+function formulaDependencyError(field, dependents, action) {
+  const error = new Error(`不能${action}字段「${field.label}」，以下公式正在引用它：${dependents.map((item) => item.label).join('、')}`);
+  error.status = 409;
+  error.details = { fieldId: field.id, formulaFields: dependents.map((item) => ({ id: item.id, label: item.label })) };
+  return error;
 }
 
 export function uniqueEntityId(pkg, base) {

@@ -4,7 +4,7 @@ import { toast } from '../common/toast.js';
 import { openConfirmDialog, openTextModal } from '../common/modal.js';
 import { state, orderedFields, getFormLayout, getFormDesign, recordsFor } from '../app.js';
 import { writeStorage } from '../common/storage.js';
-import { relationDisplayValue, normalizeFileValue } from './CellEditor.js';
+import { relationDisplayValue, normalizeFileValue, formatFieldValue } from './CellEditor.js';
 import { getCurrentView, getListConfig, updateCurrentView } from './ViewBar.js';
 import { loadCurrentPageRecords, renderRuntime } from './index.js';
 import { optionObject } from './FieldEditor.js';
@@ -203,6 +203,7 @@ export function createChoiceWidget(field, initialValue, onChange) {
 }
 
 export function inputForField(field, value) {
+  if (field.type === 'formula') return h('input', { value: formatFieldValue(value, field), readonly: 'readonly', class: 'formula-readonly-input', title: '公式字段由系统实时计算' });
   if (field.type === 'textarea' || field.type === 'richText') return h('textarea', { value: value ?? '', placeholder: field.placeholder || '' });
   if (field.type === 'image' || field.type === 'file') {
     const input = h('input', { type: 'file', accept: field.type === 'image' ? 'image/*' : '' });

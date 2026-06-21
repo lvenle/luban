@@ -310,6 +310,7 @@ export function buildPageForEntity({ entity, title, type = 'list', navKind = 'pa
   };
   if (type === 'list') {
     page.features = ['create', 'edit', 'delete', 'search', 'export'];
+    page.views = [{ id: 'default', name: '全部记录', type: 'list' }];
   }
   if (type === 'chart') {
     const groupField = entity.fields.find((field) => ['select', 'multiSelect', 'boolean', 'date'].includes(field.type)) || entity.fields[0];

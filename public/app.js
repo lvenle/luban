@@ -134,6 +134,7 @@ export function formatFieldValue(value, field) {
   if (field.type === 'multiSelect') return (Array.isArray(value) ? value : []).map((i) => formatFieldValue({ optionId: i.optionId || i.id || i }, { type: 'select', options: field.options })).filter(Boolean).join('、');
   if (field.type === 'relation') return (Array.isArray(value) ? value : [value]).map((v) => v?.displayValue || v?.label || v?.name || '').filter(Boolean).join('、');
   if (field.type === 'image' || field.type === 'file') return typeof value === 'object' ? (value.name || value.url?.split('/').pop() || '') : String(value);
+  if (field.type === 'formula') return formatFieldValue(value, { ...field, type: field.formula?.resultType || 'number' });
   if (field.type === 'number') { const n = Number(value); if (Number.isNaN(n)) return String(value ?? ''); if (field.format === 'integer') return String(Math.round(n)); if (field.format === 'decimal2') return n.toFixed(2); if (field.format === 'currency') return `¥${n.toFixed(2)}`; if (field.format === 'percent') return `${(n * 100).toFixed(2)}%`; return Number.isInteger(n) ? String(n) : n.toFixed(2); }
   if (field.type === 'date' || field.type === 'datetime') return formatDateFieldValue(value, field);
   if (Array.isArray(value)) return value.map((i) => i?.displayValue || i?.label || i).join('、');
@@ -202,8 +203,9 @@ function matchesViewFilter(value, field, filter) {
   if (op === 'empty') return value == null || value === '' || (Array.isArray(value) && !value.length);
   if (op === 'notEmpty') return !(value == null || value === '' || (Array.isArray(value) && !value.length));
   const e = filter.value;
-  if (field.type === 'number') { const a = Number(value), t = Number(e); if (Number.isNaN(a) || Number.isNaN(t)) return false; if (op === 'gt') return a > t; if (op === 'lt') return a < t; return a === t; }
-  if (field.type === 'date' || field.type === 'datetime') { const a = dateKey(value), t = dateKey(e); if (!a) return false; if (op === 'today') return a === dateKey(new Date()); if (op === 'thisWeek') return sameWeek(a, new Date()); if (op === 'thisMonth') return a.slice(0, 7) === dateKey(new Date()).slice(0, 7); if (!t) return false; if (op === 'before') return a < t; if (op === 'after') return a > t; return a === t; }
+  const fieldType = field.type === 'formula' ? field.formula?.resultType || 'number' : field.type;
+  if (fieldType === 'number') { const a = Number(value), t = Number(e); if (Number.isNaN(a) || Number.isNaN(t)) return false; if (op === 'gt') return a > t; if (op === 'lt') return a < t; return a === t; }
+  if (fieldType === 'date' || fieldType === 'datetime') { const a = dateKey(value), t = dateKey(e); if (!a) return false; if (op === 'today') return a === dateKey(new Date()); if (op === 'thisWeek') return sameWeek(a, new Date()); if (op === 'thisMonth') return a.slice(0, 7) === dateKey(new Date()).slice(0, 7); if (!t) return false; if (op === 'before') return a < t; if (op === 'after') return a > t; return a === t; }
   if (field.type === 'boolean') { const a = value === true || value === '是' || value === 'true'; const t = e === true || e === '是' || e === 'true'; return a === t; }
   const at = formatFieldValue(value, field).toLowerCase();
   const tt = String(e ?? '').toLowerCase();

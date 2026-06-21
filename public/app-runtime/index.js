@@ -6,11 +6,6 @@ import { renderAssistantDrawer, removeAssistantDrawer, setAssistantMode } from '
 import { loadSidebarLayout, startSidebarResize, toggleSidebarCollapsed } from './RuntimeFrame.js';
 import { renderSidebarContent } from './Sidebar.js';
 
-function getViews(entity) {
-  const stored = JSON.parse(localStorage.getItem(`software-garden:${state.currentApp?.id || 'global'}:${state.currentPageId || 'home'}:views:${entity.id}`) || 'null');
-  return Array.isArray(stored) && stored.length ? stored : [{ id: 'default', name: '全部记录', visibleFields: entity.fields.map(f => f.id), fieldOrder: entity.fields.map(f => f.id), searchFields: [], columnWidths: {}, actionWidth: 112, allFields: entity.fields.map(f => f.id), filters: [], sorts: [], group: null }];
-}
-
 async function registerPageRenderers() {
   const dt = await import('./DataTable.js').catch(() => ({}));
   const pt = await import('./PageTypes.js').catch(() => ({}));
@@ -26,6 +21,7 @@ export async function openApp(appId, options = {}) {
   await loadCurrentPageRecords();
   const page = body.app.ui.pages.find((p) => p.id === state.currentPageId) || body.app.ui.pages[0];
   if (page?.entity) {
+    const { getViews } = await import('./ViewBar.js');
     const views = getViews(body.app.schema.entities.find((e) => e.id === page.entity) || body.app.schema.entities[0]);
     state.currentViewId = views.some((v) => v.id === state.currentViewId) ? state.currentViewId : views[0]?.id || '';
   }

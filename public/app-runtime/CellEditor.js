@@ -3,12 +3,13 @@ import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { state, recordsFor, dateKey } from '../app.js';
 import { loadCurrentPageRecords, renderRuntime } from './index.js';
-import { optionObject } from './FieldEditor.js';
+import { optionObject, effectiveFieldType } from './FieldEditor.js';
 import { clearActiveTableSelection } from './CellSelection.js';
 import { dateInputValue, formatDateFieldValue } from './DateFormat.js';
 
 export function startCellEdit(cell, entity, record, field) {
   if (cell.classList.contains('cell-editing')) return;
+  if (field.type === 'formula') return toast('公式字段由系统实时计算，不能直接编辑。');
   if (field.type === 'select' || field.type === 'multiSelect' || field.type === 'relation') {
     const widget = createChoiceWidget(field, record.data[field.id], async (newValue) => {
       if (fieldValuesEqual(record.data[field.id], newValue)) {
@@ -94,6 +95,7 @@ export function startCellEdit(cell, entity, record, field) {
 }
 
 export function inputForField(field, value) {
+  if (field.type === 'formula') return h('input', { value: formatFieldValue(value, field), readonly: 'readonly', class: 'formula-readonly-input' });
   if (field.type === 'textarea' || field.type === 'richText') return h('textarea', { value: value ?? '', placeholder: field.placeholder || '' });
   if (field.type === 'image' || field.type === 'file') {
     const input = h('input', { type: 'file', accept: field.type === 'image' ? 'image/*' : '' });
@@ -488,6 +490,7 @@ export function formatFieldValue(value, field) {
   if (field.type === 'multiSelect') return (Array.isArray(value) ? value : []).map((item) => optionLabel(field, item)).filter(Boolean).join('、');
   if (field.type === 'relation') return (Array.isArray(value) ? value : [value]).map(relationFieldDisplayText).filter(Boolean).join('、');
   if (field.type === 'image' || field.type === 'file') return normalizeFileValue(value)?.name || '';
+  if (field.type === 'formula') return formatFieldValue(value, { ...field, type: effectiveFieldType(field) });
   if (field.type === 'number') {
     const number = Number(value);
     if (Number.isNaN(number)) return displayValue(value);
