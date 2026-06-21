@@ -2,7 +2,7 @@ import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { state, root, topbar, writeRoute, entityFor, currentPage, pageEntityForRecordLoad, recordsFor, entityById, formatFieldValue, dateKey, renderPage } from '../app.js';
-import { renderAssistantDrawer, setAppContext } from '../ai-assistant/index.js';
+import { renderAssistantDrawer, removeAssistantDrawer, setAssistantMode } from '../ai-assistant/index.js';
 import { loadSidebarLayout, startSidebarResize, toggleSidebarCollapsed } from './RuntimeFrame.js';
 import { renderSidebarContent } from './Sidebar.js';
 
@@ -30,7 +30,6 @@ export async function openApp(appId, options = {}) {
     state.currentViewId = views.some((v) => v.id === state.currentViewId) ? state.currentViewId : views[0]?.id || '';
   }
   writeRoute(body.app.id, state.currentPageId, Boolean(options.replace), state.currentViewId);
-  if (state.assistantOpen) setAppContext(buildAssistantContext());
   renderRuntime();
 }
 
@@ -41,6 +40,7 @@ export function renderRuntime() {
   const app = state.currentApp;
   const page = app.ui.pages.find((p) => p.id === state.currentPageId) || app.ui.pages[0];
   state.currentPageId = page?.id || state.currentPageId;
+  setAssistantMode({ mode: 'modify', appId: app.id, appName: app.name, context: buildAssistantContext() });
   loadSidebarLayout();
   root.innerHTML = '';
   root.append(h('div', { class: 'shell' }, [
@@ -54,8 +54,7 @@ export function renderRuntime() {
   if (state.assistantOpen) {
     renderAssistantDrawer(() => { state.assistantOpen = false; const btn = document.querySelector('.assistant-topbar-button'); if (btn) btn.classList.remove('active'); });
   } else {
-    document.querySelector('.drawer-backdrop')?.remove();
-    document.querySelector('.assistant.drawer')?.remove();
+    removeAssistantDrawer();
   }
   if (savedTop > 0 || savedLeft > 0) setTimeout(() => { const w = document.querySelector('.table-wrap'); if (w) { w.scrollTop = savedTop; w.scrollLeft = savedLeft; } }, 0);
 }

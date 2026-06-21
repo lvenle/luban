@@ -66,7 +66,8 @@ You have access to tools that let you create new apps, modify the app schema, ma
 Guidelines:
 - Always respond in the same language as the user's message
 - When users ask to create or modify things, use the appropriate tools instead of just describing what to do
-- When the user asks to create a new app and no app is currently open, use the create_app tool. Do not use add_entity for new app creation.
+- When the user asks to create a new app and no app is currently open, use create_app exactly once. It already creates the complete tables, fields, pages, and actions; do not follow it with add_entity, add_field, or add_page in the same request.
+- Minimize tool calls. Batch same-type changes whenever the tool accepts an array. In particular, add every field for one table with one add_field call using fields[].
 - For high-risk operations (creating/deleting entities, fields, pages, records), the system will ask the user to confirm
 - After executing tools, summarize what was done
 - When the user's request is ambiguous, ask clarifying questions before using tools`;
@@ -165,12 +166,12 @@ export async function handleAiApi(req, res, method, parts, url) {
           }
         }
 
-        toolCalls = deltaCollector.filter(Boolean);
+        toolCalls = mergeBatchableToolCalls(deltaCollector.filter(Boolean));
 
         if (!toolCalls.length) {
           addAiMessage(session.id, 'assistant', turnContent || '');
-          updateAiSession(session.id, { status: 'completed' });
-          sseEvent(res, 'message_end', {});
+          updateAiSession(session.id, { status: 'completed', appId: app?.id || session.appId || null });
+          sseEvent(res, 'message_end', { appId: app?.id || session.appId || null });
           clearInterval(keepalive);
           res.end();
           return;
@@ -191,7 +192,12 @@ export async function handleAiApi(req, res, method, parts, url) {
           args.appId = body.appId || app?.id;
 
           if (tool.clientOnly) {
-            sseEvent(res, 'tool_client', { id: tc.id, name: tc.function.name, arguments: args });
+            sseEvent(res, 'tool_client', {
+              id: tc.id,
+              name: tc.function.name,
+              arguments: args,
+              display: buildToolDisplayInfo(tc.function.name, args, app)
+            });
             continue;
           }
 
@@ -219,7 +225,14 @@ export async function handleAiApi(req, res, method, parts, url) {
                 friendlyArgs[key] = value;
               }
             }
-            sseEvent(res, 'tool_confirm', { id: tc.id, name: tc.function.name, arguments: args, friendlyArgs, confirmId });
+            sseEvent(res, 'tool_confirm', {
+              id: tc.id,
+              name: tc.function.name,
+              arguments: args,
+              friendlyArgs,
+              confirmId,
+              display: buildToolDisplayInfo(tc.function.name, args, app)
+            });
 
             const confirmResult = await waitForConfirm(confirmId);
             PENDING_CONFIRMS.delete(confirmId);
@@ -230,17 +243,28 @@ export async function handleAiApi(req, res, method, parts, url) {
             }
           }
 
-          sseEvent(res, 'tool_use', { id: tc.id, name: tc.function.name, arguments: args });
+          sseEvent(res, 'tool_use', {
+            id: tc.id,
+            name: tc.function.name,
+            arguments: args,
+            display: buildToolDisplayInfo(tc.function.name, args, app)
+          });
           try {
             addAiExecutionLog(session.id, `执行 ${tc.function.name}`, 'running', { toolName: tc.function.name, input: args });
             const result = await tool.handler(args, { app, session: getAiSession(session.id) });
             addAiExecutionLog(session.id, `执行 ${tc.function.name}`, 'success', { toolName: tc.function.name, output: result });
             const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
             messages.push({ role: 'tool', tool_call_id: tc.id, content: resultStr });
-            sseEvent(res, 'tool_result', { id: tc.id, status: 'success', output: result });
             if (tc.function.name === 'create_app' && result?.appId) {
               app = getApp(result.appId);
+              updateAiSession(session.id, { appId: result.appId });
             }
+            sseEvent(res, 'tool_result', {
+              id: tc.id,
+              status: 'success',
+              output: result,
+              display: buildToolDisplayInfo(tc.function.name, args, app, result)
+            });
           } catch (error) {
             addAiExecutionLog(session.id, `执行 ${tc.function.name}`, 'failed', { toolName: tc.function.name, error: error.message });
             messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify({ error: error.message }) });
@@ -252,7 +276,7 @@ export async function handleAiApi(req, res, method, parts, url) {
       }
 
       addAiMessage(session.id, 'assistant', turnContent || '已达到最大迭代次数');
-      sseEvent(res, 'message_end', { error: 'max_iterations' });
+      sseEvent(res, 'message_end', { error: 'max_iterations', appId: app?.id || session.appId || null });
     } catch (error) {
       sseEvent(res, 'error', { message: error.message });
       addAiExecutionLog(session.id, '对话出错', 'failed', { error: error.message });
@@ -354,6 +378,64 @@ export async function handleAiApi(req, res, method, parts, url) {
 
   res.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify({ error: 'AI API 不存在。' }));
+}
+
+export function mergeBatchableToolCalls(toolCalls) {
+  const merged = [];
+  const addFieldGroups = new Map();
+  for (const toolCall of toolCalls) {
+    if (toolCall.function?.name !== 'add_field') {
+      merged.push(toolCall);
+      continue;
+    }
+    let args;
+    try { args = JSON.parse(toolCall.function.arguments || '{}'); } catch { args = {}; }
+    const key = String(args.entityId || '');
+    if (!key) {
+      merged.push(toolCall);
+      continue;
+    }
+    const fields = Array.isArray(args.fields) && args.fields.length
+      ? args.fields
+      : [{ id: args.id, label: args.label, type: args.type, options: args.options, required: args.required }];
+    const existing = addFieldGroups.get(key);
+    if (existing) {
+      existing.args.fields.push(...fields);
+      existing.toolCall.function.arguments = JSON.stringify(existing.args);
+      continue;
+    }
+    const mergedArgs = { appId: args.appId, entityId: args.entityId, fields };
+    const mergedCall = { ...toolCall, function: { ...toolCall.function, arguments: JSON.stringify(mergedArgs) } };
+    addFieldGroups.set(key, { toolCall: mergedCall, args: mergedArgs });
+    merged.push(mergedCall);
+  }
+  return merged;
+}
+
+export function buildToolDisplayInfo(toolName, args = {}, app = null, result = null) {
+  const labels = {
+    create_app: '创建应用', add_entity: '创建表', add_field: '添加字段', add_relation: '添加关联',
+    add_page: '添加页面', add_record: '添加记录', add_action: '添加操作', update_entity: '修改表',
+    update_field: '修改字段', update_record: '修改记录', remove_entity: '删除表',
+    remove_field: '删除字段', remove_page: '删除页面', delete_record: '删除记录',
+    query_data: '查询数据', design_form: '设计表单', create_view: '创建视图'
+  };
+  const entities = app?.schema?.entities || [];
+  const entityId = args.entityId || args.sourceEntityId || '';
+  const entity = entities.find((item) => item.id === entityId);
+  const targetEntity = entities.find((item) => item.id === args.targetEntityId);
+  const field = entity?.fields?.find((item) => item.id === args.fieldId);
+  const fieldLabels = Array.isArray(args.fields)
+    ? args.fields.map((item) => item?.label || item?.name || item?.id).filter(Boolean)
+    : [args.label || field?.label].filter(Boolean);
+  const details = [];
+  const appName = result?.name || app?.name;
+  if (appName) details.push(appName);
+  if (entity?.name) details.push(entity.name);
+  if (targetEntity?.name && targetEntity.id !== entity?.id) details.push(`关联 ${targetEntity.name}`);
+  if (fieldLabels.length) details.push(fieldLabels.join('、'));
+  else if (args.title || args.name) details.push(args.title || args.name);
+  return { title: labels[toolName] || toolName, detail: details.join(' · ') };
 }
 
 function executeLegacyPlan(session) {

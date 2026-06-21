@@ -114,13 +114,20 @@ function listActualTableReferences(app, entityId) {
 }
 
 export function createFieldInApp(app, entityId, field = {}) {
+  return createFieldsInApp(app, entityId, [field]);
+}
+
+export function createFieldsInApp(app, entityId, fields = []) {
   const pkg = getPackageFromApp(app);
   const entity = pkg.schema.entities.find((item) => item.id === entityId);
   if (!entity) throw notFound('找不到表。');
-  const label = String(field.label || field.name || '').trim();
-  if (!label) throw badRequest('字段名不能为空。');
-  const id = uniqueFieldId(entity, field.id || label);
-  entity.fields.push({ ...field, id, label });
+  if (!Array.isArray(fields) || !fields.length) throw badRequest('至少提供一个字段。');
+  for (const field of fields) {
+    const label = String(field?.label || field?.name || '').trim();
+    if (!label) throw badRequest('字段名不能为空。');
+    const id = uniqueFieldId(entity, field.id || label);
+    entity.fields.push({ ...field, id, label });
+  }
   return updateAppPackage(app.id, pkg);
 }
 

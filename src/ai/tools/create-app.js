@@ -29,6 +29,15 @@ register({
       pkg = pickSamplePackage(args.description);
     }
     const app = createAppFromPackage(pkg);
-    return { appId: app.id, name: app.name, slug: app.slug };
+    return {
+      appId: app.id,
+      name: app.name,
+      slug: app.slug,
+      entities: app.schema.entities.map((entity) => ({
+        id: entity.id,
+        name: entity.name,
+        fields: entity.fields.map((field) => ({ id: field.id, label: field.label, type: field.type }))
+      }))
+    };
   }
 });

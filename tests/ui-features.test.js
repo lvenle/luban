@@ -72,7 +72,8 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /classList\.contains\('modal-backdrop'\)/);
   assert.match(appJs, /\b(e|event)\.target\.remove\(\)/);
   assert.match(appJs, /import.*renderAssistantDrawer.*from.*ai-assistant/);
-  assert.match(assistantIndexJs, /drawer-backdrop/);
+  assert.doesNotMatch(assistantIndexJs, /class: 'drawer-backdrop'/);
+  assert.match(assistantIndexJs, /class: 'assistant drawer'/);
   assert.match(commonDomJs, /export function uiIcon/);
   assert.match(commonDomJs, /export function buttonLabel/);
   assert.match(appJs, /assistant-topbar-button/);

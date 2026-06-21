@@ -2,11 +2,12 @@ import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { state, root, topbar } from '../app.js';
-import { setAppId, renderAssistantDrawer } from '../ai-assistant/index.js';
+import { setAssistantMode, renderAssistantDrawer, removeAssistantDrawer } from '../ai-assistant/index.js';
 import { appCard, appCategories, appCategory } from './AppCard.js';
 import { openImportModal } from './ImportModal.js';
 
 export function renderHome() {
+  setAssistantMode({ mode: 'create' });
   root.innerHTML = '';
   const categories = appCategories();
   if (!categories.includes(state.appCategory)) state.appCategory = '全部';
@@ -54,6 +55,8 @@ export function renderHome() {
       const btn = document.querySelector('.assistant-topbar-button');
       if (btn) btn.classList.remove('active');
     });
+  } else {
+    removeAssistantDrawer();
   }
 }
 
@@ -69,7 +72,7 @@ export function goHome() {
   state.currentViewId = '';
   state.records = [];
   state.inlineEditId = null;
-  state.assistantOpen = false;
+  setAssistantMode({ mode: 'create' });
   window.history.pushState(null, '', '/');
   loadApps();
 }

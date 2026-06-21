@@ -4,7 +4,7 @@ import { toast } from '../common/toast.js';
 import { openConfirmDialog, openTextModal, bindFloatingMenu } from '../common/modal.js';
 import { state, entityFor, recordsFor, storageKey, entityById, writeRoute, uniquePageId } from '../app.js';
 import { toggleSidebarCollapsed } from './RuntimeFrame.js';
-import { loadCurrentPageRecords, renderRuntime, saveCurrentPackage, buildAssistantContext } from './index.js';
+import { loadCurrentPageRecords, renderRuntime, saveCurrentPackage } from './index.js';
 import { getViews } from './ViewBar.js';
 
 export function clearPageDragStyles() {
@@ -165,7 +165,6 @@ export function renderPageNavItem(app, activePage, item) {
         const views = getViews(nextEntity);
         state.currentViewId = views[0]?.id || '';
         writeRoute(app.id, item.id, false, state.currentViewId);
-        if (state.assistantOpen) setAppContext(buildAssistantContext());
         renderRuntime();
       }
     }),

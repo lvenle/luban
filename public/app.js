@@ -1,4 +1,4 @@
-import { renderAssistantDrawer, setAppId, setAppContext } from './ai-assistant/index.js';
+import { renderAssistantDrawer } from './ai-assistant/index.js';
 import { h, uiIcon, buttonLabel } from './common/dom.js';
 import { api } from './common/api.js';
 import { toast } from './common/toast.js';
@@ -40,7 +40,10 @@ async function boot() {
   state.apps = (await api('/api/apps')).apps;
   const route = currentRoute();
   document.body.addEventListener('ai-message-end', async () => {
-    if (!state.currentApp) return;
+    if (!state.currentApp) {
+      await loadApps();
+      return;
+    }
     try {
       state.currentApp = (await api(`/api/apps/${state.currentApp.id}`)).app;
       const rt = await import('./app-runtime/index.js');
@@ -82,7 +85,7 @@ export function topbar() {
     h('div', { class: 'top-actions' }, [
       h('button', {
         class: `secondary icon-label-button assistant-topbar-button ${state.assistantOpen ? 'active' : ''}`,
-        onclick: () => { state.assistantOpen = !state.assistantOpen; setAppId(state.currentApp?.id || ''); if (state.currentApp) { (async () => { const rt = await import('./app-runtime/index.js'); rt.renderRuntime(); })(); } else renderHome(); }
+        onclick: () => { state.assistantOpen = !state.assistantOpen; if (state.currentApp) { (async () => { const rt = await import('./app-runtime/index.js'); rt.renderRuntime(); })(); } else renderHome(); }
       }, buttonLabel('assistant', 'AI 助理')),
       h('button', { class: 'secondary icon-label-button', title: '设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal()) }, buttonLabel('settings', '设置'))
     ])

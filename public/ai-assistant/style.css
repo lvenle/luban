@@ -8,8 +8,8 @@
 .assistant-messages {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
@@ -202,9 +202,10 @@
 .tool-card {
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  padding: 4px 8px;
-  margin: 2px 0 2px 38px;
+  padding: 2px 6px;
+  margin: -2px 0 -2px 38px;
   font-size: 11px;
+  line-height: 1.2;
   background: #fff;
   width: fit-content;
   max-width: calc(100% - 38px);
@@ -214,21 +215,32 @@
 .tool-card-header {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  min-height: 18px;
 }
 
 .tool-card-icon {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .tool-card-name {
   font-weight: 700;
   color: #334155;
+  white-space: nowrap;
+}
+
+.tool-card-business {
   flex: 1;
+  min-width: 0;
+  max-width: 280px;
+  overflow: hidden;
+  color: #64748b;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tool-card-spinner {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .tool-card-args pre {
@@ -255,42 +267,87 @@
   color: #dc2626;
 }
 
+.tool-card-error-detail {
+  margin: 3px 0 1px 15px;
+  padding: 4px 6px;
+  border-left: 2px solid #dc2626;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.tool-card-operation-list {
+  display: grid;
+  gap: 3px;
+  margin: 3px 0 1px 15px;
+}
+
+.tool-card-operation {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 5px;
+  align-items: start;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.tool-card-operation-label {
+  color: #2563eb;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tool-card-operation-entity {
+  color: #334155;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tool-card-operation-fields {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .tool-card.tool-done {
   opacity: 0.85;
 }
 
 .tool-confirm-card {
   border-left: 4px solid #f59e0b;
-  padding: 14px 18px;
+  padding: 8px 10px;
   width: 100%;
 }
 
 .tool-confirm-card .tool-card-name {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .tool-confirm-card .tool-card-header {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .tool-confirm-card .confirm-body p {
-  margin: 6px 0;
-  font-size: 14px;
+  margin: 2px 0;
+  font-size: 12px;
   color: #1e293b;
 }
 
 .tool-confirm-actions {
   display: flex;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .tool-confirm-btn,
 .tool-reject-btn {
   border: 0;
   border-radius: 8px;
-  padding: 8px 24px;
-  font-size: 14px;
+  padding: 5px 14px;
+  font-size: 12px;
   cursor: pointer;
 }
 
