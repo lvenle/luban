@@ -8,6 +8,7 @@ import { relationDisplayValue, normalizeFileValue } from './CellEditor.js';
 import { getCurrentView, getListConfig, updateCurrentView } from './ViewBar.js';
 import { loadCurrentPageRecords, renderRuntime } from './index.js';
 import { optionObject } from './FieldEditor.js';
+import { dateInputValue } from './DateFormat.js';
 
 export function openRecordModal(entity, record = null) {
   const layout = getFormLayout(entity);
@@ -221,7 +222,8 @@ export function inputForField(field, value) {
     return input;
   }
   const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : 'text';
-  return h('input', { type, value: value ?? '', placeholder: field.placeholder || '' });
+  const inputValue = field.type === 'date' || field.type === 'datetime' ? dateInputValue(value, field.type) : value ?? '';
+  return h('input', { type, value: inputValue, placeholder: field.placeholder || '' });
 }
 
 export function searchInputForField(field) {

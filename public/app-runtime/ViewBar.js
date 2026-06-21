@@ -6,6 +6,7 @@ import { readStorage, writeStorage } from '../common/storage.js';
 import { state, writeRoute, formatFieldValue, dateKey, storageKey } from '../app.js';
 import { renderRuntime } from './index.js';
 import { optionObject } from './FieldEditor.js';
+import { dateInputValue } from './DateFormat.js';
 
 function defaultView(entity) {
   const legacy = readStorage(storageKey('list', entity.id), null);
@@ -395,7 +396,8 @@ export function filterValueInput(field, filter) {
   }
   if (field.type === 'boolean') return selectFromOptions([['true', '是'], ['false', '否']], String(filter.value ?? 'true'));
   const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : 'text';
-  return h('input', { type, value: filter.value || '' });
+  const inputValue = field.type === 'date' || field.type === 'datetime' ? dateInputValue(filter.value, field.type) : filter.value || '';
+  return h('input', { type, value: inputValue });
 }
 
 export function valueFromFilterInput(input, field) {

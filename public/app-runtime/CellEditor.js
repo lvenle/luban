@@ -5,6 +5,7 @@ import { state, recordsFor, dateKey } from '../app.js';
 import { loadCurrentPageRecords, renderRuntime } from './index.js';
 import { optionObject } from './FieldEditor.js';
 import { clearActiveTableSelection } from './CellSelection.js';
+import { dateInputValue, formatDateFieldValue } from './DateFormat.js';
 
 export function startCellEdit(cell, entity, record, field) {
   if (cell.classList.contains('cell-editing')) return;
@@ -112,7 +113,8 @@ export function inputForField(field, value) {
     return input;
   }
   const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : 'text';
-  return h('input', { type, value: value ?? '', placeholder: field.placeholder || '' });
+  const inputValue = field.type === 'date' || field.type === 'datetime' ? dateInputValue(value, field.type) : value ?? '';
+  return h('input', { type, value: inputValue, placeholder: field.placeholder || '' });
 }
 
 export function searchInputForField(field) {
@@ -494,13 +496,7 @@ export function formatFieldValue(value, field) {
     if (field.format === 'currency') return `¥${number.toFixed(2)}`;
     if (field.format === 'percent') return `${(number * 100).toFixed(2)}%`;
   }
-  if (field.type === 'date' || field.type === 'datetime') {
-    const raw = String(value);
-    if (field.format === 'yyyy/mm/dd') return raw.slice(0, 10).replaceAll('-', '/');
-    if (field.format === 'mm-dd') return raw.slice(5, 10);
-    if (field.format === 'yyyy/mm/dd hh:mm') return raw.replace('T', ' ').slice(0, 16).replaceAll('-', '/');
-    if (field.format === 'yyyy-mm-dd hh:mm') return raw.replace('T', ' ').slice(0, 16);
-  }
+  if (field.type === 'date' || field.type === 'datetime') return formatDateFieldValue(value, field);
   return displayValue(value);
 }
 

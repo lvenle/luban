@@ -6,6 +6,7 @@ import { openConfirmDialog, openTextModal, floatingMenus, closeFloatingMenus, bi
 import { readStorage, writeStorage, globalStorageKey, clampSidebarWidth } from './common/storage.js';
 import { renderHome, loadApps, goHome } from './app-home/index.js';
 import { appCategory } from './app-home/AppCard.js';
+import { formatDateFieldValue } from './app-runtime/DateFormat.js';
 
 export const state = {
   apps: [], currentApp: null, currentPageId: null, records: [],
@@ -134,7 +135,7 @@ export function formatFieldValue(value, field) {
   if (field.type === 'relation') return (Array.isArray(value) ? value : [value]).map((v) => v?.displayValue || v?.label || v?.name || '').filter(Boolean).join('、');
   if (field.type === 'image' || field.type === 'file') return typeof value === 'object' ? (value.name || value.url?.split('/').pop() || '') : String(value);
   if (field.type === 'number') { const n = Number(value); if (Number.isNaN(n)) return String(value ?? ''); if (field.format === 'integer') return String(Math.round(n)); if (field.format === 'decimal2') return n.toFixed(2); if (field.format === 'currency') return `¥${n.toFixed(2)}`; if (field.format === 'percent') return `${(n * 100).toFixed(2)}%`; return Number.isInteger(n) ? String(n) : n.toFixed(2); }
-  if (field.type === 'date' || field.type === 'datetime') { const r = String(value); if (field.format === 'yyyy/mm/dd') return r.slice(0, 10).replace(/-/g, '/'); if (field.format === 'mm-dd') return r.slice(5, 10); if (field.format === 'yyyy/mm/dd hh:mm') return r.replace('T', ' ').slice(0, 16).replace(/-/g, '/'); if (field.format === 'yyyy-mm-dd hh:mm') return r.replace('T', ' ').slice(0, 16); }
+  if (field.type === 'date' || field.type === 'datetime') return formatDateFieldValue(value, field);
   if (Array.isArray(value)) return value.map((i) => i?.displayValue || i?.label || i).join('、');
   if (value && typeof value === 'object') return value.displayValue || value.label || value.name || value.optionId || '';
   if (value === true) return '是'; if (value === false) return '否';
