@@ -628,9 +628,10 @@ textarea {
   color: var(--danger);
 }
 
-.card-menu-popover .danger:hover {
-  background: transparent;
-  color: var(--danger);
+.card-menu-popover .ghost-menu.danger:hover,
+.card-menu-popover .ghost-menu.danger:focus-visible {
+  background: #fef2f2;
+  color: #b91c1c;
   box-shadow: none;
 }
 
@@ -1040,13 +1041,9 @@ textarea {
 }
 
 .page-menu-popover .danger,
-.page-menu-popover .danger:hover,
 .view-menu-popover .danger,
-.view-menu-popover .danger:hover,
 .context-menu .danger,
-.context-menu .danger:hover,
-.ghost-menu.danger,
-.ghost-menu.danger:hover {
+.ghost-menu.danger {
   background: transparent;
   color: var(--danger);
   box-shadow: none;
@@ -1253,15 +1250,28 @@ textarea {
 }
 
 .card-menu summary,
-.card-menu summary:hover,
-.card-menu[open] summary,
 .page-menu summary,
-.page-menu summary:hover,
-.page-menu[open] summary,
-.view-menu-trigger,
-.view-menu-trigger:hover {
+.view-menu-trigger {
   background: transparent;
   box-shadow: none;
+}
+
+.card-menu summary:hover,
+.card-menu[open] summary,
+.page-menu summary:hover,
+.page-menu[open] summary,
+.view-menu-trigger:hover {
+  background: #f1f5f9;
+  color: var(--text);
+  box-shadow: none;
+}
+
+.page-menu-popover .ghost-menu.danger:hover,
+.page-menu-popover .ghost-menu.danger:focus-visible,
+.view-menu-popover .ghost-menu.danger-text:hover,
+.view-menu-popover .ghost-menu.danger-text:focus-visible {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .view-menu-popover {
