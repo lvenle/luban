@@ -3178,18 +3178,18 @@ button.assistant-send {
   overflow: hidden;
 }
 
-.typed-view-toolbar {
-  min-height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border-bottom: 1px solid var(--line);
-  padding: 8px 12px;
+.table-panel .typed-view-body {
+  min-height: 0;
+  overflow: auto;
+  background: #fff;
 }
 
-.typed-view-meta {
-  justify-content: flex-end;
+.table-panel .typed-view-meta {
+  order: 2;
+  margin-left: auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
 }
 
 .invalid-record-button {
@@ -3420,9 +3420,15 @@ button.assistant-send {
     padding: 6px;
   }
 
-  .typed-view-toolbar {
+  .table-panel .table-command-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .table-panel .typed-view-meta {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .quadrant-grid {

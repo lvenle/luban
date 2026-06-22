@@ -8,6 +8,7 @@ import { optionObject } from './FieldEditor.js';
 import { renderRuntime } from './index.js';
 
 const invalidMode = new Set();
+const TYPED_PANEL_CLASS = 'panel table-panel typed-view-panel';
 
 export function renderTypedTableView(page, entity, records, view) {
   const filtered = sortRecords(applyViewFilters(records, entity, view), view);
@@ -29,18 +30,20 @@ export function renderQuadrantView(page, entity, records, view) {
     else invalid.push(record);
   }
   if (invalidMode.has(view.id)) return renderInvalidRecords(entity, view, invalid, '未归类记录');
-  return h('div', { class: 'panel typed-view-panel quadrant-view' }, [
-    renderTypedHeader(entity, view, invalid, '未归类'),
-    h('div', { class: 'quadrant-grid' }, options.map((option) =>
-      h('section', { class: 'quadrant-cell' }, [
-        h('div', { class: 'quadrant-head' }, [
-          h('span', { class: `option-color-dot select-${option.color || 'gray'}` }),
-          h('strong', { text: option.label }),
-          h('span', { class: 'muted', text: `${groups.get(option.id)?.length || 0} 条` })
-        ]),
-        renderCompactTable(entity, groups.get(option.id) || [], visibleFields, view)
-      ])
-    ))
+  return h('div', { class: `${TYPED_PANEL_CLASS} quadrant-view` }, [
+    ...renderTypedHeader(entity, view, invalid, '未归类'),
+    h('div', { class: 'typed-view-body' }, [
+      h('div', { class: 'quadrant-grid' }, options.map((option) =>
+        h('section', { class: 'quadrant-cell' }, [
+          h('div', { class: 'quadrant-head' }, [
+            h('span', { class: `option-color-dot select-${option.color || 'gray'}` }),
+            h('strong', { text: option.label }),
+            h('span', { class: 'muted', text: `${groups.get(option.id)?.length || 0} 条` })
+          ]),
+          renderCompactTable(entity, groups.get(option.id) || [], visibleFields, view)
+        ])
+      ))
+    ])
   ]);
 }
 
@@ -64,9 +67,9 @@ export function renderGanttView(page, entity, records, view) {
   const ticks = ganttTicks(minimum, maximum, scale.type);
   const timelineWidth = Math.max(640, ticks.length * scale.width);
   const total = Math.max(DAY, maximum - minimum + DAY);
-  return h('div', { class: 'panel typed-view-panel gantt-view' }, [
-    renderTypedHeader(entity, view, invalid, '无效记录', `自动${scale.label}刻度`),
-    h('div', { class: 'gantt-scroll' }, [
+  return h('div', { class: `${TYPED_PANEL_CLASS} gantt-view` }, [
+    ...renderTypedHeader(entity, view, invalid, '无效记录', `自动${scale.label}刻度`),
+    h('div', { class: 'typed-view-body gantt-scroll' }, [
       h('div', { class: 'gantt-chart', style: `--timeline-width:${timelineWidth}px` }, [
         h('div', { class: 'gantt-axis-row' }, [
           h('div', { class: 'gantt-label gantt-axis-label', text: titleField?.label || '记录' }),
@@ -98,32 +101,40 @@ export function ganttScale(start, end) {
 }
 
 function renderTypedHeader(entity, view, invalid, invalidLabel, meta = '') {
-  return h('div', {}, [
+  return [
     renderViewBar(entity, view),
-    h('div', { class: 'typed-view-toolbar' }, [
-      h('div', { class: 'row' }, [
-        h('button', { class: 'icon-label-button', onclick: () => openRecordModal(entity) }, buttonLabel('add', '添加记录')),
-        h('button', { class: `secondary icon-label-button${(view.filters || []).length ? ' active' : ''}`, onclick: () => openFilterModal(entity) }, buttonLabel('filter', '筛选')),
-        h('button', { class: `secondary icon-label-button${(view.sorts || []).length ? ' active' : ''}`, onclick: () => openSortModal(entity) }, buttonLabel('sort', '排序')),
-        h('button', { class: 'secondary icon-label-button', onclick: () => openListConfigModal(entity) }, buttonLabel('fields', '字段设置'))
+    h('div', { class: 'table-command-row' }, [
+      h('div', { class: 'row action-row table-action-groups' }, [
+        h('div', { class: 'toolbar-action-group data-entry-group' }, [
+          h('button', { class: 'table-add-button icon-label-button', onclick: () => openRecordModal(entity) }, buttonLabel('add', '添加记录'))
+        ]),
+        h('div', { class: 'toolbar-action-group view-rule-group' }, [
+          h('button', { class: `secondary icon-label-button${(view.filters || []).length ? ' active' : ''}`, onclick: () => openFilterModal(entity) }, buttonLabel('filter', '筛选')),
+          h('button', { class: `secondary icon-label-button${(view.sorts || []).length ? ' active' : ''}`, onclick: () => openSortModal(entity) }, buttonLabel('sort', '排序'))
+        ]),
+        h('div', { class: 'toolbar-action-group structure-config-group' }, [
+          h('button', { class: 'secondary icon-label-button', onclick: () => openListConfigModal(entity) }, buttonLabel('fields', '字段设置'))
+        ])
       ]),
-      h('div', { class: 'row typed-view-meta' }, [
+      (meta || invalid.length) ? h('div', { class: 'typed-view-meta row' }, [
         meta ? h('span', { class: 'muted', text: meta }) : null,
         invalid.length ? h('button', { class: 'ghost invalid-record-button', text: `${invalidLabel} ${invalid.length} 条`, onclick: () => { invalidMode.add(view.id); renderRuntime(); } }) : null
-      ])
+      ]) : null
     ])
-  ]);
+  ];
 }
 
 function renderInvalidRecords(entity, view, records, title) {
   const visibleFields = visibleViewFields(entity, view);
-  return h('div', { class: 'panel typed-view-panel invalid-records-view' }, [
+  return h('div', { class: `${TYPED_PANEL_CLASS} invalid-records-view` }, [
     renderViewBar(entity, view),
-    h('div', { class: 'typed-view-toolbar' }, [
+    h('div', { class: 'table-command-row' }, [
       h('div', {}, [h('strong', { text: title }), h('span', { class: 'muted', text: ` · ${records.length} 条` })]),
       h('button', { class: 'secondary', text: '返回视图', onclick: () => { invalidMode.delete(view.id); renderRuntime(); } })
     ]),
-    renderCompactTable(entity, records, visibleFields, view)
+    h('div', { class: 'typed-view-body' }, [
+      renderCompactTable(entity, records, visibleFields, view)
+    ])
   ]);
 }
 
