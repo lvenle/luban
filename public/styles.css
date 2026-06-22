@@ -3349,7 +3349,48 @@ button.assistant-send {
   height: 22px;
   min-width: 8px;
   border-radius: 4px;
+  background: #bfd4fa;
+  overflow: hidden;
+}
+
+.gantt-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 4px 0 0 4px;
   background: #2f6fed;
+  min-width: 2px;
+}
+
+.gantt-bar-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  height: 100%;
+  min-width: 0;
+  padding: 0 6px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  text-shadow: 0 1px 1px rgba(15, 23, 42, 0.18);
+}
+
+.gantt-bar-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gantt-bar-progress {
+  flex-shrink: 0;
+  font-size: 10px;
+  opacity: 0.95;
 }
 
 .typed-empty {

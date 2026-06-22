@@ -59,8 +59,11 @@ test('typed view UI persists package views and exposes both renderers', () => {
   assert.match(dataTableSource, /renderTypedTableView/);
   assert.match(typedViewsSource, /export function renderQuadrantView/);
   assert.match(typedViewsSource, /export function renderGanttView/);
+  assert.match(typedViewsSource, /export function ganttProgressPercent/);
   assert.match(typedViewsSource, /days <= 45/);
   assert.match(typedViewsSource, /days <= 270/);
+  assert.match(cssSource, /\.gantt-bar-title/);
+  assert.match(cssSource, /\.gantt-bar-fill/);
   assert.match(cssSource, /\.quadrant-grid/);
   assert.match(cssSource, /\.gantt-scroll/);
   assert.match(cssSource, /@media \(max-width: 760px\)[\s\S]*\.quadrant-grid[\s\S]*grid-template-columns: 1fr/);

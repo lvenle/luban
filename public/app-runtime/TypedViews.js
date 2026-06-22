@@ -52,6 +52,7 @@ export function renderGanttView(page, entity, records, view) {
   const titleField = entity.fields.find((field) => field.id === config.titleField) || entity.fields[0];
   const startField = entity.fields.find((field) => field.id === config.startField);
   const endField = entity.fields.find((field) => field.id === config.endField);
+  const progressField = resolveGanttProgressField(entity, config);
   const valid = [];
   const invalid = [];
   for (const record of records) {
@@ -83,7 +84,7 @@ export function renderGanttView(page, entity, records, view) {
           return h('button', { class: 'gantt-row', onclick: () => openRecordModal(entity, record) }, [
             h('span', { class: 'gantt-label', text: formatFieldValue(record.data[titleField?.id], titleField || {}) || '未命名记录' }),
             h('span', { class: 'gantt-track', style: `width:${timelineWidth}px` }, [
-              h('span', { class: 'gantt-bar', style: `left:${left}%; width:${width}%`, title: `${formatDate(start)} 至 ${formatDate(end)}` })
+              renderGanttBar(record, titleField, progressField, start, end, left, width, timelineWidth)
             ])
           ]);
         }),
@@ -98,6 +99,66 @@ export function ganttScale(start, end) {
   if (days <= 45) return { type: 'day', label: '日', width: 34 };
   if (days <= 270) return { type: 'week', label: '周', width: 76 };
   return { type: 'month', label: '月', width: 94 };
+}
+
+export function resolveGanttProgressField(entity, config = {}) {
+  if (config.progressField) {
+    const field = entity.fields.find((item) => item.id === config.progressField);
+    if (field) return field;
+  }
+  return entity.fields.find((field) => {
+    const type = field.type === 'formula' ? field.formula?.resultType : field.type;
+    if (type !== 'number') return false;
+    return field.format === 'percent' || /进度/.test(field.label || '') || /progress/i.test(field.id || '');
+  }) || null;
+}
+
+export function ganttProgressPercent(record, progressField, start, end) {
+  if (progressField) {
+    const normalized = normalizeProgressPercent(record.data[progressField.id], progressField);
+    if (normalized !== null) return normalized;
+  }
+  return timeProgressPercent(start, end);
+}
+
+function renderGanttBar(record, titleField, progressField, start, end, left, width, timelineWidth) {
+  const title = formatFieldValue(record.data[titleField?.id], titleField || {}) || '未命名记录';
+  const progress = ganttProgressPercent(record, progressField, start, end);
+  const progressLabel = `${progress}%`;
+  const dateRange = `${formatDate(start)} 至 ${formatDate(end)}`;
+  const barPixelWidth = Math.max(8, (width / 100) * timelineWidth);
+  const showContent = barPixelWidth >= 56;
+  return h('span', {
+    class: 'gantt-bar',
+    style: `left:${left}%; width:${width}%`,
+    title: `${title} · ${progressLabel} · ${dateRange}`
+  }, [
+    h('span', { class: 'gantt-bar-fill', style: `width:${progress}%` }),
+    showContent ? h('span', { class: 'gantt-bar-content' }, [
+      h('span', { class: 'gantt-bar-title', text: title }),
+      h('span', { class: 'gantt-bar-progress', text: progressLabel })
+    ]) : null
+  ]);
+}
+
+function normalizeProgressPercent(value, field) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  if (field?.format === 'percent') return clampPercent(Math.round(number * 100));
+  if (number > 1) return clampPercent(Math.round(number));
+  return clampPercent(Math.round(number * 100));
+}
+
+function timeProgressPercent(start, end) {
+  const now = dayStart(Date.now());
+  if (now < start) return 0;
+  if (now > end) return 100;
+  const total = Math.max(DAY, end - start + DAY);
+  return clampPercent(Math.round(((now - start + DAY) / total) * 100));
+}
+
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, value));
 }
 
 function renderTypedHeader(entity, view, invalid, invalidLabel, meta = '') {
