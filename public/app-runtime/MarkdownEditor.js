@@ -52,10 +52,26 @@ export function openMarkdownRecordEditor(entity, record, field) {
   const textarea = h('textarea', { class: 'markdown-editor-input', value: stripLegacyMarkdownStyles(record.data[field.id]), placeholder: field.placeholder || '输入 Markdown 内容' });
   const preview = h('article', { class: 'markdown-preview' });
   const refreshPreview = () => { preview.innerHTML = renderMarkdown(textarea.value); };
+  const undoStack = [];
+  let previousValue = textarea.value;
+  let undoButton = null;
+  const syncUndoButton = () => { if (undoButton) undoButton.disabled = undoStack.length === 0; };
+  const rememberUndo = (value) => {
+    if (undoStack.at(-1) === value) return;
+    undoStack.push(value);
+    if (undoStack.length > 100) undoStack.shift();
+    syncUndoButton();
+  };
   refreshPreview();
-  textarea.addEventListener('input', refreshPreview);
+  textarea.addEventListener('input', () => {
+    if (textarea.value !== previousValue) rememberUndo(previousValue);
+    previousValue = textarea.value;
+    refreshPreview();
+  });
   const applyResult = (result) => {
+    if (result.value !== textarea.value) rememberUndo(textarea.value);
     textarea.value = result.value;
+    previousValue = result.value;
     textarea.focus();
     textarea.setSelectionRange(result.selectionStart, result.selectionEnd);
     refreshPreview();
@@ -70,7 +86,24 @@ export function openMarkdownRecordEditor(entity, record, field) {
     applyResult(applyMarkdownHeading(textarea.value, textarea.selectionStart, textarea.selectionEnd, Number(heading.value)));
     heading.value = '0';
   });
+  undoButton = h('button', {
+    type: 'button',
+    class: 'secondary markdown-tool-button',
+    text: '↶',
+    title: '撤销',
+    disabled: 'disabled',
+    onclick: () => {
+      if (!undoStack.length) return;
+      textarea.value = undoStack.pop();
+      previousValue = textarea.value;
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      refreshPreview();
+      syncUndoButton();
+    }
+  });
   const tools = h('div', { class: 'markdown-toolbar' }, [
+    undoButton,
     heading,
     h('button', { type: 'button', class: 'secondary markdown-tool-button', text: 'B', title: '加粗', onclick: () => wrapSelection('**', '**', '加粗文本') }),
     h('button', { type: 'button', class: 'secondary markdown-tool-button italic', text: 'I', title: '斜体', onclick: () => wrapSelection('*', '*', '斜体文本') }),

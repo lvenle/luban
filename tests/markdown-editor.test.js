@@ -52,6 +52,9 @@ test('long text cells use click preview and double-click markdown editor', () =>
   assert.doesNotMatch(editor, /font-family/);
   assert.doesNotMatch(editor, /font-size/);
   assert.match(editor, /title: '删除线'/);
+  assert.match(editor, /const undoStack = \[\][\s\S]*title: '撤销'[\s\S]*textarea\.value = undoStack\.pop\(\)/);
+  assert.match(editor, /undoStack\.length > 100[\s\S]*undoStack\.shift\(\)/);
+  assert.match(editor, /textarea\.addEventListener\('input'[\s\S]*rememberUndo\(previousValue\)/);
   assert.doesNotMatch(editor, /title: '行内代码'/);
   assert.doesNotMatch(editor, /title: '代码块'/);
   assert.doesNotMatch(editor, /title: '引用'/);
