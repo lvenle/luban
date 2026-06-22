@@ -88,7 +88,19 @@ export async function handleRuntimeApi(req, res, method, url) {
     return;
   }
 
-  if (method === 'GET' && parts[3] === 'records') {
+  if (parts[3] === 'records' && parts[4] && parts[5] === 'relations' && parts[6]) {
+    if (method === 'GET') {
+      sendJson(res, 200, { relations: getRecordRelations(parts[4], parts[6]) });
+      return;
+    }
+    if (method === 'PUT') {
+      const body = await readJson(req);
+      sendJson(res, 200, { relations: updateRecordRelations(parts[4], parts[6], body.targetRecordIds || []) });
+      return;
+    }
+  }
+
+  if (method === 'GET' && parts[3] === 'records' && parts.length === 4) {
     const entityId = url.searchParams.get('entity');
     const records = listRecords(appId, { entityId: entityId || undefined, q: url.searchParams.get('q') });
     sendJson(res, 200, { records });
@@ -104,28 +116,16 @@ export async function handleRuntimeApi(req, res, method, url) {
     return;
   }
 
-  if (method === 'PUT' && parts[3] === 'records' && parts[4]) {
+  if (method === 'PUT' && parts[3] === 'records' && parts[4] && parts.length === 5) {
     const body = await readJson(req);
     sendJson(res, 200, { record: updateRecord(parts[4], body.data || {}) });
     return;
   }
 
-  if (method === 'DELETE' && parts[3] === 'records' && parts[4]) {
+  if (method === 'DELETE' && parts[3] === 'records' && parts[4] && parts.length === 5) {
     deleteRecord(parts[4], { force: url.searchParams.get('force') === 'true' });
     sendJson(res, 200, { ok: true });
     return;
-  }
-
-  if (parts[3] === 'records' && parts[4] && parts[5] === 'relations' && parts[6]) {
-    if (method === 'GET') {
-      sendJson(res, 200, { relations: getRecordRelations(parts[4], parts[6]) });
-      return;
-    }
-    if (method === 'PUT') {
-      const body = await readJson(req);
-      sendJson(res, 200, { relations: updateRecordRelations(parts[4], parts[6], body.targetRecordIds || []) });
-      return;
-    }
   }
 
   if (method === 'GET' && parts[3] === 'export.csv') {

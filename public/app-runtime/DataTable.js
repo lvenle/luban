@@ -7,7 +7,8 @@ import { state, writeRoute, storageKey, entityFor, recordsFor, viewOrderedFields
 import { renderRuntime, loadCurrentPageRecords } from './index.js';
 import { getViews, getCurrentView, normalizeView, makeViewId, renderViewBar, renderViewMenu, openViewMenu, startViewNameEdit, createView, cloneView, renameView, deleteView, openFilterModal, openSortModal, openGroupModal, updateCurrentView, setListConfig, getListConfig } from './ViewBar.js';
 import {
-  renderResizableHeader, renderTableColgroup, columnWidthStyle, actionColumnWidth, actionColumnStyle
+  renderResizableHeader, renderTableColgroup, columnWidthStyle, actionColumnWidth, actionColumnStyle,
+  frozenFieldClass, frozenFieldStyle, frozenUtilityClass, frozenUtilityStyle, hasFrozenColumns
 } from './TableHeader.js';
 import { renderRecordRow, renderSummaryRow, summaryCellClass, renderNumericSummary, openListConfigModal, openFormLayoutModal } from './TableRow.js';
 import { searchInputForField, renderFieldValue, formatFieldValue } from './CellEditor.js';
@@ -24,10 +25,14 @@ export function renderExportMenu(entity, exportSelectedLink) {
   ]));
 }
 
-export function renderQuickAddRow(entity, visibleFields) {
+export function renderQuickAddRow(entity, visibleFields, listConfig = {}) {
+  const frozen = hasFrozenColumns(listConfig, visibleFields);
   return h('tr', { class: 'quick-add-row' }, [
     h('td', { colspan: visibleFields.length + 3 }, [
-      h('button', { class: 'ghost quick-add-row-button icon-label-button', onclick: () => quickAddRecord(entity) }, buttonLabel('add', '快速新增行'))
+      h('button', {
+        class: `ghost quick-add-row-button icon-label-button${frozen ? ' frozen-quick-add-button' : ''}`,
+        onclick: () => quickAddRecord(entity)
+      }, buttonLabel('add', '快速新增行'))
     ])
   ]);
 }
@@ -166,7 +171,7 @@ export function renderListPage(page) {
     const sortedItems = sortRecords(filteredItems, listConfig);
     if (sortedItems.length === 0) {
       tableBody.append(h('tr', {}, [h('td', { colspan: visibleFields.length + 3, class: 'muted', text: '暂无记录' })]));
-      tableBody.append(renderQuickAddRow(entity, visibleFields));
+      tableBody.append(renderQuickAddRow(entity, visibleFields, listConfig));
       updateSelectionState();
       return;
     }
@@ -188,7 +193,11 @@ export function renderListPage(page) {
               }
             })
           ]),
-          ...visibleFields.map((field) => h('td', { class: summaryCellClass(field) }, [renderNumericSummary(group.records, field, '小计')])),
+          ...visibleFields.map((field, index) => h('td', {
+            class: `${summaryCellClass(field)} ${frozenFieldClass(listConfig, visibleFields, index)}`.trim(),
+            style: `${columnWidthStyle(listConfig, field)};${frozenFieldStyle(listConfig, visibleFields, index)}`,
+            'data-field-id': field.id
+          }, [renderNumericSummary(group.records, field, '小计')])),
           h('td', { class: 'sticky-action-cell action-cell summary-action-cell', style: actionColumnStyle(listConfig) })
         ]));
         if (!collapsed) {
@@ -200,7 +209,7 @@ export function renderListPage(page) {
         }
       }
       tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计'));
-      tableBody.append(renderQuickAddRow(entity, visibleFields));
+      tableBody.append(renderQuickAddRow(entity, visibleFields, listConfig));
       updateSelectionState();
       return;
     }
@@ -209,7 +218,7 @@ export function renderListPage(page) {
       tableBody.append(renderRecordRow(entity, visibleFields, record, listConfig, index + 1, selectedIds, syncSelection, updateSelectionState, index));
     }
     tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计'));
-    tableBody.append(renderQuickAddRow(entity, visibleFields));
+    tableBody.append(renderQuickAddRow(entity, visibleFields, listConfig));
     updateSelectionState();
   };
   const applySearch = () => {
@@ -245,16 +254,19 @@ export function renderListPage(page) {
       updateSelectionState();
     }
   });
-  const table = h('table', { style: tableWidthStyle(visibleFields, listConfig) }, [
+  const table = h('table', {
+    class: hasFrozenColumns(listConfig, visibleFields) ? 'has-frozen-columns' : '',
+    style: tableWidthStyle(visibleFields, listConfig)
+  }, [
     renderTableColgroup(visibleFields, listConfig),
     h('thead', {}, [
       h('tr', {}, [
-        h('th', { class: 'select-cell' }, [
+        h('th', { class: `select-cell ${frozenUtilityClass(listConfig, visibleFields)}`.trim(), style: frozenUtilityStyle(listConfig, visibleFields, 0) }, [
           selectAllInput
         ]),
-        h('th', { class: 'index-cell', text: '序号' }),
+        h('th', { class: `index-cell ${frozenUtilityClass(listConfig, visibleFields)}`.trim(), style: frozenUtilityStyle(listConfig, visibleFields, 42), text: '序号' }),
         ...visibleFields.map((field, index) =>
-          renderResizableHeader(entity, field, visibleFields[index + 1], listConfig)
+          renderResizableHeader(entity, field, visibleFields[index + 1], listConfig, visibleFields, index)
         ),
         h('th', { class: 'sticky-action-cell action-cell', style: actionColumnStyle(listConfig), text: '操作' })
       ])

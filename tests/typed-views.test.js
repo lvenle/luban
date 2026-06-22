@@ -65,6 +65,10 @@ test('typed view UI persists package views and exposes both renderers', () => {
   assert.match(cssSource, /\.gantt-bar-title/);
   assert.match(cssSource, /\.gantt-bar-fill/);
   assert.match(cssSource, /\.quadrant-grid/);
+  assert.match(cssSource, /\.quadrant-cell:nth-child\(1\) \{ grid-column: 2; grid-row: 1; \}/);
+  assert.match(cssSource, /\.quadrant-cell:nth-child\(2\) \{ grid-column: 1; grid-row: 1; \}/);
+  assert.match(cssSource, /\.quadrant-cell:nth-child\(3\) \{ grid-column: 1; grid-row: 2; \}/);
+  assert.match(cssSource, /\.quadrant-cell:nth-child\(4\) \{ grid-column: 2; grid-row: 2; \}/);
   assert.match(cssSource, /\.gantt-scroll/);
   assert.match(cssSource, /@media \(max-width: 760px\)[\s\S]*\.quadrant-grid[\s\S]*grid-template-columns: 1fr/);
 });
@@ -76,7 +80,7 @@ test('formula fields have configuration controls and remain read only', () => {
   assert.match(fieldEditorSource, /export async function updateField[\s\S]*?await loadCurrentPageRecords\(\);[\s\S]*?renderRuntime\(\);/);
   assert.match(fieldEditorSource, /export async function createField[\s\S]*?await loadCurrentPageRecords\(\);[\s\S]*?renderRuntime\(\);/);
   assert.match(source('../public/app-runtime/CellEditor.js'), /公式字段由系统实时计算，不能直接编辑/);
-  assert.match(source('../public/app-runtime/RecordModal.js'), /公式字段由系统实时计算/);
+  assert.match(source('../public/app-runtime/CellEditor.js'), /公式字段由系统实时计算/);
 });
 
 function viewPackage(views) {

@@ -196,6 +196,48 @@ test('HTTP API supports V2 tables, relation fields, colored options, and confirm
   });
 });
 
+test('bidirectional relation fields stay synchronized from either table', async () => {
+  await withServer(async (base) => {
+    const created = await post(`${base}/api/apps/generate`, { prompt: '帮我创建一个商品管理系统' });
+    const appId = created.appId;
+    const productEntity = created.app.schema.entities[0];
+    const productDisplayField = productEntity.fields.find((field) => field.type !== 'relation');
+    const categoryTable = await post(`${base}/api/apps/${appId}/tables`, { name: '分类表' });
+    const categoryEntity = categoryTable.app.schema.entities.find((entity) => entity.name === '分类表');
+
+    const productRelationResult = await post(`${base}/api/apps/${appId}/tables/${productEntity.id}/fields`, {
+      id: 'category_link', label: '所属分类', type: 'relation', targetEntity: categoryEntity.id,
+      displayField: 'name', multiple: false, reciprocalFieldId: 'products_link'
+    });
+    await post(`${base}/api/apps/${appId}/tables/${categoryEntity.id}/fields`, {
+      id: 'products_link', label: '分类商品', type: 'relation', targetEntity: productEntity.id,
+      displayField: productDisplayField.id, multiple: true, reciprocalFieldId: 'category_link'
+    });
+    const productRelation = productRelationResult.app.schema.entities
+      .find((entity) => entity.id === productEntity.id).fields.find((field) => field.id === 'category_link');
+
+    const category = await post(`${base}/api/apps/${appId}/records`, {
+      entityId: categoryEntity.id, data: { name: '手机' }
+    });
+    const product = await post(`${base}/api/apps/${appId}/records`, {
+      entityId: productEntity.id, data: { [productDisplayField.id]: 'iPhone', [productRelation.id]: [category.record.id] }
+    });
+
+    let categories = await getJson(`${base}/api/apps/${appId}/records?entity=${categoryEntity.id}`);
+    assert.equal(categories.records[0].data.products_link[0].targetRecordId, product.record.id);
+    assert.equal(categories.records[0].data.products_link[0].displayValue, 'iPhone');
+
+    const reverseRelations = await getJson(`${base}/api/apps/${appId}/records/${category.record.id}/relations/products_link`);
+    assert.equal(reverseRelations.relations[0].targetRecordId, product.record.id);
+
+    await put(`${base}/api/apps/${appId}/records/${category.record.id}/relations/products_link`, { targetRecordIds: [] });
+    const products = await getJson(`${base}/api/apps/${appId}/records?entity=${productEntity.id}`);
+    assert.deepEqual(products.records.find((record) => record.id === product.record.id).data.category_link, []);
+    categories = await getJson(`${base}/api/apps/${appId}/records?entity=${categoryEntity.id}`);
+    assert.deepEqual(categories.records[0].data.products_link, []);
+  });
+});
+
 test('AI agent clarifies vague requests before planning or execution', async () => {
   await withServer(async (base) => {
     const before = await getJson(`${base}/api/apps`);

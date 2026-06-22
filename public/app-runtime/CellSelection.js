@@ -541,6 +541,7 @@ export function drawRoundedRect(context, x, y, width, height, radius) {
 
 export function clearActiveTableSelection() {
   document.querySelectorAll('th.selected-column-header').forEach((item) => item.classList.remove('selected-column-header'));
+  document.querySelectorAll('.selected-column-cell').forEach((item) => item.classList.remove('selected-column-cell'));
   document.querySelectorAll('.editable-cell.selected-cell').forEach(clearCellSelectionClasses);
   state.cellSelection = null;
   hideCellCopyToolbar();
@@ -554,6 +555,16 @@ export function clickedOutsideTableSelection(target) {
 export function selectColumnHeader(header) {
   clearActiveTableSelection();
   header.classList.add('selected-column-header');
+  const table = header.closest('table');
+  const fieldId = header.dataset.fieldId;
+  if (!table || !fieldId) return;
+  const cells = [...table.querySelectorAll(`.editable-cell[data-field-id="${fieldId}"][data-row-index][data-col-index]`)];
+  if (!cells.length) return;
+  cells.forEach((cell) => cell.classList.add('selected-column-cell'));
+  const first = cellPosition(cells[0]);
+  const last = cellPosition(cells[cells.length - 1]);
+  state.cellSelection = { active: false, table, start: first, end: last };
+  updateCellRangeSelection();
 }
 
 export async function insertRowAround(entity, referenceRecord, position) {

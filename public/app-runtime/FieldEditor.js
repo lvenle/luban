@@ -113,9 +113,9 @@ export function openFieldEditModal(entity, field = null, options = {}) {
     }
     if (type === 'date' || type === 'datetime') {
       const format = selectFromOptions(type === 'date'
-        ? [['yyyy-mm-dd', '2026-06-12'], ['yyyy/mm/dd', '2026/06/12'], ['mm-dd', '06-12']]
-        : [['yyyy-mm-dd hh:mm', '2026-06-12 09:00'], ['yyyy/mm/dd hh:mm', '2026/06/12 09:00']],
-      draft.format || (type === 'date' ? 'yyyy-mm-dd' : 'yyyy-mm-dd hh:mm'));
+        ? [['yyyy-mm-dd', '2026-06-12']]
+        : [['yyyy-mm-dd hh:mm', '2026-06-12 09:00']],
+      type === 'date' ? 'yyyy-mm-dd' : 'yyyy-mm-dd hh:mm');
       format.dataset.fieldEditor = 'format';
       advanced.append(h('div', { class: 'field-setting-list' }, [
         h('label', { class: 'field-setting-row' }, [h('span', { text: '日期格式' }), format])

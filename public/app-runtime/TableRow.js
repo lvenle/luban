@@ -2,17 +2,18 @@ import { h } from '../common/dom.js';
 import { toast } from '../common/toast.js';
 import { state, viewOrderedFields, orderedFields, getFormLayout, setFormLayout, getFormDesign, setFormDesign } from '../app.js';
 import { renderRuntime } from './index.js';
-import { columnWidthStyle, actionColumnStyle } from './TableHeader.js';
+import { columnWidthStyle, actionColumnStyle, frozenFieldClass, frozenFieldStyle, frozenUtilityClass, frozenUtilityStyle } from './TableHeader.js';
 import { startCellRangeSelection, extendCellRangeSelection, finishCellRangeSelection } from './CellSelection.js';
 import { startCellEdit, renderFieldValue, formatFieldValue, inputForField, sampleFieldValue, disablePreviewInput, renderFormFieldBlock } from './CellEditor.js';
 import { openCellContextMenu } from './TableHeader.js';
 import { openRecordModal, removeRecord } from './RecordModal.js';
 import { getListConfig, setListConfig } from './ViewBar.js';
 import { effectiveFieldType } from './FieldEditor.js';
+import { scheduleMarkdownPreview, cancelMarkdownPreview, openMarkdownRecordEditor } from './MarkdownEditor.js';
 
 export function renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, selectedIds = new Set(), syncSelection = () => {}, updateSelectionLabel = () => {}, rowIndex = rowNumber - 1) {
   return h('tr', { class: 'editable-row', title: '双击单元格编辑' }, [
-    h('td', { class: 'select-cell' }, [
+    h('td', { class: `select-cell ${frozenUtilityClass(listConfig, visibleFields)}`.trim(), style: frozenUtilityStyle(listConfig, visibleFields, 0) }, [
       h('input', {
         type: 'checkbox',
         'data-record-id': record.id,
@@ -24,11 +25,11 @@ export function renderRecordRow(entity, visibleFields, record, listConfig, rowNu
         }
       })
     ]),
-    h('td', { class: 'index-cell', text: rowNumber }),
+    h('td', { class: `index-cell ${frozenUtilityClass(listConfig, visibleFields)}`.trim(), style: frozenUtilityStyle(listConfig, visibleFields, 42), text: rowNumber }),
     ...visibleFields.map((field, colIndex) => {
       const cell = h('td', {
-        class: `editable-cell ${field.type === 'formula' ? 'formula-readonly-cell' : ''}`,
-        style: columnWidthStyle(listConfig, field),
+        class: `editable-cell ${field.type === 'formula' ? 'formula-readonly-cell' : ''} ${frozenFieldClass(listConfig, visibleFields, colIndex)}`.trim(),
+        style: `${columnWidthStyle(listConfig, field)};${frozenFieldStyle(listConfig, visibleFields, colIndex)}`,
         'data-row-index': rowIndex,
         'data-col-index': colIndex,
         'data-record-id': record.id,
@@ -38,7 +39,15 @@ export function renderRecordRow(entity, visibleFields, record, listConfig, rowNu
         onpointerdown: (event) => startCellRangeSelection(event, event.currentTarget),
         onpointerenter: (event) => extendCellRangeSelection(event.currentTarget),
         onpointerup: finishCellRangeSelection,
-        ondblclick: (event) => startCellEdit(event.currentTarget, entity, record, field),
+        onclick: ['textarea', 'richText'].includes(field.type)
+          ? (event) => scheduleMarkdownPreview(event.currentTarget, entity, record, field)
+          : null,
+        ondblclick: (event) => {
+          if (['textarea', 'richText'].includes(field.type)) {
+            cancelMarkdownPreview(event.currentTarget);
+            openMarkdownRecordEditor(entity, record, field);
+          } else startCellEdit(event.currentTarget, entity, record, field);
+        },
         oncontextmenu: (event) => openCellContextMenu(event, entity, record)
       });
       const formulaError = record.formulaErrors?.[field.id];
@@ -59,9 +68,13 @@ export function renderRecordRow(entity, visibleFields, record, listConfig, rowNu
 
 export function renderSummaryRow(records, visibleFields, listConfig, label = '合计') {
   return h('tr', { class: 'summary-row' }, [
-    h('td', { class: 'select-cell summary-label-cell' }),
-    h('td', { class: 'index-cell summary-label-cell', text: label }),
-    ...visibleFields.map((field) => h('td', { class: summaryCellClass(field), style: columnWidthStyle(listConfig, field) }, [renderNumericSummary(records, field, label)])),
+    h('td', { class: `select-cell summary-label-cell ${frozenUtilityClass(listConfig, visibleFields)}`.trim(), style: frozenUtilityStyle(listConfig, visibleFields, 0) }),
+    h('td', { class: `index-cell summary-label-cell ${frozenUtilityClass(listConfig, visibleFields)}`.trim(), style: frozenUtilityStyle(listConfig, visibleFields, 42), text: label }),
+    ...visibleFields.map((field, index) => h('td', {
+      class: `${summaryCellClass(field)} ${frozenFieldClass(listConfig, visibleFields, index)}`.trim(),
+      style: `${columnWidthStyle(listConfig, field)};${frozenFieldStyle(listConfig, visibleFields, index)}`,
+      'data-field-id': field.id
+    }, [renderNumericSummary(records, field, label)])),
     h('td', { class: 'sticky-action-cell action-cell summary-action-cell', style: actionColumnStyle(listConfig) })
   ]);
 }

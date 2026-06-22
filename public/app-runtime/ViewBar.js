@@ -7,6 +7,7 @@ import { state, writeRoute, formatFieldValue, dateKey, storageKey } from '../app
 import { renderRuntime, saveCurrentPackage } from './index.js';
 import { optionObject, effectiveFieldType } from './FieldEditor.js';
 import { dateInputValue } from './DateFormat.js';
+import { reorderItemsById } from './Ordering.js';
 
 function defaultView(entity) {
   const legacy = readStorage(storageKey('list', entity.id), null);
@@ -18,6 +19,7 @@ function defaultView(entity) {
     fieldOrder: legacy?.fieldOrder,
     searchFields: legacy?.searchFields,
     columnWidths: legacy?.columnWidths,
+    frozenFieldId: legacy?.frozenFieldId,
     sorts: legacy?.sort?.field ? [{ field: legacy.sort.field, direction: legacy.sort.direction || 'asc' }] : [],
     filters: [],
     group: null
@@ -75,6 +77,7 @@ export function normalizeView(entity, view = {}) {
     fieldOrder: entity.fields.map((field) => field.id),
     searchFields: [],
     columnWidths: {},
+    frozenFieldId: '',
     actionWidth: 112,
     allFields: entity.fields.map((field) => field.id),
     filters: [],
@@ -102,6 +105,7 @@ export function normalizeView(entity, view = {}) {
     if (!fieldSet.has(id)) delete next.columnWidths[id];
   }
   next.actionWidth = Math.max(84, Number(next.actionWidth || 112));
+  next.frozenFieldId = fieldSet.has(next.frozenFieldId) ? next.frozenFieldId : '';
   next.filters = (next.filters || []).filter((filter) => fieldSet.has(filter.field));
   next.sorts = (next.sorts || []).filter((sort) => fieldSet.has(sort.field));
   if (next.group && !fieldSet.has(next.group.field)) next.group = null;
@@ -135,11 +139,14 @@ export function setListConfig(entity, config) {
 export function renderViewBar(entity, currentView) {
   const views = getViews(entity);
   return h('div', { class: 'view-bar' }, [
-    h('div', { class: 'view-tabs' }, views.map((view) =>
+    h('div', { class: 'view-tabs' }, views.map((view) => {
+      const tab =
       h('div', {
         class: `view-tab ${view.id === currentView.id ? 'active' : ''}`,
         role: 'button',
         tabindex: '0',
+        draggable: 'true',
+        'data-view-id': view.id,
         ondblclick: (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -161,12 +168,47 @@ export function renderViewBar(entity, currentView) {
       }, [
         h('span', { class: 'view-tab-name', text: view.name }),
         view.id === currentView.id ? renderViewMenu(entity) : null
-      ])
-    )),
+      ]);
+      bindViewTabDrag(tab, entity, view, views);
+      return tab;
+    })),
     h('div', { class: 'row' }, [
       h('button', { class: 'secondary icon-label-button', onclick: () => openCreateViewModal(entity) }, buttonLabel('add', '新建视图'))
     ])
   ]);
+}
+
+export function bindViewTabDrag(tab, entity, view, views) {
+  tab.addEventListener('dragstart', (event) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', view.id);
+    tab.classList.add('view-tab-dragging');
+  });
+  tab.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const rect = tab.getBoundingClientRect();
+    tab.dataset.dropSide = event.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+  });
+  tab.addEventListener('dragleave', () => delete tab.dataset.dropSide);
+  tab.addEventListener('drop', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const sourceViewId = event.dataTransfer.getData('text/plain');
+    const reordered = reorderViews(views, sourceViewId, view.id, tab.dataset.dropSide || 'before');
+    delete tab.dataset.dropSide;
+    if (reordered === views) return;
+    setViews(entity, reordered);
+    renderRuntime();
+  });
+  tab.addEventListener('dragend', () => {
+    tab.classList.remove('view-tab-dragging');
+    document.querySelectorAll('.view-tab').forEach((item) => delete item.dataset.dropSide);
+  });
+}
+
+export function reorderViews(views = [], sourceViewId, targetViewId, side = 'before') {
+  return reorderItemsById(views, sourceViewId, targetViewId, side);
 }
 
 export function renderViewMenu(entity) {

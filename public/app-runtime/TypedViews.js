@@ -6,6 +6,8 @@ import { openListConfigModal } from './TableRow.js';
 import { renderFieldValue } from './CellEditor.js';
 import { optionObject } from './FieldEditor.js';
 import { renderRuntime } from './index.js';
+import { orderSelectedOptions } from './Ordering.js';
+import { scheduleMarkdownPreview, cancelMarkdownPreview, openMarkdownRecordEditor } from './MarkdownEditor.js';
 
 const invalidMode = new Set();
 const TYPED_PANEL_CLASS = 'panel table-panel typed-view-panel';
@@ -19,8 +21,8 @@ export function renderTypedTableView(page, entity, records, view) {
 
 export function renderQuadrantView(page, entity, records, view) {
   const field = entity.fields.find((item) => item.id === view.quadrant?.fieldId);
-  const optionIds = view.quadrant?.optionIds || [];
-  const options = optionIds.map((id) => (field?.options || []).map(optionObject).find((option) => option.id === id)).filter(Boolean);
+  const options = orderSelectedOptions(field?.options || [], view.quadrant?.optionIds || [], optionObject);
+  const optionIds = options.map((option) => option.id);
   const visibleFields = visibleViewFields(entity, view);
   const groups = new Map(optionIds.map((id) => [id, []]));
   const invalid = [];
@@ -204,9 +206,20 @@ function renderCompactTable(entity, records, fields, view) {
     h('table', { class: 'compact-record-table' }, [
       h('thead', {}, [h('tr', {}, fields.map((field) => h('th', { text: field.label })))]),
       h('tbody', {}, records.length ? records.map((record) =>
-        h('tr', { onclick: () => openRecordModal(entity, record), title: '点击编辑记录' }, fields.map((field) => {
+        h('tr', { title: '点击查看，双击编辑长文本' }, fields.map((field) => {
           const error = record.formulaErrors?.[field.id];
-          return h('td', { class: error ? 'formula-error-cell' : '', title: error || '' }, [error ? h('span', { text: '计算错误' }) : renderFieldValue(record.data[field.id], field)]);
+          const markdown = ['textarea', 'richText'].includes(field.type);
+          return h('td', {
+            class: error ? 'formula-error-cell' : '',
+            title: error || '',
+            onclick: markdown
+              ? (event) => scheduleMarkdownPreview(event.currentTarget, entity, record, field)
+              : () => openRecordModal(entity, record),
+            ondblclick: markdown ? (event) => {
+              cancelMarkdownPreview(event.currentTarget);
+              openMarkdownRecordEditor(entity, record, field);
+            } : null
+          }, [error ? h('span', { text: '计算错误' }) : renderFieldValue(record.data[field.id], field)]);
         }))
       ) : [h('tr', {}, [h('td', { colspan: Math.max(1, fields.length), class: 'muted', text: '暂无记录' })])])
     ])
@@ -222,7 +235,7 @@ function dateTimestamp(value) {
   return match ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : NaN;
 }
 function dayStart(value) { const date = new Date(value); return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()); }
-function formatDate(value) { return new Date(value).toISOString().slice(0, 10).replaceAll('-', '/'); }
+function formatDate(value) { return new Date(value).toISOString().slice(0, 10); }
 function ganttTicks(start, end, type) {
   const ticks = [];
   let cursor = start;

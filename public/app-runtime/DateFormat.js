@@ -1,17 +1,10 @@
 export function formatDateFieldValue(value, field = {}) {
   if (value === null || value === undefined || value === '') return '';
-  const normalized = String(value).trim().replace('T', ' ');
+  const normalized = String(value).trim().replaceAll('/', '-').replace('T', ' ');
   const date = normalized.slice(0, 10);
 
-  if (field.type === 'date') {
-    if (field.format === 'mm-dd') return date.slice(5);
-    if (field.format === 'yyyy-mm-dd') return date;
-    return date.replaceAll('-', '/');
-  }
-
-  const dateTime = normalized.slice(0, 16);
-  if (field.format === 'yyyy-mm-dd hh:mm') return dateTime;
-  return dateTime.replaceAll('-', '/');
+  if (field.type === 'date') return date;
+  return normalized.slice(0, 16);
 }
 
 export function dateInputValue(value, fieldType) {
@@ -20,4 +13,18 @@ export function dateInputValue(value, fieldType) {
   if (fieldType === 'date') return normalized.slice(0, 10);
   if (fieldType === 'datetime') return normalized.replace(' ', 'T').slice(0, 16);
   return normalized;
+}
+
+export function bindDateTimePicker(input) {
+  if (!input || !['date', 'datetime-local'].includes(input.type)) return input;
+  input.addEventListener('click', () => showDateTimePicker(input));
+  return input;
+}
+
+export function showDateTimePicker(input) {
+  try {
+    input?.showPicker?.();
+  } catch {
+    // Some browsers only allow showPicker during a direct user gesture.
+  }
 }

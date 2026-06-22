@@ -205,19 +205,92 @@ function setRecordRelationValues(appId, entityId, recordId, relations) {
 
 function setSingleRecordRelation(appId, sourceEntityId, sourceRecordId, field, targetRecordIds) {
   const database = getDb();
+  const app = getApp(appId);
+  const reciprocalField = findReciprocalRelationField(app, sourceEntityId, field);
+  const previousTargetIds = database
+    .prepare('SELECT targetRecordId FROM record_relations WHERE sourceRecordId = ? AND fieldId = ?')
+    .all(sourceRecordId, field.id)
+    .map((row) => row.targetRecordId);
+
+  const targets = targetRecordIds.map((targetRecordId) => {
+    const target = getRecord(targetRecordId);
+    if (!target || target.appId !== appId || target.entityId !== field.targetEntity) {
+      throw validationError(`关联字段 ${field.label || field.id} 选择了无效记录。`);
+    }
+    return target;
+  });
+
   database.prepare('DELETE FROM record_relations WHERE sourceRecordId = ? AND fieldId = ?').run(sourceRecordId, field.id);
+  if (reciprocalField) {
+    const removeReciprocal = database.prepare(`
+      DELETE FROM record_relations
+      WHERE sourceRecordId = ? AND fieldId = ? AND targetRecordId = ?
+    `);
+    for (const previousTargetId of previousTargetIds) {
+      removeReciprocal.run(previousTargetId, reciprocalField.id, sourceRecordId);
+    }
+  }
+
   const insert = database.prepare(`
     INSERT INTO record_relations (
       id, appId, sourceEntityId, sourceRecordId, fieldId, targetEntityId, targetRecordId, sortOrder, createdAt
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  targetRecordIds.forEach((targetRecordId, index) => {
-    const target = getRecord(targetRecordId);
-    if (!target || target.appId !== appId || target.entityId !== field.targetEntity) {
-      throw validationError(`关联字段 ${field.label || field.id} 选择了无效记录。`);
-    }
+  targets.forEach((target, index) => {
+    const targetRecordId = target.id;
     insert.run(createId('rel'), appId, sourceEntityId, sourceRecordId, field.id, field.targetEntity, targetRecordId, index, now());
+    if (reciprocalField) syncReciprocalRelation({
+      database,
+      appId,
+      sourceEntityId,
+      sourceRecordId,
+      field,
+      targetRecordId,
+      reciprocalField
+    });
   });
+}
+
+function findReciprocalRelationField(app, sourceEntityId, field) {
+  const targetEntity = app?.schema?.entities?.find((entity) => entity.id === field.targetEntity);
+  if (!targetEntity) return null;
+  const candidates = (targetEntity.fields || []).filter((candidate) =>
+    candidate.type === 'relation' && candidate.targetEntity === sourceEntityId
+  );
+  const configuredId = field.reciprocalFieldId
+    || field.inverseFieldId
+    || field.config?.reciprocalFieldId
+    || field.config?.inverseFieldId;
+  if (configuredId) return candidates.find((candidate) => candidate.id === configuredId) || null;
+  if (field.bidirectional === false || field.config?.bidirectional === false) return null;
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+function syncReciprocalRelation({ database, appId, sourceEntityId, sourceRecordId, field, targetRecordId, reciprocalField }) {
+  if (!reciprocalField.multiple) {
+    const displaced = database.prepare(`
+      SELECT targetRecordId FROM record_relations
+      WHERE sourceRecordId = ? AND fieldId = ? AND targetRecordId <> ?
+    `).all(targetRecordId, reciprocalField.id, sourceRecordId);
+    database.prepare('DELETE FROM record_relations WHERE sourceRecordId = ? AND fieldId = ?').run(targetRecordId, reciprocalField.id);
+    const removeDisplacedForward = database.prepare(`
+      DELETE FROM record_relations
+      WHERE sourceRecordId = ? AND fieldId = ? AND targetRecordId = ?
+    `);
+    for (const row of displaced) removeDisplacedForward.run(row.targetRecordId, field.id, targetRecordId);
+  }
+  const nextSortOrder = database.prepare(`
+    SELECT COALESCE(MAX(sortOrder), -1) + 1 AS value
+    FROM record_relations WHERE sourceRecordId = ? AND fieldId = ?
+  `).get(targetRecordId, reciprocalField.id).value;
+  database.prepare(`
+    INSERT OR IGNORE INTO record_relations (
+      id, appId, sourceEntityId, sourceRecordId, fieldId, targetEntityId, targetRecordId, sortOrder, createdAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    createId('rel'), appId, field.targetEntity, targetRecordId, reciprocalField.id,
+    sourceEntityId, sourceRecordId, nextSortOrder, now()
+  );
 }
 
 function hydrateRelationValues(appId, records) {
@@ -227,7 +300,6 @@ function hydrateRelationValues(appId, records) {
   const sourceIds = records.map((record) => record.id);
   const fieldsByEntity = new Map((app.schema.entities || []).map((entity) => [entity.id, entity.fields || []]));
   const rows = relationRowsFor(appId, sourceIds);
-  if (!rows.length) return records;
   const targetIds = [...new Set(rows.map((row) => row.targetRecordId))];
   const targetRecords = recordsByIds(targetIds);
   const grouped = new Map();

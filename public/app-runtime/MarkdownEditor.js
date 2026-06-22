@@ -1,0 +1,122 @@
+import { h } from '../common/dom.js';
+import { api } from '../common/api.js';
+import { toast } from '../common/toast.js';
+import { state } from '../app.js';
+import { loadCurrentPageRecords, renderRuntime } from './index.js';
+import { renderMarkdown, stripLegacyMarkdownStyles } from './Markdown.js';
+import { wrapMarkdownSelection, applyMarkdownHeading } from './MarkdownFormatting.js';
+
+export { renderMarkdown } from './Markdown.js';
+
+const previewTimers = new WeakMap();
+
+export function scheduleMarkdownPreview(cell, entity, record, field) {
+  cancelMarkdownPreview(cell);
+  previewTimers.set(cell, setTimeout(() => {
+    previewTimers.delete(cell);
+    openMarkdownPreview(entity, record, field);
+  }, 220));
+}
+
+export function cancelMarkdownPreview(cell) {
+  const timer = previewTimers.get(cell);
+  if (timer) clearTimeout(timer);
+  previewTimers.delete(cell);
+}
+
+export function openMarkdownPreview(entity, record, field) {
+  const preview = h('article', { class: 'markdown-preview' });
+  preview.innerHTML = renderMarkdown(record.data[field.id]);
+  const backdrop = h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal markdown-modal' }, [
+      h('div', { class: 'toolbar' }, [
+        h('h3', { text: `${field.label} · 预览` }),
+        h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
+      ]),
+      preview,
+      h('div', { class: 'modal-footer' }, [
+        h('button', {
+          text: '编辑',
+          onclick: () => {
+            backdrop.remove();
+            openMarkdownRecordEditor(entity, record, field);
+          }
+        })
+      ])
+    ])
+  ]);
+  document.body.append(backdrop);
+}
+
+export function openMarkdownRecordEditor(entity, record, field) {
+  const textarea = h('textarea', { class: 'markdown-editor-input', value: stripLegacyMarkdownStyles(record.data[field.id]), placeholder: field.placeholder || '输入 Markdown 内容' });
+  const preview = h('article', { class: 'markdown-preview' });
+  const refreshPreview = () => { preview.innerHTML = renderMarkdown(textarea.value); };
+  refreshPreview();
+  textarea.addEventListener('input', refreshPreview);
+  const applyResult = (result) => {
+    textarea.value = result.value;
+    textarea.focus();
+    textarea.setSelectionRange(result.selectionStart, result.selectionEnd);
+    refreshPreview();
+  };
+  const wrapSelection = (prefix, suffix = prefix, placeholder = '文本') => applyResult(wrapMarkdownSelection(
+    textarea.value, textarea.selectionStart, textarea.selectionEnd, prefix, suffix, placeholder
+  ));
+  const heading = h('select', { class: 'markdown-tool-select', title: '标题级别' });
+  [['0', '正文'], ['1', '一级标题'], ['2', '二级标题'], ['3', '三级标题'], ['4', '四级标题'], ['5', '五级标题'], ['6', '六级标题']]
+    .forEach(([value, text]) => heading.append(h('option', { value, text })));
+  heading.addEventListener('change', () => {
+    applyResult(applyMarkdownHeading(textarea.value, textarea.selectionStart, textarea.selectionEnd, Number(heading.value)));
+    heading.value = '0';
+  });
+  const tools = h('div', { class: 'markdown-toolbar' }, [
+    heading,
+    h('button', { type: 'button', class: 'secondary markdown-tool-button', text: 'B', title: '加粗', onclick: () => wrapSelection('**', '**', '加粗文本') }),
+    h('button', { type: 'button', class: 'secondary markdown-tool-button italic', text: 'I', title: '斜体', onclick: () => wrapSelection('*', '*', '斜体文本') }),
+    h('button', { type: 'button', class: 'secondary markdown-tool-button strike', text: 'S', title: '删除线', onclick: () => wrapSelection('~~', '~~', '删除线文本') })
+  ]);
+  const backdrop = h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal wide-modal markdown-modal' }, [
+      h('div', { class: 'toolbar' }, [
+        h('h3', { text: `${field.label} · Markdown 编辑器` }),
+        h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
+      ]),
+      h('div', { class: 'markdown-editor-layout' }, [
+        h('section', { class: 'markdown-preview-pane' }, [
+          h('div', { class: 'markdown-pane-header' }, [
+            h('div', { class: 'markdown-pane-title', text: '预览' })
+          ]),
+          preview
+        ]),
+        h('section', { class: 'markdown-editor-pane' }, [
+          h('div', { class: 'markdown-pane-header' }, [
+            h('div', { class: 'markdown-pane-title', text: '编辑' }),
+            tools
+          ]),
+          textarea
+        ])
+      ]),
+      h('div', { class: 'modal-footer' }, [
+        h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
+        h('button', { text: '保存', onclick: async (event) => {
+          const button = event.currentTarget;
+          button.disabled = true;
+          try {
+            await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, {
+              method: 'PUT', body: JSON.stringify({ data: { ...record.data, [field.id]: textarea.value } })
+            });
+            backdrop.remove();
+            await loadCurrentPageRecords();
+            renderRuntime();
+          } catch (error) {
+            button.disabled = false;
+            toast(error.message);
+          }
+        } })
+      ])
+    ])
+  ]);
+  document.body.append(backdrop);
+  textarea.focus();
+}

@@ -249,6 +249,7 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.assistant-topbar-button\.active/);
   assert.match(css, /\.table-action-groups/);
   assert.match(css, /\.toolbar-action-group::after/);
+  assert.match(css, /\.table-panel \.structure-config-group::after \{\n  display: block;/);
   assert.match(css, /\.export-menu summary \{\n  display: inline-flex;/);
   assert.match(assistantCss, /\.assistant-history-select/);
   assert.match(css, /\.drawer-backdrop/);
@@ -269,6 +270,7 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.check-row/);
   assert.match(css, /\.view-bar/);
   assert.match(css, /\.view-tab/);
+  assert.doesNotMatch(css, /\.table-panel \.view-tab\.active::before/);
   assert.match(css, /\.view-menu/);
   assert.match(css, /\.config-row/);
   assert.match(css, /\.group-row/);
@@ -303,4 +305,13 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.ai-plan-card/);
   assert.match(css, /\.create-table-button/);
   assert.match(css, /\.context-menu-sep/);
+  assert.match(css, /\.ghost-menu:hover \{[\s\S]*background: #e2e8f0/);
+  assert.match(css, /tbody tr\.editable-row:hover td:not\(\.selected-cell\):not\(\.cell-editing\):not\(\.formula-error-cell\)[\s\S]*background: #f1f5f9/);
+  assert.match(css, /\.compact-record-table tbody tr:hover td \{\n  background: #f1f5f9;/);
+  assert.match(css, /\.gantt-row:hover \{\n  background: #f1f5f9;/);
+  assert.match(cellEditorJs, /classList\.add\('cell-editing', 'choice-cell-editing'\)/);
+  assert.doesNotMatch(cellEditorJs, /classList\.add\('selected-cell', 'cell-editing'\)/);
+  assert.match(cellEditorJs, /const anchor = editor\.closest\('td'\) \|\| editor;[\s\S]*dropdown\.style\.width/);
+  assert.match(css, /td\.choice-cell-editing \{[\s\S]*position: relative;[\s\S]*box-shadow: none/);
+  assert.match(css, /td\.choice-cell-editing::after[\s\S]*position: absolute;[\s\S]*z-index: 10;[\s\S]*inset: 0;[\s\S]*border: 2px solid #2563eb;[\s\S]*pointer-events: none/);
 });

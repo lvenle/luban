@@ -5,7 +5,9 @@ import { state, recordsFor, dateKey } from '../app.js';
 import { loadCurrentPageRecords, renderRuntime } from './index.js';
 import { optionObject, effectiveFieldType } from './FieldEditor.js';
 import { clearActiveTableSelection } from './CellSelection.js';
-import { dateInputValue, formatDateFieldValue } from './DateFormat.js';
+import { dateInputValue, formatDateFieldValue, bindDateTimePicker, showDateTimePicker } from './DateFormat.js';
+import { normalizeChoiceInitialValue, relationChoicesFromValue, mergeChoiceOptions, relationValueId } from './ChoiceValues.js';
+import { renderMarkdown } from './Markdown.js';
 
 export function startCellEdit(cell, entity, record, field) {
   if (cell.classList.contains('cell-editing')) return;
@@ -27,7 +29,7 @@ export function startCellEdit(cell, entity, record, field) {
       }
     });
     clearActiveTableSelection();
-    cell.classList.add('selected-cell', 'cell-editing');
+    cell.classList.add('cell-editing', 'choice-cell-editing');
     cell.innerHTML = '';
     cell.append(widget);
     widget._choiceCloseCallback = () => renderRuntime();
@@ -40,7 +42,7 @@ export function startCellEdit(cell, entity, record, field) {
   cell.append(input);
   input.focus();
   if (input.select) input.select();
-  if (input.type === 'date' || input.type === 'datetime-local') input.showPicker();
+  if (input.type === 'date' || input.type === 'datetime-local') showDateTimePicker(input);
   let saved = false;
   let composing = false;
   let blurDuringComposition = false;
@@ -95,7 +97,7 @@ export function startCellEdit(cell, entity, record, field) {
 }
 
 export function inputForField(field, value) {
-  if (field.type === 'formula') return h('input', { value: formatFieldValue(value, field), readonly: 'readonly', class: 'formula-readonly-input' });
+  if (field.type === 'formula') return h('input', { value: formatFieldValue(value, field), readonly: 'readonly', class: 'formula-readonly-input', title: '公式字段由系统实时计算' });
   if (field.type === 'textarea' || field.type === 'richText') return h('textarea', { value: value ?? '', placeholder: field.placeholder || '' });
   if (field.type === 'image' || field.type === 'file') {
     const input = h('input', { type: 'file', accept: field.type === 'image' ? 'image/*' : '' });
@@ -116,7 +118,8 @@ export function inputForField(field, value) {
   }
   const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : 'text';
   const inputValue = field.type === 'date' || field.type === 'datetime' ? dateInputValue(value, field.type) : value ?? '';
-  return h('input', { type, value: inputValue, placeholder: field.placeholder || '' });
+  const input = h('input', { type, value: inputValue, placeholder: field.placeholder || '' });
+  return bindDateTimePicker(input);
 }
 
 export function searchInputForField(field) {
@@ -191,13 +194,19 @@ export function renderFieldValue(value, field) {
   }
   if (field.type === 'image') return renderImageValue(value);
   if (field.type === 'file') return renderFileValue(value);
+  if (field.type === 'textarea' || field.type === 'richText') {
+    const content = h('div', { class: 'markdown-cell-content' });
+    content.innerHTML = renderMarkdown(value);
+    content.querySelectorAll('a').forEach((link) => link.addEventListener('click', (event) => event.stopPropagation()));
+    return content;
+  }
   if (isHttpUrl(value)) return h('a', { class: 'cell-link', href: value, target: '_blank', rel: 'noreferrer', text: value, onclick: (event) => event.stopPropagation() });
   return document.createTextNode(formatFieldValue(value, field));
 }
 
 export function createChoiceWidget(field, initialValue, onChange) {
   const multiple = field.type === 'multiSelect' || (field.type === 'relation' && field.multiple);
-  let currentValue = initialValue;
+  let currentValue = normalizeChoiceInitialValue(field, initialValue);
 
   let choices;
   if (field.type === 'relation') {
@@ -209,6 +218,7 @@ export function createChoiceWidget(field, initialValue, onChange) {
         color: 'gray'
       }))
       .filter((c) => c.label && c.label !== c.id);
+    choices = mergeChoiceOptions(choices, relationChoicesFromValue(currentValue));
   } else {
     choices = (field.options || []).map(optionObject);
   }
@@ -216,7 +226,7 @@ export function createChoiceWidget(field, initialValue, onChange) {
   const selectedIds = () => {
     const vals = multiple ? (Array.isArray(currentValue) ? currentValue : []) : [currentValue].filter(Boolean);
     return vals.map((v) => {
-      if (field.type === 'relation') return v.targetRecordId || v.recordId || v;
+      if (field.type === 'relation') return relationValueId(v);
       return optionObject(v).id;
     }).filter(Boolean);
   };
@@ -303,12 +313,12 @@ export function createChoiceWidget(field, initialValue, onChange) {
     }
     dropdown = h('div', { class: 'cell-choice-dropdown' }, [list]);
     document.body.append(dropdown);
-    const rect = editor.getBoundingClientRect();
-    const dw = Math.max(rect.width, 180);
+    const anchor = editor.closest('td') || editor;
+    const rect = anchor.getBoundingClientRect();
+    const dw = Math.min(320, Math.max(rect.width, 180));
     dropdown.style.left = `${Math.min(window.innerWidth - dw - 8, Math.max(8, rect.left))}px`;
     dropdown.style.top = `${rect.bottom + 4}px`;
-    dropdown.style.minWidth = `${dw}px`;
-    dropdown.style.maxWidth = `${Math.min(320, window.innerWidth - 16)}px`;
+    dropdown.style.width = `${Math.min(dw, window.innerWidth - 16)}px`;
     const ctrl = new AbortController();
     outsideController = ctrl;
     setTimeout(() => {
@@ -328,10 +338,23 @@ export function createChoiceWidget(field, initialValue, onChange) {
   };
 
   renderTags();
+  if (field.type === 'relation') loadRelationChoiceOptions(field, (loaded) => {
+    choices = mergeChoiceOptions(loaded, choices);
+    renderTags();
+  });
   editor.addEventListener('click', openDropdown);
   editor._choiceValue = currentValue;
 
   return editor;
+}
+
+export function loadRelationChoiceOptions(field, onLoaded) {
+  const sourceEntity = state.currentApp.schema.entities.find((entity) => entity.fields?.some((item) => item === field))
+    || state.currentApp.schema.entities.find((entity) => entity.fields?.some((item) => item.id === field.id && item.targetEntity === field.targetEntity));
+  if (!sourceEntity) return;
+  api(`/api/apps/${state.currentApp.id}/fields/${sourceEntity.id}/${field.id}/relation-options`)
+    .then((body) => onLoaded((body.options || []).map((option) => ({ id: option.recordId, label: option.displayValue, color: 'gray' }))))
+    .catch(() => {});
 }
 
 export function fieldValuesEqual(currentValue, nextValue) {

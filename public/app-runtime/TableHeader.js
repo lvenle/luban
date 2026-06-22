@@ -5,8 +5,9 @@ import { updateField, duplicateField, deleteField, insertField, openFieldEditMod
 import { removeRecord } from './RecordModal.js';
 import { filterOperators, openFilterModal, setListConfig, getListConfig } from './ViewBar.js';
 import { selectColumnHeader, insertRowAround } from './CellSelection.js';
+import { reorderIds, frozenColumnMeta } from './Ordering.js';
 
-export function renderResizableHeader(entity, field, nextField, listConfig) {
+export function renderResizableHeader(entity, field, nextField, listConfig, visibleFields = [], fieldIndex = 0) {
   const width = Number(listConfig.columnWidths?.[field.id] || 160);
   const sortIndex = (listConfig.sorts || []).findIndex((sort) => sort.field === field.id);
   const sort = sortIndex >= 0 ? listConfig.sorts[sortIndex] : null;
@@ -15,8 +16,10 @@ export function renderResizableHeader(entity, field, nextField, listConfig) {
   const header = h(
     'th',
     {
-      class: 'resizable-column',
-      style: `width:${width}px; min-width:${width}px`,
+      class: `resizable-column column-drag-target ${frozenFieldClass(listConfig, visibleFields, fieldIndex)}`.trim(),
+      style: `${columnWidthStyle(listConfig, field)};${frozenFieldStyle(listConfig, visibleFields, fieldIndex)}`,
+      draggable: 'true',
+      'data-field-id': field.id,
       onclick: (event) => {
         if (event.target?.classList?.contains('resize-edge')) return;
         selectColumnHeader(header);
@@ -34,6 +37,7 @@ export function renderResizableHeader(entity, field, nextField, listConfig) {
     },
     children
   );
+  bindHeaderColumnDrag(header, entity, field, listConfig);
   const handle = header.querySelector('.resize-edge');
   if (!handle) return header;
   handle.addEventListener('click', (event) => event.stopPropagation());
@@ -138,6 +142,7 @@ export function openHeaderContextMenu(event, entity, field, listConfig) {
   const menu = h('div', { class: 'context-menu', style: `left:${event.clientX}px; top:${event.clientY}px` }, [
     h('button', { class: 'ghost-menu', text: '编辑字段', onclick: () => { openFieldEditModal(entity, field); closeContextMenu(); } }),
     h('button', { class: 'ghost-menu', text: '隐藏字段', onclick: () => { hideFieldInView(entity, field.id); closeContextMenu(); } }),
+    h('button', { class: 'ghost-menu', text: listConfig.frozenFieldId === field.id ? '取消冻结' : '冻结到此列', onclick: () => { freezeThroughField(entity, field.id, listConfig); closeContextMenu(); } }),
     h('button', { class: 'ghost-menu', text: '复制字段', onclick: () => { duplicateField(entity, field); closeContextMenu(); } }),
     h('button', { class: 'ghost-menu', text: '升序', onclick: () => { setFieldSort(entity, field.id, 'asc', listConfig); closeContextMenu(); } }),
     h('button', { class: 'ghost-menu', text: '降序', onclick: () => { setFieldSort(entity, field.id, 'desc', listConfig); closeContextMenu(); } }),
@@ -150,6 +155,101 @@ export function openHeaderContextMenu(event, entity, field, listConfig) {
   ]);
   document.body.append(menu);
   setTimeout(() => document.addEventListener('click', closeContextMenu, { once: true }), 0);
+}
+
+export function bindHeaderColumnDrag(header, entity, field, listConfig) {
+  header.addEventListener('dragstart', (event) => {
+    if (event.target?.classList?.contains('resize-edge')) return event.preventDefault();
+    selectColumnHeader(header);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', field.id);
+    const column = columnElements(header.closest('table'), field.id);
+    column.forEach((item) => item.classList.add('column-dragging-cell'));
+    const ghost = createColumnDragGhost(header, column);
+    document.body.append(ghost);
+    event.dataTransfer.setDragImage(ghost, Math.min(event.offsetX || 24, ghost.offsetWidth - 1), 16);
+  });
+  header.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const rect = header.getBoundingClientRect();
+    const side = event.clientX < rect.left + rect.width / 2 ? 'before' : 'after';
+    clearColumnDropIndicators();
+    columnElements(header.closest('table'), field.id).forEach((item) => { item.dataset.columnDropSide = side; });
+    header.dataset.dropSide = side;
+  });
+  header.addEventListener('drop', (event) => {
+    event.preventDefault();
+    const sourceFieldId = event.dataTransfer.getData('text/plain');
+    const side = header.dataset.columnDropSide || header.dataset.dropSide || 'before';
+    if (!sourceFieldId || sourceFieldId === field.id) return;
+    const fieldOrder = reorderFieldOrder(listConfig.fieldOrder, sourceFieldId, field.id, side);
+    setListConfig(entity, { ...listConfig, fieldOrder });
+    clearColumnDragFeedback();
+    renderRuntime();
+  });
+  header.addEventListener('dragend', clearColumnDragFeedback);
+}
+
+export function columnElements(table, fieldId) {
+  return table ? [...table.querySelectorAll(`th[data-field-id="${fieldId}"], td[data-field-id="${fieldId}"]`)] : [];
+}
+
+export function createColumnDragGhost(header, column = []) {
+  const width = Math.round(header.getBoundingClientRect().width) || 160;
+  const ghost = h('div', { class: 'column-drag-ghost', style: `width:${width}px` });
+  for (const item of column.slice(0, 12)) {
+    const clone = item.cloneNode(true);
+    clone.removeAttribute('style');
+    clone.className = 'column-drag-ghost-cell';
+    ghost.append(clone);
+  }
+  if (column.length > 12) ghost.append(h('div', { class: 'column-drag-ghost-more', text: `+${column.length - 12} 行` }));
+  return ghost;
+}
+
+export function clearColumnDropIndicators() {
+  document.querySelectorAll('[data-column-drop-side]').forEach((item) => delete item.dataset.columnDropSide);
+}
+
+export function clearColumnDragFeedback() {
+  document.querySelectorAll('.column-dragging-cell').forEach((item) => item.classList.remove('column-dragging-cell'));
+  document.querySelectorAll('.column-drag-ghost').forEach((item) => item.remove());
+  document.querySelectorAll('.column-drag-target').forEach((item) => delete item.dataset.dropSide);
+  clearColumnDropIndicators();
+}
+
+export function reorderFieldOrder(fieldOrder = [], sourceFieldId, targetFieldId, side = 'before') {
+  return reorderIds(fieldOrder, sourceFieldId, targetFieldId, side);
+}
+
+export function freezeThroughField(entity, fieldId, listConfig) {
+  setListConfig(entity, { ...listConfig, frozenFieldId: listConfig.frozenFieldId === fieldId ? '' : fieldId });
+  renderRuntime();
+}
+
+export function hasFrozenColumns(listConfig, visibleFields = []) {
+  return visibleFields.some((field) => field.id === listConfig.frozenFieldId);
+}
+
+export function frozenUtilityClass(listConfig, visibleFields = [], boundary = false) {
+  if (!hasFrozenColumns(listConfig, visibleFields)) return '';
+  return `frozen-column${boundary ? ' frozen-boundary' : ''}`;
+}
+
+export function frozenUtilityStyle(listConfig, visibleFields = [], left = 0) {
+  return hasFrozenColumns(listConfig, visibleFields) ? `left:${left}px` : '';
+}
+
+export function frozenFieldClass(listConfig, visibleFields = [], fieldIndex = 0) {
+  const meta = frozenColumnMeta(visibleFields, listConfig.columnWidths, listConfig.frozenFieldId, fieldIndex);
+  if (!meta.frozen) return '';
+  return `frozen-column${meta.boundary ? ' frozen-boundary' : ''}`;
+}
+
+export function frozenFieldStyle(listConfig, visibleFields = [], fieldIndex = 0) {
+  const meta = frozenColumnMeta(visibleFields, listConfig.columnWidths, listConfig.frozenFieldId, fieldIndex);
+  return meta.frozen ? `left:${meta.left}px` : '';
 }
 
 export function renderTableColgroup(visibleFields, listConfig) {
