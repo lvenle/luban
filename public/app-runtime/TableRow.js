@@ -10,6 +10,7 @@ import { openRecordModal, removeRecord } from './RecordModal.js';
 import { getListConfig, setListConfig } from './ViewBar.js';
 import { effectiveFieldType } from './FieldEditor.js';
 import { scheduleMarkdownPreview, cancelMarkdownPreview, openMarkdownRecordEditor } from './MarkdownEditor.js';
+import { calculateSummary, isNumericSummaryField, summaryMode, summaryOptions } from './SummaryValues.js';
 
 export function renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, selectedIds = new Set(), syncSelection = () => {}, updateSelectionLabel = () => {}, rowIndex = rowNumber - 1) {
   return h('tr', { class: 'editable-row', title: '双击单元格编辑' }, [
@@ -66,7 +67,7 @@ export function renderRecordRow(entity, visibleFields, record, listConfig, rowNu
   ]);
 }
 
-export function renderSummaryRow(records, visibleFields, listConfig, label = '合计') {
+export function renderSummaryRow(records, visibleFields, listConfig, label = '合计', onModeChange = null) {
   return h('tr', { class: 'summary-row' }, [
     h('td', { class: `select-cell summary-label-cell ${frozenUtilityClass(listConfig, visibleFields)}`.trim(), style: frozenUtilityStyle(listConfig, visibleFields, 0) }),
     h('td', { class: `index-cell summary-label-cell ${frozenUtilityClass(listConfig, visibleFields)}`.trim(), style: frozenUtilityStyle(listConfig, visibleFields, 42), text: label }),
@@ -74,25 +75,43 @@ export function renderSummaryRow(records, visibleFields, listConfig, label = '�
       class: `${summaryCellClass(field)} ${frozenFieldClass(listConfig, visibleFields, index)}`.trim(),
       style: `${columnWidthStyle(listConfig, field)};${frozenFieldStyle(listConfig, visibleFields, index)}`,
       'data-field-id': field.id
-    }, [renderNumericSummary(records, field, label)])),
+    }, [renderSummaryCell(records, field, listConfig.summaries || {}, label, onModeChange)])),
     h('td', { class: 'sticky-action-cell action-cell summary-action-cell', style: actionColumnStyle(listConfig) })
   ]);
 }
 
 export function renderNumericSummary(records, field, label = '合计') {
-  if (effectiveFieldType(field) !== 'number') return document.createTextNode('');
-  const values = records
-    .map((record) => Number(record.data?.[field.id]))
-    .filter((value) => Number.isFinite(value));
-  if (!values.length) return h('span', { class: 'summary-empty', text: '无数据' });
-  const sum = values.reduce((total, value) => total + value, 0);
-  return h('span', { class: 'numeric-summary', title: `${label}：${values.length} 个数字` }, [
-    h('span', { text: formatNumberSummary(sum, field) })
+  if (!isNumericSummaryField(field)) return document.createTextNode('');
+  return renderSummaryValue(records, field, 'sum', label);
+}
+
+export function renderSummaryValue(records, field, mode, label = '合计') {
+  const value = calculateSummary(records, field, mode);
+  if (value === null) return mode === 'none' ? document.createTextNode('') : h('span', { class: 'summary-empty', text: '无数据' });
+  const text = isNumericSummaryField(field) ? formatNumberSummary(value, field) : String(value);
+  return h('span', { class: 'numeric-summary', title: `${label}：${text}` }, [
+    h('span', { text })
+  ]);
+}
+
+export function renderSummaryCell(records, field, summaries = {}, label = '合计', onModeChange = null) {
+  const mode = summaryMode(field, summaries);
+  const select = h('select', {
+    class: 'summary-mode-select',
+    title: `${field.label}合计方式`,
+    'aria-label': `${field.label}合计方式`,
+    onchange: (event) => onModeChange?.(field, event.currentTarget.value)
+  });
+  for (const [value, text] of summaryOptions(field)) select.append(h('option', { value, text }));
+  select.value = mode;
+  return h('div', { class: 'summary-cell-control' }, [
+    h('span', { class: 'summary-mode-value' }, [renderSummaryValue(records, field, mode, label)]),
+    select
   ]);
 }
 
 export function summaryCellClass(field) {
-  return effectiveFieldType(field) === 'number' ? 'summary-cell numeric-summary-cell' : 'summary-cell';
+  return isNumericSummaryField(field) ? 'summary-cell numeric-summary-cell' : 'summary-cell';
 }
 
 export function formatNumberSummary(value, field) {

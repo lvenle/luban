@@ -301,6 +301,9 @@ export function normalizeTableView(view = {}, entity, index = 0) {
   next.actionWidth = Math.max(84, Number(next.actionWidth || 112));
   next.filters = (next.filters || []).filter((filter) => fieldSet.has(filter.field));
   next.sorts = (next.sorts || []).filter((sort) => fieldSet.has(sort.field));
+  next.summaries = Object.fromEntries(Object.entries(next.summaries || {}).filter(([id, mode]) =>
+    fieldSet.has(id) && ['none', 'sum', 'average', 'max', 'min', 'count', 'filled', 'empty'].includes(mode)
+  ));
   if (next.group && !fieldSet.has(next.group.field)) next.group = null;
   if (next.type === 'quadrant') {
     next.quadrant = {

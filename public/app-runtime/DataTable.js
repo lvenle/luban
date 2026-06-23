@@ -10,10 +10,11 @@ import {
   renderResizableHeader, renderTableColgroup, columnWidthStyle, actionColumnWidth, actionColumnStyle,
   frozenFieldClass, frozenFieldStyle, frozenUtilityClass, frozenUtilityStyle, hasFrozenColumns
 } from './TableHeader.js';
-import { renderRecordRow, renderSummaryRow, summaryCellClass, renderNumericSummary, openListConfigModal, openFormLayoutModal } from './TableRow.js';
+import { renderRecordRow, renderSummaryRow, summaryCellClass, renderSummaryValue, openListConfigModal, openFormLayoutModal } from './TableRow.js';
 import { searchInputForField, renderFieldValue, formatFieldValue } from './CellEditor.js';
 import { openRecordModal, quickAddRecord, bulkDeleteRecords } from './RecordModal.js';
 import { renderTypedTableView } from './TypedViews.js';
+import { summaryMode } from './SummaryValues.js';
 
 export function renderExportMenu(entity, exportSelectedLink) {
   return bindFloatingMenu(h('details', { class: 'export-menu', onclick: (event) => event.stopPropagation() }, [
@@ -166,6 +167,14 @@ export function renderListPage(page) {
     }
   };
   updateExportSelectedLink();
+  const updateSummaryMode = (field, mode) => {
+    const summaries = { ...(listConfig.summaries || {}) };
+    if (mode === summaryMode(field, {})) delete summaries[field.id];
+    else summaries[field.id] = mode;
+    listConfig.summaries = summaries;
+    setListConfig(entity, listConfig);
+    renderRuntime();
+  };
   const drawRows = (items) => {
     tableBody.innerHTML = '';
     currentRenderedIds = [];
@@ -199,7 +208,7 @@ export function renderListPage(page) {
             class: `${summaryCellClass(field)} ${frozenFieldClass(listConfig, visibleFields, index)}`.trim(),
             style: `${columnWidthStyle(listConfig, field)};${frozenFieldStyle(listConfig, visibleFields, index)}`,
             'data-field-id': field.id
-          }, [renderNumericSummary(group.records, field, '小计')])),
+          }, [renderSummaryValue(group.records, field, summaryMode(field, listConfig.summaries), '小计')])),
           h('td', { class: 'sticky-action-cell action-cell summary-action-cell', style: actionColumnStyle(listConfig) })
         ]));
         if (!collapsed) {
@@ -210,7 +219,7 @@ export function renderListPage(page) {
           }
         }
       }
-      tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计'));
+      tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计', updateSummaryMode));
       tableBody.append(renderQuickAddRow(entity, visibleFields, listConfig));
       updateSelectionState();
       return;
@@ -219,7 +228,7 @@ export function renderListPage(page) {
       currentRenderedIds.push(record.id);
       tableBody.append(renderRecordRow(entity, visibleFields, record, listConfig, index + 1, selectedIds, syncSelection, updateSelectionState, index));
     }
-    tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计'));
+    tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计', updateSummaryMode));
     tableBody.append(renderQuickAddRow(entity, visibleFields, listConfig));
     updateSelectionState();
   };

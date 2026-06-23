@@ -294,6 +294,10 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.summary-row/);
   assert.match(css, /\.numeric-summary/);
   assert.match(css, /\.summary-group-row/);
+  assert.match(css, /\.summary-cell:hover \.summary-mode-select/);
+  assert.match(tableRowJs, /renderSummaryCell/);
+  assert.match(tableRowJs, /summaryOptions\(field\)/);
+  assert.match(dataTableJs, /listConfig\.summaries/);
   assert.match(css, /\.context-menu/);
   assert.match(css, /\.layout-editor/);
   assert.match(css, /\.form-preview/);

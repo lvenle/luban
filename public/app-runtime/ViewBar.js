@@ -83,6 +83,7 @@ export function normalizeView(entity, view = {}) {
     allFields: entity.fields.map((field) => field.id),
     filters: [],
     sorts: [],
+    summaries: {},
     group: null
   };
   const next = { ...fallback, ...view };
@@ -112,6 +113,9 @@ export function normalizeView(entity, view = {}) {
   next.frozenFieldId = fieldSet.has(next.frozenFieldId) ? next.frozenFieldId : '';
   next.filters = (next.filters || []).filter((filter) => fieldSet.has(filter.field));
   next.sorts = (next.sorts || []).filter((sort) => fieldSet.has(sort.field));
+  next.summaries = Object.fromEntries(Object.entries(next.summaries || {}).filter(([id, mode]) =>
+    fieldSet.has(id) && ['none', 'sum', 'average', 'max', 'min', 'count', 'filled', 'empty'].includes(mode)
+  ));
   if (next.group && !fieldSet.has(next.group.field)) next.group = null;
   next.group = next.group ? { field: next.group.field, mode: next.group.mode || 'value', collapsed: next.group.collapsed || [] } : null;
   if (next.type === 'quadrant') {

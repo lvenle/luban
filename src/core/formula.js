@@ -12,7 +12,7 @@ export class FormulaError extends Error {
 }
 
 export function compileFormula(expression, entity, existingBindings = {}) {
-  const source = String(expression || '').trim();
+  const source = String(expression || '').trim().replaceAll('&amp;&amp;', '&&').replaceAll('&amp;', '&');
   if (!source) throw new FormulaError('公式不能为空。');
   const ast = new Parser(tokenize(source)).parse();
   const bindings = {};
@@ -150,7 +150,7 @@ function tokenize(source) {
       continue;
     }
     const pair = source.slice(index, index + 2);
-    if (['>=', '<=', '!=', '=='].includes(pair)) {
+    if (['>=', '<=', '!=', '==', '&&', '||'].includes(pair)) {
       tokens.push({ type: 'operator', value: pair }); index += 2; continue;
     }
     if ('+-*/><=&'.includes(char)) { tokens.push({ type: 'operator', value: char === '&' ? '+' : char }); index += 1; continue; }
@@ -176,9 +176,19 @@ class Parser {
     return token;
   }
   parse() {
-    const expression = this.comparison();
+    const expression = this.logicalOr();
     this.expect('eof', undefined, '公式末尾存在无法解析的内容。');
     return expression;
+  }
+  logicalOr() {
+    let node = this.logicalAnd();
+    while (this.consume('operator', '||')) node = { type: 'binary', operator: '||', left: node, right: this.logicalAnd() };
+    return node;
+  }
+  logicalAnd() {
+    let node = this.comparison();
+    while (this.consume('operator', '&&')) node = { type: 'binary', operator: '&&', left: node, right: this.comparison() };
+    return node;
   }
   comparison() {
     let node = this.additive();
@@ -222,13 +232,13 @@ class Parser {
       this.expect('(', undefined, `函数 ${identifier.value} 后需要左括号。`);
       const args = [];
       if (!this.consume(')')) {
-        do { args.push(this.comparison()); } while (this.consume(','));
+        do { args.push(this.logicalOr()); } while (this.consume(','));
         this.expect(')', undefined, `函数 ${identifier.value} 缺少右括号。`);
       }
       return { type: 'call', name: identifier.value, args };
     }
     if (this.consume('(')) {
-      const node = this.comparison();
+      const node = this.logicalOr();
       this.expect(')', undefined, '公式缺少右括号。');
       return node;
     }
@@ -262,7 +272,12 @@ function evaluateNode(node, data, options) {
   if (node.type === 'literal') return node.value;
   if (node.type === 'field') return data[node.fieldId];
   if (node.type === 'unary') return node.operator === '-' ? -numberValue(evaluateNode(node.argument, data, options)) : numberValue(evaluateNode(node.argument, data, options));
-  if (node.type === 'binary') return evaluateBinary(node.operator, evaluateNode(node.left, data, options), evaluateNode(node.right, data, options));
+  if (node.type === 'binary') {
+    const left = evaluateNode(node.left, data, options);
+    if (node.operator === '&&') return truthy(left) && truthy(evaluateNode(node.right, data, options));
+    if (node.operator === '||') return truthy(left) || truthy(evaluateNode(node.right, data, options));
+    return evaluateBinary(node.operator, left, evaluateNode(node.right, data, options));
+  }
   if (node.type === 'call') {
     if (node.name === 'IF') {
       if (node.args.length !== 3) throw new FormulaError('IF 需要 3 个参数。');

@@ -1619,7 +1619,40 @@ tbody tr:hover {
 }
 
 .summary-cell {
+  position: relative;
   color: #8a94a3;
+}
+
+.summary-cell-control {
+  position: relative;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.summary-mode-select {
+  position: absolute;
+  inset: 1px 4px;
+  width: calc(100% - 8px);
+  height: 26px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  color: #253044;
+  font-size: 12px;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.summary-cell:hover .summary-mode-select,
+.summary-mode-select:hover,
+.summary-mode-select:focus {
+  opacity: 1;
+}
+
+.summary-cell:hover .summary-mode-value,
+.summary-cell-control:focus-within .summary-mode-value {
+  opacity: 0;
 }
 
 .numeric-summary-cell {
