@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { reorderIds, reorderItemsById, orderSelectedOptions, frozenColumnMeta } from '../public/app-runtime/Ordering.js';
+import { reorderIds, reorderItemsById, orderSelectedOptions, optionDisplayValue, frozenColumnMeta } from '../public/app-runtime/Ordering.js';
 
 test('dragging table columns reorders fields without mutating the source order', () => {
   const original = ['name', 'status', 'owner', 'date'];
@@ -20,6 +20,17 @@ test('quadrants follow the current select option order', () => {
   const options = [{ id: 'three' }, { id: 'one' }, { id: 'four' }, { id: 'two' }, { id: 'unused' }];
   const ordered = orderSelectedOptions(options, ['one', 'two', 'three', 'four']);
   assert.deepEqual(ordered.map((option) => option.id), ['three', 'one', 'four', 'two']);
+});
+
+test('quadrants group records by option display value', () => {
+  const options = [
+    { id: 'urgent', label: '重要且紧急' },
+    { id: 'planned', label: '重要不紧急' }
+  ];
+  assert.equal(optionDisplayValue(options, '重要且紧急'), '重要且紧急');
+  assert.equal(optionDisplayValue(options, 'urgent'), '重要且紧急');
+  assert.equal(optionDisplayValue(options, { optionId: 'planned' }), '重要不紧急');
+  assert.equal(optionDisplayValue(options, { label: '重要且紧急' }), '重要且紧急');
 });
 
 test('freezing through a column calculates sticky offsets and the freeze boundary', () => {

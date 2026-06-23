@@ -6,7 +6,7 @@ import { toast } from '../common/toast.js';
 import { renderFieldValue } from './CellEditor.js';
 import { optionObject } from './FieldEditor.js';
 import { renderRuntime, renderInfiniteLoadSentinel } from './index.js';
-import { orderSelectedOptions } from './Ordering.js';
+import { optionDisplayValue, orderSelectedOptions } from './Ordering.js';
 import { scheduleMarkdownPreview, cancelMarkdownPreview, openMarkdownRecordEditor } from './MarkdownEditor.js';
 
 const invalidMode = new Set();
@@ -22,12 +22,12 @@ export function renderTypedTableView(page, entity, records, view) {
 export function renderQuadrantView(page, entity, records, view) {
   const field = entity.fields.find((item) => item.id === view.quadrant?.fieldId);
   const options = orderSelectedOptions(field?.options || [], view.quadrant?.optionIds || [], optionObject);
-  const optionIds = options.map((option) => option.id);
+  const optionValues = options.map((option) => option.label);
   const visibleFields = visibleViewFields(entity, view);
-  const groups = new Map(optionIds.map((id) => [id, []]));
+  const groups = new Map(optionValues.map((value) => [value, []]));
   const invalid = [];
   for (const record of records) {
-    const value = optionValueId(record.data[field?.id]);
+    const value = optionDisplayValue(field?.options || [], record.data[field?.id], optionObject);
     if (groups.has(value)) groups.get(value).push(record);
     else invalid.push(record);
   }
@@ -40,9 +40,9 @@ export function renderQuadrantView(page, entity, records, view) {
           h('div', { class: 'quadrant-head' }, [
             h('span', { class: `option-color-dot select-${option.color || 'gray'}` }),
             h('strong', { text: option.label }),
-            h('span', { class: 'muted', text: `${groups.get(option.id)?.length || 0} 条` })
+            h('span', { class: 'muted', text: `${groups.get(option.label)?.length || 0} 条` })
           ]),
-          renderCompactTable(entity, groups.get(option.id) || [], visibleFields, view)
+          renderCompactTable(entity, groups.get(option.label) || [], visibleFields, view)
         ])
       )),
       renderInfiniteLoadSentinel(entity)
@@ -231,7 +231,6 @@ function renderCompactTable(entity, records, fields, view) {
 function visibleViewFields(entity, view) {
   return viewOrderedFields(entity, view).filter((field) => view.visibleFields.includes(field.id)).slice(0, 6);
 }
-function optionValueId(value) { return value?.optionId || value?.id || value || ''; }
 function dateTimestamp(value) {
   const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   return match ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : NaN;

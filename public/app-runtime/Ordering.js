@@ -21,6 +21,12 @@ export function orderSelectedOptions(options = [], selectedIds = [], normalize =
   return options.map(normalize).filter((option) => selected.has(option.id)).slice(0, 4);
 }
 
+export function optionDisplayValue(options = [], value, normalize = (option) => option) {
+  const raw = value?.optionId || value?.id || value?.label || value || '';
+  const option = options.map(normalize).find((item) => item.label === raw || item.id === raw);
+  return option?.label || String(raw || '');
+}
+
 export function frozenColumnMeta(fields = [], columnWidths = {}, frozenFieldId = '', fieldIndex = 0) {
   const boundaryIndex = fields.findIndex((field) => field.id === frozenFieldId);
   if (boundaryIndex < 0 || fieldIndex > boundaryIndex) return { frozen: false, boundary: false, left: 0 };
