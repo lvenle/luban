@@ -95,7 +95,8 @@ Guidelines:
 - Minimize tool calls. Batch same-type changes whenever the tool accepts an array. In particular, add every field for one table with one add_field call using fields[].
 - For high-risk operations (creating/deleting entities, fields, pages, records), the system will ask the user to confirm
 - After executing tools, summarize what was done
-- When the user's request is ambiguous, ask clarifying questions before using tools`;
+- When the user's request is ambiguous, ask clarifying questions before using tools
+- **CRITICAL — Schema accuracy:** When using create_app, only create tables and fields that directly correspond to what the user described. Do not add any default, sample, or unrelated tables. For example, if the user asks for "作业管理" (homework management), only create tables like 作业/作业提交/学生 related to homework — never add 账目/分类/库存 or any other unrelated tables. If the description is too vague to determine the schema, ask the user to clarify what data they want to manage rather than guessing.`;
 
   if (app) {
     const entityDescs = (app.schema?.entities || []).map((entity) => {

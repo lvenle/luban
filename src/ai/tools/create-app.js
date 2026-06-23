@@ -2,7 +2,6 @@ import { register } from '../registry.js';
 import { generatePackageFromPrompt } from '../service.js';
 import { createAppFromPackage } from '../../models/app.js';
 import { getSetting } from '../../models/session.js';
-import { pickSamplePackage } from '../samplePackages.js';
 
 register({
   name: 'create_app',
@@ -24,9 +23,9 @@ register({
   },
   handler: async (args) => {
     const settings = getSetting('ai') || {};
-    let pkg = await generatePackageFromPrompt(args.description, settings);
+    const pkg = await generatePackageFromPrompt(args.description, settings);
     if (!pkg?.schema?.entities?.length || !pkg?.ui?.pages?.length) {
-      pkg = pickSamplePackage(args.description);
+      throw new Error('AI 未能根据描述生成有效的应用结构。请补充更多细节，例如需要管理哪些数据、包含哪些字段、需要什么功能。');
     }
     const app = createAppFromPackage(pkg);
     return {

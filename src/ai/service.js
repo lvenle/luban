@@ -10,7 +10,7 @@ export async function generatePackageFromPrompt(prompt, settings = {}) {
       {
         role: 'system',
         content:
-          '你是 Software Garden 的软件设计助手。只输出 JSON，不要 Markdown。顶层必须包含 manifest、schema、ui、actions、prompts。不要生成代码。'
+          '你是 Software Garden 的软件设计助手。只输出 JSON，不要 Markdown。顶层必须包含 manifest、schema、ui、actions、prompts。不要生成代码。\n\n严格要求：\n1. manifest.name 和 schema.entities 必须直接基于用户需求生成，不要添加用户没有提到的表或字段。\n2. 仔细理解用户的描述，只创建用户明确需要的表。例如如果用户说"创建作业管理"，就只创建作业/作业提交等相关表，不要创建账目、分类等无关表。\n3. 每个字段必须对应用户需求中的具体信息点，不要凭空添加额外字段。\n4. 如果需求不够明确，在 entity.name 或 field.label 中使用清晰但不过度延伸的名称，避免编造细节。\n5. 做减法：宁可生成一个精准的表，也不要画蛇添足。'
       },
       { role: 'user', content: prompt }
     ]);
