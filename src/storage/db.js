@@ -59,6 +59,13 @@ async function downloadFromSupabase(cfg) {
     }
     if (!res.ok) {
       const body = await res.text().catch(() => '(unable to read body)');
+      // Supabase returns HTTP 400 with body {"statusCode":"404","error":"not_found","message":"Object not found"}
+      // when the backup file doesn't exist yet (first deploy). Treat it like 404.
+      const isNotFound = res.status === 404 || body.includes('"statusCode":"404"') || body.includes('"error":"not_found"') || body.includes('Object not found');
+      if (isNotFound) {
+        console.log('[db] 未找到远程备份，将创建新数据库。');
+        return;
+      }
       console.error(`[db] 从 Supabase 下载失败：${res.status} — ${body}`);
       return;
     }
