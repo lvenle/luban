@@ -83,7 +83,7 @@ async function uploadToSupabase(cfg) {
     getDb().exec('PRAGMA wal_checkpoint(TRUNCATE)');
     const buffer = readFileSync(DB_PATH);
     const res = await fetch(cfg.uploadUrl, {
-      method: 'POST',
+      method: 'PUT',
       headers: {
         authorization: `Bearer ${cfg.key}`,
         'content-type': 'application/octet-stream'
