@@ -1,6 +1,6 @@
 import { getPackageFromApp } from '../storage/db.js';
 import { getApp, updateAppMetadata, updateAppPackage, exportAppPayload } from '../models/app.js';
-import { createRecord, deleteRecord, getRecordRelations, listRecords, listRelationOptions, updateRecord, updateRecordRelations } from '../models/record.js';
+import { clampPageLimit, countRecords, createRecord, deleteRecordForApp, deleteRecordsForApp, getRecordRelations, listRecords, listRelationOptions, updateRecordForApp, updateRecordRelations } from '../models/record.js';
 import { getSetting } from '../models/session.js';
 import { generatePatchFromPrompt } from '../ai/service.js';
 import { applyPatch } from '../core/packageProtocol.js';
@@ -45,7 +45,7 @@ export async function handleRuntimeApi(req, res, method, url) {
 
   if (method === 'PUT' && parts[3] === 'package') {
     const body = await readJson(req);
-    const nextApp = updateAppPackage(appId, body.package);
+    const nextApp = updateAppPackage(appId, body.package, { expectedUpdatedAt: body.expectedUpdatedAt });
     sendJson(res, 200, { app: nextApp });
     return;
   }
@@ -90,20 +90,33 @@ export async function handleRuntimeApi(req, res, method, url) {
 
   if (parts[3] === 'records' && parts[4] && parts[5] === 'relations' && parts[6]) {
     if (method === 'GET') {
-      sendJson(res, 200, { relations: getRecordRelations(parts[4], parts[6]) });
+      sendJson(res, 200, { relations: getRecordRelations(parts[4], parts[6], appId) });
       return;
     }
     if (method === 'PUT') {
       const body = await readJson(req);
-      sendJson(res, 200, { relations: updateRecordRelations(parts[4], parts[6], body.targetRecordIds || []) });
+      sendJson(res, 200, { relations: updateRecordRelations(parts[4], parts[6], body.targetRecordIds || [], appId) });
       return;
     }
   }
 
   if (method === 'GET' && parts[3] === 'records' && parts.length === 4) {
     const entityId = url.searchParams.get('entity');
-    const records = listRecords(appId, { entityId: entityId || undefined, q: url.searchParams.get('q') });
-    sendJson(res, 200, { records });
+    const limit = clampPageLimit(url.searchParams.get('limit'), 100);
+    const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset'), 10) || 0);
+    const options = { entityId: entityId || undefined };
+    const query = url.searchParams.get('q') || '';
+    const matching = query ? listRecords(appId, { ...options, q: query }) : null;
+    const total = matching ? matching.length : countRecords(appId, options);
+    const records = matching ? matching.slice(offset, offset + limit) : listRecords(appId, { ...options, limit, offset });
+    const nextOffset = offset + records.length;
+    sendJson(res, 200, { records, pagination: { offset, limit, total, nextOffset, hasMore: nextOffset < total } });
+    return;
+  }
+
+  if (method === 'POST' && parts[3] === 'records' && parts[4] === 'bulk-delete') {
+    const body = await readJson(req);
+    sendJson(res, 200, { deletedCount: deleteRecordsForApp(appId, body.recordIds || [], { force: body.force === true }) });
     return;
   }
 
@@ -118,12 +131,12 @@ export async function handleRuntimeApi(req, res, method, url) {
 
   if (method === 'PUT' && parts[3] === 'records' && parts[4] && parts.length === 5) {
     const body = await readJson(req);
-    sendJson(res, 200, { record: updateRecord(parts[4], body.data || {}) });
+    sendJson(res, 200, { record: updateRecordForApp(appId, parts[4], body.data || {}) });
     return;
   }
 
   if (method === 'DELETE' && parts[3] === 'records' && parts[4] && parts.length === 5) {
-    deleteRecord(parts[4], { force: url.searchParams.get('force') === 'true' });
+    deleteRecordForApp(appId, parts[4], { force: url.searchParams.get('force') === 'true' });
     sendJson(res, 200, { ok: true });
     return;
   }

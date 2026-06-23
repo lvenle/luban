@@ -23,7 +23,8 @@ register({
           fieldId: { type: 'string', description: 'Select field for quadrant view' },
           titleField: { type: 'string', description: 'Title field for gantt view' },
           startField: { type: 'string', description: 'Start date field for gantt view' },
-          endField: { type: 'string', description: 'End date field for gantt view' }
+          endField: { type: 'string', description: 'End date field for gantt view' },
+          progressField: { type: 'string', description: 'Optional numeric progress field for gantt view' }
         },
         required: ['appId', 'entityId', 'name', 'type']
       }
@@ -48,17 +49,20 @@ register({
       const title = entity.fields.find((item) => item.id === args.titleField);
       const start = entity.fields.find((item) => item.id === args.startField);
       const end = entity.fields.find((item) => item.id === args.endField);
+      const progress = args.progressField ? entity.fields.find((item) => item.id === args.progressField) : null;
       if (!title || !dateLike(start) || !dateLike(end) || start.id === end.id) throw new Error('甘特视图需要标题字段和两个不同的日期字段。');
-      view.gantt = { titleField: title.id, startField: start.id, endField: end.id };
+      if (args.progressField && !numberLike(progress)) throw new Error('甘特视图的进度字段必须是数值字段。');
+      view.gantt = { titleField: title.id, startField: start.id, endField: end.id, progressField: progress?.id || '' };
     }
     page.views ||= [{ id: 'default', name: '全部记录', type: 'list' }];
     page.views.push(view);
-    const nextApp = updateAppPackage(app.id, pkg);
+    const nextApp = updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
     return { appId: nextApp.id, entityId: entity.id, pageId: page.id, viewId: view.id, name: view.name, type: view.type };
   }
 });
 
 function dateLike(field) { return ['date', 'datetime'].includes(field?.type) || (field?.type === 'formula' && field.formula?.resultType === 'date'); }
+function numberLike(field) { return field?.type === 'number' || (field?.type === 'formula' && field.formula?.resultType === 'number'); }
 function uniqueViewId(page, name) {
   const base = normalizeFieldId(name, 'view');
   const ids = new Set((page.views || []).map((view) => view.id));

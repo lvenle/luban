@@ -1,10 +1,12 @@
 import { register } from '../registry.js';
+import { getPackageFromApp } from '../../storage/db.js';
+import { getApp, updateAppPackage } from '../../models/app.js';
+import { normalizeFieldId } from '../../core/ids.js';
 
 register({
   name: 'create_view',
-  description: 'Create a new table view with specific visible fields, filters, sorts. This is a client-side operation executed in the browser.',
+  description: 'Create a persisted list view with specific visible fields and sorts.',
   risk: 'low',
-  clientOnly: true,
   schema: {
     type: 'function',
     function: {
@@ -23,7 +25,24 @@ register({
       }
     }
   },
-  handler: async () => {
-    return { clientSide: true, message: 'This tool runs in the browser' };
+  handler: async (args) => {
+    const app = getApp(args.appId);
+    if (!app) throw new Error('App not found');
+    const pkg = getPackageFromApp(app);
+    const entity = pkg.schema.entities.find((item) => item.id === args.entityId);
+    if (!entity) throw new Error('找不到表。');
+    const page = pkg.ui.pages.find((item) => item.type === 'list' && item.entity === entity.id);
+    if (!page) throw new Error('找不到该表的列表页面。');
+    const ids = new Set((page.views || []).map((view) => view.id));
+    const base = normalizeFieldId(args.name, 'view');
+    let id = base; let index = 2;
+    while (ids.has(id)) id = `${base}_${index++}`;
+    const fieldSet = new Set(entity.fields.map((field) => field.id));
+    const visibleFields = (args.visibleFields || entity.fields.map((field) => field.id)).filter((fieldId) => fieldSet.has(fieldId));
+    const sorts = (args.sorts || []).filter((sort) => fieldSet.has(sort.field) && ['asc', 'desc'].includes(sort.direction));
+    page.views ||= [];
+    page.views.push({ id, name: args.name, type: 'list', visibleFields, fieldOrder: visibleFields, sorts });
+    const saved = updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
+    return { appId: saved.id, entityId: entity.id, pageId: page.id, viewId: id };
   }
 });

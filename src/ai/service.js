@@ -16,8 +16,7 @@ export async function generatePackageFromPrompt(prompt, settings = {}) {
     ]);
     return parseJsonContent(body.choices?.[0]?.message?.content || '{}');
   } catch (error) {
-    console.warn(`AI package generation failed, using local fallback: ${error.message}`);
-    return pickSamplePackage(prompt);
+    throw new Error(`AI 生成失败，未使用 Mock 结果替代：${error.message}`);
   }
 }
 
@@ -34,8 +33,7 @@ export async function generatePatchFromPrompt(prompt, currentPackage, settings =
     ]);
     return parseJsonContent(body.choices?.[0]?.message?.content || '{}');
   } catch (error) {
-    console.warn(`AI patch generation failed, using local fallback: ${error.message}`);
-    return mockPatch(prompt, currentPackage);
+    throw new Error(`AI 修改失败，未使用 Mock Patch 替代：${error.message}`);
   }
 }
 
@@ -70,10 +68,7 @@ export async function generatePlanFromPrompt(prompt, settings = {}, currentPacka
     validateAiPlan(plan);
     return plan;
   } catch (error) {
-    console.warn(`AI plan generation failed, using local fallback: ${error.message}`);
-    const plan = packageToPlan(pickSamplePackage(prompt));
-    validateAiPlan(plan);
-    return plan;
+    throw new Error(`AI 规划失败，未使用 Mock 方案替代：${error.message}`);
   }
 }
 
@@ -382,4 +377,3 @@ function parseJsonContent(content) {
     throw new Error('AI 返回内容不是合法 JSON。');
   }
 }
-

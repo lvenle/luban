@@ -1,9 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, extname, join, normalize } from 'node:path';
+import { basename, extname, join, relative, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 const PUBLIC_DIR = join(process.cwd(), 'public');
 const UPLOAD_DIR = join(process.cwd(), 'data', 'uploads');
+const JSON_LIMIT = 2 * 1024 * 1024;
+export const FILE_LIMIT = 20 * 1024 * 1024;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -41,21 +43,36 @@ export function sendBinary(res, status, bytes, contentType, downloadName) {
 }
 
 export async function readJson(req) {
-  const text = Buffer.concat(await collect(req)).toString('utf8') || '{}';
+  const text = Buffer.concat(await collect(req, JSON_LIMIT)).toString('utf8') || '{}';
   return JSON.parse(text);
 }
 
-export async function readBuffer(req) {
-  return Buffer.concat(await collect(req));
+export async function readBuffer(req, maxBytes = FILE_LIMIT) {
+  return Buffer.concat(await collect(req, maxBytes));
 }
 
-function collect(req) {
+function collect(req, maxBytes) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
+    let size = 0;
+    let failed = false;
+    const declared = Number(req.headers['content-length'] || 0);
+    if (declared > maxBytes) { req.resume?.(); reject(payloadTooLarge(maxBytes)); return; }
+    req.on('data', (chunk) => {
+      if (failed) return;
+      size += chunk.length;
+      if (size > maxBytes) { failed = true; reject(payloadTooLarge(maxBytes)); return; }
+      chunks.push(chunk);
+    });
     req.on('end', () => resolve(chunks));
     req.on('error', reject);
   });
+}
+
+function payloadTooLarge(maxBytes) {
+  const error = new Error(`请求内容过大，最大允许 ${Math.floor(maxBytes / 1024 / 1024)} MB。`);
+  error.status = 413;
+  return error;
 }
 
 export function notFound(message) {
@@ -119,8 +136,8 @@ function safeExtension(name, mimeType) {
 
 export function serveStatic(res, pathname) {
   const requested = pathname === '/' ? '/index.html' : pathname;
-  const filePath = normalize(join(PUBLIC_DIR, requested));
-  if (!filePath.startsWith(PUBLIC_DIR) || !existsSync(filePath)) {
+  const filePath = resolve(PUBLIC_DIR, `.${requested}`);
+  if (!isInside(PUBLIC_DIR, filePath) || !existsSync(filePath)) {
     if (pathname.startsWith('/app/')) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(readFileSync(join(PUBLIC_DIR, 'index.html')));
@@ -134,17 +151,29 @@ export function serveStatic(res, pathname) {
 }
 
 export function serveUpload(res, pathname) {
-  const requested = decodeURIComponent(pathname.replace(/^\/uploads\//, ''));
-  const filePath = normalize(join(UPLOAD_DIR, requested));
-  if (!filePath.startsWith(UPLOAD_DIR) || !existsSync(filePath)) {
+  let requested = '';
+  try { requested = decodeURIComponent(pathname.replace(/^\/uploads\//, '')); } catch { return sendText(res, 400, 'Bad path', 'text/plain; charset=utf-8'); }
+  const filePath = resolve(UPLOAD_DIR, requested);
+  if (!isInside(UPLOAD_DIR, filePath) || !existsSync(filePath)) {
     sendText(res, 404, 'Not found', 'text/plain; charset=utf-8');
     return;
   }
   res.writeHead(200, {
     'content-type': MIME_TYPES[extname(filePath)] || 'application/octet-stream',
-    'cache-control': 'public, max-age=31536000, immutable'
+    'cache-control': 'public, max-age=31536000, immutable',
+    'x-content-type-options': 'nosniff',
+    ...(safeInlineExtension(extname(filePath)) ? {} : { 'content-disposition': `attachment; filename="${basename(filePath)}"` })
   });
   res.end(readFileSync(filePath));
+}
+
+function isInside(root, filePath) {
+  const path = relative(root, filePath);
+  return path === '' || (!path.startsWith('..') && !path.includes(`..${process.platform === 'win32' ? '\\' : '/'}`));
+}
+
+function safeInlineExtension(extension) {
+  return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf'].includes(String(extension).toLowerCase());
 }
 
 export function serveIndexHtml(res) {

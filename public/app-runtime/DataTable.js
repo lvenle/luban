@@ -4,7 +4,7 @@ import { toast } from '../common/toast.js';
 import { bindFloatingMenu } from '../common/modal.js';
 import { readStorage, writeStorage } from '../common/storage.js';
 import { state, writeRoute, storageKey, entityFor, recordsFor, viewOrderedFields, applyViewFilters, sortRecords, groupRecords } from '../app.js';
-import { renderRuntime, loadCurrentPageRecords } from './index.js';
+import { renderRuntime, loadCurrentPageRecords, renderInfiniteLoadSentinel } from './index.js';
 import { getViews, getCurrentView, normalizeView, makeViewId, renderViewBar, renderViewMenu, openViewMenu, startViewNameEdit, createView, cloneView, renameView, deleteView, openFilterModal, openSortModal, openGroupModal, updateCurrentView, setListConfig, getListConfig } from './ViewBar.js';
 import {
   renderResizableHeader, renderTableColgroup, columnWidthStyle, actionColumnWidth, actionColumnStyle,
@@ -110,10 +110,12 @@ export function renderListPage(page) {
   const syncSelection = () => writeStorage(selectionKey, [...selectedIds]);
   const validRecordIds = new Set(records.map((record) => record.id));
   let cleanedSelection = false;
-  for (const recordId of [...selectedIds]) {
-    if (!validRecordIds.has(recordId)) {
-      selectedIds.delete(recordId);
-      cleanedSelection = true;
+  if (!state.recordPagination[entity.id]?.hasMore) {
+    for (const recordId of [...selectedIds]) {
+      if (!validRecordIds.has(recordId)) {
+        selectedIds.delete(recordId);
+        cleanedSelection = true;
+      }
     }
   }
   if (cleanedSelection) syncSelection();
@@ -305,6 +307,7 @@ export function renderListPage(page) {
     ]),
     h('div', { class: 'table-wrap' }, [
       table
-    ])
+    ]),
+    renderInfiniteLoadSentinel(entity)
   ]);
 }

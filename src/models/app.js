@@ -1,4 +1,4 @@
-import { getDb, rowToApp, getPackageFromApp } from '../storage/db.js';
+import { getDb, rowToApp, getPackageFromApp, withTransaction } from '../storage/db.js';
 import { preparePackage } from '../core/packageProtocol.js';
 import { createId, slugify } from '../core/ids.js';
 import { formulaDependents } from '../core/formula.js';
@@ -60,12 +60,19 @@ export function createAppFromPackage(pkg, options = {}) {
   return getApp(id);
 }
 
-export function updateAppPackage(appId, pkg) {
+export function updateAppPackage(appId, pkg, options = {}) {
   const database = getDb();
   const existing = getApp(appId);
+  if (!existing) throw notFoundError('找不到应用。');
+  if (options.expectedUpdatedAt && existing.updatedAt !== options.expectedUpdatedAt) {
+    const error = new Error('软件已在其他页面发生变化，请刷新后重试。');
+    error.status = 409;
+    error.details = { expectedUpdatedAt: options.expectedUpdatedAt, actualUpdatedAt: existing.updatedAt };
+    throw error;
+  }
   if (existing) validateFormulaDependencyChanges(existing, pkg);
   const clean = preparePackage(pkg);
-  const updatedAt = now();
+  const updatedAt = nextTimestamp(existing.updatedAt);
   database.prepare(`
     UPDATE apps SET
       name = ?, description = ?, icon = ?, manifestJson = ?, schemaJson = ?,
@@ -85,6 +92,11 @@ export function updateAppPackage(appId, pkg) {
     appId
   );
   return getApp(appId);
+}
+
+function nextTimestamp(previous) {
+  const prior = Date.parse(previous || '') || 0;
+  return new Date(Math.max(Date.now(), prior + 1)).toISOString();
 }
 
 function validateFormulaDependencyChanges(existing, nextPackage) {
@@ -117,7 +129,7 @@ export function updateAppMetadata(appId, metadata = {}) {
   if (name) pkg.manifest.name = name;
   if (category) pkg.manifest.category = category;
   if (description !== null) pkg.manifest.description = description;
-  return updateAppPackage(appId, pkg);
+  return updateAppPackage(appId, pkg, { expectedUpdatedAt: metadata.expectedUpdatedAt });
 }
 
 export function listApps() {
@@ -151,12 +163,10 @@ export async function exportAppPayload(appId, dataMode = 'structure') {
 
 export async function importAppPayload(payload) {
   const sampleData = Array.isArray(payload.sampleData) ? payload.sampleData : [];
-  const app = createAppFromPackage(payload);
-  if (sampleData.length) {
-    const { createRecord } = await import('./record.js');
-    for (const record of sampleData) {
-      createRecord(app.id, record.entityId, record.data);
-    }
-  }
-  return app;
+  const { createRecord } = await import('./record.js');
+  return withTransaction(() => {
+    const app = createAppFromPackage(payload);
+    for (const record of sampleData) createRecord(app.id, record.entityId, record.data);
+    return app;
+  });
 }

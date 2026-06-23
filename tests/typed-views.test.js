@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { preparePackage } from '../src/core/packageProtocol.js';
-import { resetDbForTests } from '../src/storage/db.js';
-import { createAppFromPackage } from '../src/models/app.js';
+import { getPackageFromApp, resetDbForTests } from '../src/storage/db.js';
+import { createAppFromPackage, getApp } from '../src/models/app.js';
 import { getTool } from '../src/ai/registry.js';
 import { mergeBatchableToolCalls } from '../src/routes/ai.js';
 
@@ -25,11 +25,16 @@ test('missing table view type normalizes to the default list view', () => {
 test('quadrant and gantt view definitions are normalized and validated', () => {
   const clean = preparePackage(viewPackage([
     { id: 'quadrant', name: '四象限', type: 'quadrant', quadrant: { fieldId: 'priority', optionIds: ['a', 'b', 'c', 'd'] } },
-    { id: 'gantt', name: '排期', type: 'gantt', gantt: { titleField: 'name', startField: 'start', endField: 'end' } }
+    { id: 'gantt', name: '排期', type: 'gantt', gantt: { titleField: 'name', startField: 'start', endField: 'end', progressField: 'progress' } }
   ]));
   assert.deepEqual(clean.ui.pages[0].views.map((view) => view.type), ['quadrant', 'gantt']);
+  assert.equal(clean.ui.pages[0].views[1].gantt.progressField, 'progress');
+  const legacy = preparePackage(viewPackage([{ id: 'legacy-gantt', name: '旧排期', type: 'gantt', titleField: 'name', startField: 'start', endField: 'end', progressField: 'progress' }]));
+  assert.equal(legacy.ui.pages[0].views[0].gantt.progressField, 'progress');
+  assert.equal('progressField' in legacy.ui.pages[0].views[0], false);
   assert.throws(() => preparePackage(viewPackage([{ id: 'bad', name: '坏象限', type: 'quadrant', quadrant: { fieldId: 'priority', optionIds: ['a'] } }])), /四象限视图/);
   assert.throws(() => preparePackage(viewPackage([{ id: 'bad-gantt', name: '坏甘特', type: 'gantt', gantt: { titleField: 'name', startField: 'name', endField: 'end' } }])), /甘特视图/);
+  assert.throws(() => preparePackage(viewPackage([{ id: 'bad-progress', name: '坏进度', type: 'gantt', gantt: { titleField: 'name', startField: 'start', endField: 'end', progressField: 'name' } }])), /进度字段必须是数值字段/);
 });
 
 test('add_view creates a persisted typed view without merging other tools', async () => {
@@ -39,9 +44,15 @@ test('add_view creates a persisted typed view without merging other tools', asyn
   const app = createAppFromPackage(viewPackage([{ id: 'default', name: '全部记录', type: 'list' }]));
   const result = await getTool('add_view').handler({
     appId: app.id, entityId: 'task', pageId: 'task-list', name: '任务排期', type: 'gantt',
-    titleField: 'name', startField: 'start', endField: 'end'
+    titleField: 'name', startField: 'start', endField: 'end', progressField: 'progress'
   });
   assert.equal(result.type, 'gantt');
+  const saved = getPackageFromApp(getApp(result.appId));
+  assert.equal(saved.ui.pages[0].views.at(-1).gantt.progressField, 'progress');
+  await assert.rejects(() => getTool('add_view').handler({
+    appId: app.id, entityId: 'task', pageId: 'task-list', name: '错误排期', type: 'gantt',
+    titleField: 'name', startField: 'start', endField: 'end', progressField: 'name'
+  }), /进度字段必须是数值字段/);
   const calls = [
     { id: 'field', function: { name: 'add_field', arguments: JSON.stringify({ entityId: 'task', label: '成本', type: 'number' }) } },
     { id: 'view', function: { name: 'add_view', arguments: JSON.stringify({ entityId: 'task', name: '排期', type: 'gantt' }) } },
@@ -56,6 +67,8 @@ test('typed view UI persists package views and exposes both renderers', () => {
   assert.match(viewBarSource, /\['list', '表格视图'\]/);
   assert.match(viewBarSource, /\['quadrant', '四象限视图'\]/);
   assert.match(viewBarSource, /\['gantt', '甘特视图'\]/);
+  assert.match(viewBarSource, /进度字段（可选）/);
+  assert.match(viewBarSource, /patch\.gantt = \{ titleField, startField, endField, progressField \}/);
   assert.match(dataTableSource, /renderTypedTableView/);
   assert.match(typedViewsSource, /export function renderQuadrantView/);
   assert.match(typedViewsSource, /export function renderGanttView/);
@@ -90,7 +103,8 @@ function viewPackage(views) {
       { id: 'name', label: '名称', type: 'text' },
       { id: 'priority', label: '优先级', type: 'select', options: ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id, label: id.toUpperCase(), color: 'blue' })) },
       { id: 'start', label: '开始', type: 'date' },
-      { id: 'end', label: '结束', type: 'date' }
+      { id: 'end', label: '结束', type: 'date' },
+      { id: 'progress', label: '进度', type: 'number', format: 'percent' }
     ] }] },
     ui: { pages: [{ id: 'task-list', title: '任务列表', type: 'list', entity: 'task', views }] },
     actions: { actions: [] }, prompts: { suggestedCommands: [] }

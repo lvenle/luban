@@ -56,7 +56,7 @@ export function renderRuntime() {
 }
 
 export async function saveAppMetadata(name, category, description = state.currentApp.description || '') {
-  const body = await api(`/api/apps/${state.currentApp.id}`, { method: 'PUT', body: JSON.stringify({ name, category, description }) });
+  const body = await api(`/api/apps/${state.currentApp.id}`, { method: 'PUT', body: JSON.stringify({ name, category, description, expectedUpdatedAt: state.currentApp.updatedAt }) });
   state.currentApp = body.app;
   state.apps = state.apps.map((a) => a.id === body.app.id ? body.app : a);
   renderRuntime();
@@ -65,21 +65,79 @@ export async function saveAppMetadata(name, category, description = state.curren
 
 export async function loadRecords(entityId = '') {
   if (!state.currentApp) return;
-  state.records = (await api(`/api/apps/${state.currentApp.id}/records${entityId ? `?entity=${encodeURIComponent(entityId)}` : ''}`)).records;
+  return loadRecordPage(entityId, { append: false });
+}
+
+export async function loadRecordPage(entityId = '', options = {}) {
+  if (!state.currentApp) return;
+  const page = currentPage();
+  const limit = Math.max(1, Math.min(1000, Number(options.limit || (page?.entity === entityId ? page.pageSize : 100) || 100)));
+  const previous = state.recordPagination[entityId || '*'];
+  const offset = options.append ? Number(previous?.nextOffset || 0) : 0;
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (entityId) params.set('entity', entityId);
+  const body = await api(`/api/apps/${state.currentApp.id}/records?${params.toString()}`);
+  const existing = options.append ? (entityId ? state.records.filter((record) => record.entityId === entityId) : state.records) : [];
+  const merged = options.append ? [...existing, ...body.records.filter((record) => !existing.some((item) => item.id === record.id))] : body.records;
+  state.records = entityId ? [...state.records.filter((record) => record.entityId !== entityId), ...merged] : merged;
+  state.recordPagination[entityId || '*'] = body.pagination || { hasMore: false, nextOffset: merged.length, total: merged.length, limit };
+  return body;
+}
+
+export async function loadNextRecordPage(entityId) {
+  const pagination = state.recordPagination[entityId];
+  if (!pagination?.hasMore || state.loadingRecordPages[entityId]) return false;
+  state.loadingRecordPages[entityId] = true;
+  try {
+    await loadRecordPage(entityId, { append: true, limit: pagination.limit });
+    renderRuntime();
+    return true;
+  } finally {
+    state.loadingRecordPages[entityId] = false;
+  }
+}
+
+export function renderInfiniteLoadSentinel(entity) {
+  const pagination = state.recordPagination[entity.id];
+  const loaded = recordsFor(entity.id).length;
+  const sentinel = h('div', {
+    class: 'record-load-sentinel muted',
+    text: pagination?.hasMore ? `继续向下滚动加载（已加载 ${loaded} / ${pagination.total}）` : `已加载全部 ${pagination?.total ?? loaded} 条`
+  });
+  if (pagination?.hasMore) requestAnimationFrame(() => {
+    if (!sentinel.isConnected) return;
+    const observer = new IntersectionObserver(async (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      sentinel.textContent = '正在加载下一页…';
+      await loadNextRecordPage(entity.id);
+    }, { root: null, rootMargin: '160px 0px' });
+    observer.observe(sentinel);
+  });
+  return sentinel;
 }
 
 export async function loadCurrentPageRecords() {
   const page = currentPage();
   const entity = pageEntityForRecordLoad(page);
-  if (!entity) { await loadRecords(); return; }
+  state.recordPagination = {};
+  if (!entity) {
+    await loadRecords();
+    while (state.recordPagination['*']?.hasMore) await loadRecordPage('', { append: true, limit: 1000 });
+    return;
+  }
   await loadRecords(entity.id);
+  if (!['list', 'editor', 'form', 'detail'].includes(page?.type)) {
+    while (state.recordPagination[entity.id]?.hasMore) await loadRecordPage(entity.id, { append: true, limit: 1000 });
+  }
   const targets = [...new Set(entity.fields.filter((f) => f.type === 'relation' && f.targetEntity && f.targetEntity !== entity.id).map((f) => f.targetEntity))];
   for (const tid of targets) await mergeEntityRecords(tid);
 }
 
 export async function mergeEntityRecords(entityId) {
-  const body = await api(`/api/apps/${state.currentApp.id}/records?entity=${encodeURIComponent(entityId)}`);
+  const body = await api(`/api/apps/${state.currentApp.id}/records?entity=${encodeURIComponent(entityId)}&limit=1000&offset=0`);
   state.records = [...state.records.filter((r) => r.entityId !== entityId), ...body.records];
+  state.recordPagination[entityId] = body.pagination;
 }
 
 export function packageFromCurrentApp() {
@@ -90,7 +148,7 @@ export function packageFromCurrentApp() {
 export async function saveCurrentPackage(mutator) {
   const pkg = packageFromCurrentApp();
   mutator(pkg);
-  const body = await api(`/api/apps/${state.currentApp.id}/package`, { method: 'PUT', body: JSON.stringify({ package: pkg }) });
+  const body = await api(`/api/apps/${state.currentApp.id}/package`, { method: 'PUT', body: JSON.stringify({ package: pkg, expectedUpdatedAt: state.currentApp.updatedAt }) });
   state.currentApp = body.app;
   state.apps = state.apps.map((a) => a.id === body.app.id ? body.app : a);
   return body.app;

@@ -128,11 +128,6 @@ function registerSSEHandlers() {
       const card = toolDisplay.showToolUse(data);
       if (card) chatView.addElement(card);
     })
-    .on('tool_client', (data) => {
-      const card = toolDisplay.showToolClient(data);
-      if (card) chatView.addElement(card);
-      executeClientTool(data);
-    })
     .on('tool_result', (data) => {
       const card = toolDisplay.showToolResult(data);
       if (card && !card.isConnected) chatView.addElement(card);
@@ -260,52 +255,6 @@ function updateAssistantModeLabels() {
   const tipElement = document.querySelector('.assistant-mode-tip');
   if (titleElement) titleElement.textContent = title;
   if (tipElement) tipElement.textContent = tip;
-}
-
-async function executeClientTool(data) {
-  const args = data.arguments;
-  switch (data.name) {
-    case 'design_form': {
-      const key = `software-garden:${currentAppId}:${args.entityId}:form-layout:${args.entityId}`;
-      const storageKey = `software-garden:${currentAppId}:${args.entityId}:form-layout`;
-      const existing = JSON.parse(localStorage.getItem(storageKey) || 'null');
-      const layout = { columns: args.columns || 2, order: args.fieldOrder };
-      localStorage.setItem(storageKey, JSON.stringify(layout));
-      await sendClientResult(data.id, { ok: true, layout });
-      break;
-    }
-    case 'create_view': {
-      const storageKey = `software-garden:${currentAppId}:${args.entityId}:views`;
-      const views = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const view = {
-        id: `view_${Date.now()}`,
-        name: args.name,
-        visibleFields: args.visibleFields || [],
-        fieldOrder: args.visibleFields || [],
-        searchFields: [],
-        sorts: args.sorts || [],
-        filters: [],
-        columnWidths: {},
-        group: null
-      };
-      views.push(view);
-      localStorage.setItem(storageKey, JSON.stringify(views));
-      await sendClientResult(data.id, { ok: true, viewId: view.id });
-      break;
-    }
-    default:
-      await sendClientResult(data.id, { error: `Unknown client tool: ${data.name}` });
-  }
-}
-
-async function sendClientResult(toolCallId, result) {
-  try {
-    await fetch('/api/ai/chat/tool-result', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ toolCallId, result })
-    });
-  } catch { /* ignore */ }
 }
 
 export function setAppId(appId) {

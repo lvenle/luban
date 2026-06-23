@@ -6,6 +6,7 @@ import { chatCompletionsUrl, generatePlanFromPrompt, planToPackage } from '../ai
 import { buildPlanningPrompt, describePlan, understandAgentRequest } from '../ai/agent.js';
 import { applyPatch, preparePackage } from '../core/packageProtocol.js';
 import { getToolDefinitions, getTool, discoverTools } from '../ai/registry.js';
+import { readJson } from './_helpers.js';
 
 discoverTools();
 
@@ -191,16 +192,6 @@ export async function handleAiApi(req, res, method, parts, url) {
           try { args = JSON.parse(tc.function.arguments); } catch { args = {}; }
           args.appId = body.appId || app?.id;
 
-          if (tool.clientOnly) {
-            sseEvent(res, 'tool_client', {
-              id: tc.id,
-              name: tc.function.name,
-              arguments: args,
-              display: buildToolDisplayInfo(tc.function.name, args, app)
-            });
-            continue;
-          }
-
           if (tool.risk === 'high') {
             const confirmId = `${session.id}:${tc.id}`;
             PENDING_CONFIRMS.set(confirmId, { tool, args, sessionId: session.id, toolCallId: tc.id });
@@ -255,9 +246,13 @@ export async function handleAiApi(req, res, method, parts, url) {
             addAiExecutionLog(session.id, `执行 ${tc.function.name}`, 'success', { toolName: tc.function.name, output: result });
             const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
             messages.push({ role: 'tool', tool_call_id: tc.id, content: resultStr });
-            if (tc.function.name === 'create_app' && result?.appId) {
-              app = getApp(result.appId);
-              updateAiSession(session.id, { appId: result.appId });
+            const resultAppId = result?.appId || result?.id || args.appId;
+            if (resultAppId) {
+              const refreshed = getApp(resultAppId);
+              if (refreshed) {
+                app = refreshed;
+                updateAiSession(session.id, { appId: refreshed.id });
+              }
             }
             sseEvent(res, 'tool_result', {
               id: tc.id,
@@ -296,15 +291,6 @@ export async function handleAiApi(req, res, method, parts, url) {
       return;
     }
     PENDING_CONFIRMS.get(confirmId).resolve?.(body.confirmed !== false);
-    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: true }));
-    return;
-  }
-
-  if (method === 'POST' && parts[2] === 'chat' && parts[3] === 'tool-result') {
-    const body = await readJson(req);
-    const pending = PENDING_CONFIRMS.get(`tool:${body.toolCallId}`);
-    if (pending?.resolve) pending.resolve(body.result);
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true }));
     return;
@@ -484,19 +470,5 @@ function waitForConfirm(confirmId) {
       ...PENDING_CONFIRMS.get(confirmId),
       resolve: (value) => { clearTimeout(timeout); resolve(value); }
     });
-  });
-}
-
-async function readJson(req) {
-  const text = Buffer.concat(await collect(req)).toString('utf8') || '{}';
-  return JSON.parse(text);
-}
-
-function collect(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', () => resolve(chunks));
-    req.on('error', reject);
   });
 }

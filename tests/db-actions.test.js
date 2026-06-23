@@ -36,7 +36,7 @@ test('exports app structure by default', async () => {
   rmSync(dbPath, { force: true });
   resetDbForTests(dbPath);
   const app = createAppFromPackage(createBudgetPackage());
-  createRecord(app.id, 'transaction', { type: '支出', amount: 12 });
+  createRecord(app.id, 'transaction', { type: '支出', amount: 12, date: '2026-06-10' });
   const payload = await exportAppPayload(app.id);
   assert.equal(payload.manifest.id, 'budget-book');
   assert.equal(payload.sampleData, undefined);
@@ -47,8 +47,8 @@ test('record no-op updates keep updatedAt stable', () => {
   rmSync(dbPath, { force: true });
   resetDbForTests(dbPath);
   const app = createAppFromPackage(createBudgetPackage());
-  const record = createRecord(app.id, 'transaction', { type: '支出', amount: 42, category: '餐饮' });
-  const updated = updateRecord(record.id, { type: '支出', amount: 42, category: '餐饮' });
+  const record = createRecord(app.id, 'transaction', { type: '支出', amount: 42, category: '餐饮', date: '2026-06-10' });
+  const updated = updateRecord(record.id, { type: '支出', amount: 42, category: '餐饮', date: '2026-06-10' });
 
   assert.equal(updated.updatedAt, record.updatedAt);
   assert.deepEqual(updated.data, record.data);
@@ -59,10 +59,10 @@ test('record updates do not change default list order', () => {
   rmSync(dbPath, { force: true });
   resetDbForTests(dbPath);
   const app = createAppFromPackage(createBudgetPackage());
-  const first = createRecord(app.id, 'transaction', { type: '支出', amount: 1, category: '餐饮' });
-  const second = createRecord(app.id, 'transaction', { type: '支出', amount: 2, category: '交通' });
+  const first = createRecord(app.id, 'transaction', { type: '支出', amount: 1, category: '餐饮', date: '2026-06-10' });
+  const second = createRecord(app.id, 'transaction', { type: '支出', amount: 2, category: '交通', date: '2026-06-11' });
 
-  updateRecord(first.id, { type: '支出', amount: 100, category: '餐饮' });
+  updateRecord(first.id, { type: '支出', amount: 100, category: '餐饮', date: '2026-06-10' });
   const records = listRecords(app.id, { entityId: 'transaction' });
 
   assert.deepEqual(records.map((record) => record.id), [first.id, second.id]);

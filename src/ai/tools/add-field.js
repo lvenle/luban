@@ -2,7 +2,7 @@ import { register } from '../registry.js';
 import { getApp } from '../../models/app.js';
 import { createFieldsInApp } from '../../services/operations.js';
 
-const FIELD_TYPES = ['text', 'number', 'textarea', 'select', 'multiSelect', 'date', 'datetime', 'boolean', 'email', 'phone', 'url', 'color', 'rating', 'image', 'file', 'formula'];
+const FIELD_TYPES = ['text', 'number', 'textarea', 'select', 'multiSelect', 'date', 'datetime', 'boolean', 'image', 'file', 'formula'];
 const FIELD_SCHEMA = {
   type: 'object',
   properties: {

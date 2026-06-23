@@ -1,7 +1,7 @@
 import { h } from '../common/dom.js';
 import { toast } from '../common/toast.js';
-import { state, viewOrderedFields, orderedFields, getFormLayout, setFormLayout, getFormDesign, setFormDesign } from '../app.js';
-import { renderRuntime } from './index.js';
+import { state, currentPage, viewOrderedFields, orderedFields, getFormLayout, setFormLayout, getFormDesign, setFormDesign } from '../app.js';
+import { renderRuntime, saveCurrentPackage, loadCurrentPageRecords } from './index.js';
 import { columnWidthStyle, actionColumnStyle, frozenFieldClass, frozenFieldStyle, frozenUtilityClass, frozenUtilityStyle } from './TableHeader.js';
 import { startCellRangeSelection, extendCellRangeSelection, finishCellRangeSelection } from './CellSelection.js';
 import { startCellEdit, renderFieldValue, formatFieldValue, inputForField, sampleFieldValue, disablePreviewInput, renderFormFieldBlock } from './CellEditor.js';
@@ -105,6 +105,8 @@ export function formatNumberSummary(value, field) {
 
 export function openListConfigModal(entity) {
   const config = getListConfig(entity);
+  const page = currentPage();
+  const pageSizeInput = h('input', { type: 'number', min: '1', max: '1000', step: '1', value: String(page?.pageSize || 100) });
   let order = viewOrderedFields(entity, config).map((field) => field.id);
   const visibleChecks = new Map();
   const searchChecks = new Map();
@@ -155,17 +157,35 @@ export function openListConfigModal(entity) {
         h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
       ]),
       h('p', { class: 'muted', text: '拖拽调整所有字段顺序，勾选字段是否显示以及是否作为搜索条件。搜索条件最多在工具栏展示 3 个。' }),
+      h('label', { class: 'field page-size-field' }, [
+        h('span', { text: '每批加载条数' }),
+        pageSizeInput,
+        h('small', { class: 'field-hint', text: '滚动到底部自动加载下一批，单批最多 1000 条。' })
+      ]),
       list,
       h('div', { class: 'row', style: 'margin-top:14px' }, [
         h('button', {
           text: '保存',
-          onclick: () => {
+          onclick: async (event) => {
             const visibleFields = order.filter((fieldId) => visibleChecks.get(fieldId)?.checked);
             const searchFields = order.filter((fieldId) => searchChecks.get(fieldId)?.checked);
             if (visibleFields.length === 0) return toast('至少保留一个显示字段。');
-            setListConfig(entity, { ...config, visibleFields, searchFields, fieldOrder: order });
-            backdrop.remove();
-            renderRuntime();
+            const pageSize = Math.max(1, Math.min(1000, Number.parseInt(pageSizeInput.value, 10) || 100));
+            const button = event.currentTarget;
+            button.disabled = true;
+            try {
+              setListConfig(entity, { ...config, visibleFields, searchFields, fieldOrder: order });
+              await saveCurrentPackage((pkg) => {
+                const target = pkg.ui.pages.find((item) => item.id === page?.id);
+                if (target) target.pageSize = pageSize;
+              });
+              await loadCurrentPageRecords();
+              backdrop.remove();
+              renderRuntime();
+            } catch (error) {
+              button.disabled = false;
+              toast(error.message);
+            }
           }
         }),
         h('button', {
@@ -286,11 +306,18 @@ export function openFormLayoutModal(entity) {
       h('div', { class: 'row', style: 'margin-top:14px' }, [
         h('button', {
           text: '保存表单视图',
-          onclick: () => {
+          onclick: async (event) => {
             if (!order.length) return toast('表单至少保留一个字段。');
-            setFormLayout(entity, { columns, order });
-            backdrop.remove();
-            toast('表单视图已保存');
+            const button = event.currentTarget;
+            button.disabled = true;
+            try {
+              await setFormLayout(entity, { columns, order });
+              backdrop.remove();
+              toast('表单视图已保存');
+            } catch (error) {
+              button.disabled = false;
+              toast(error.message);
+            }
           }
         }),
         h('button', {

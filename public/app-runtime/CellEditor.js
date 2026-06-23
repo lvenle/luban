@@ -366,6 +366,7 @@ export function fieldValuesEqual(currentValue, nextValue) {
 
 export function renderFormFieldBlock(field, input, design = {}, options = {}) {
   const required = field.required || (design.requiredFields || []).includes(field.id);
+  if (required && ['INPUT', 'SELECT', 'TEXTAREA'].includes(input.tagName) && input.type !== 'file') input.required = true;
   const label = h('label', { text: `${field.label}${required ? ' *' : ''}` });
   const labelNode = options.actions?.length
     ? h('div', { class: 'field-label-row' }, [label, ...options.actions])

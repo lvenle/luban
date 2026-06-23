@@ -117,7 +117,8 @@ export function normalizeView(entity, view = {}) {
     next.gantt = {
       titleField: next.gantt?.titleField || '',
       startField: next.gantt?.startField || '',
-      endField: next.gantt?.endField || ''
+      endField: next.gantt?.endField || '',
+      progressField: next.gantt?.progressField || ''
     };
   }
   next.allFields = fieldIds;
@@ -139,13 +140,12 @@ export function setListConfig(entity, config) {
 export function renderViewBar(entity, currentView) {
   const views = getViews(entity);
   return h('div', { class: 'view-bar' }, [
-    h('div', { class: 'view-tabs' }, views.map((view) => {
+    h('div', { class: 'view-tabs', role: 'tablist', 'aria-label': '数据视图' }, views.map((view) => {
       const tab =
-      h('div', {
+      h('button', {
         class: `view-tab ${view.id === currentView.id ? 'active' : ''}`,
-        role: 'button',
-        tabindex: '0',
-        draggable: 'true',
+        role: 'tab',
+        'aria-selected': view.id === currentView.id ? 'true' : 'false',
         'data-view-id': view.id,
         ondblclick: (event) => {
           event.preventDefault();
@@ -165,12 +165,13 @@ export function renderViewBar(entity, currentView) {
           writeRoute(state.currentApp.id, state.currentPageId, false, view.id);
           renderRuntime();
         }
-      }, [
-        h('span', { class: 'view-tab-name', text: view.name }),
+      }, [h('span', { class: 'view-tab-name', text: view.name })]);
+      const shell = h('div', { class: 'view-tab-shell', draggable: 'true', 'data-view-id': view.id }, [
+        tab,
         view.id === currentView.id ? renderViewMenu(entity) : null
       ]);
-      bindViewTabDrag(tab, entity, view, views);
-      return tab;
+      bindViewTabDrag(shell, entity, view, views);
+      return shell;
     })),
     h('div', { class: 'row' }, [
       h('button', { class: 'secondary icon-label-button', onclick: () => openCreateViewModal(entity) }, buttonLabel('add', '新建视图'))
@@ -203,7 +204,7 @@ export function bindViewTabDrag(tab, entity, view, views) {
   });
   tab.addEventListener('dragend', () => {
     tab.classList.remove('view-tab-dragging');
-    document.querySelectorAll('.view-tab').forEach((item) => delete item.dataset.dropSide);
+    document.querySelectorAll('.view-tab-shell').forEach((item) => delete item.dataset.dropSide);
   });
 }
 
@@ -291,6 +292,7 @@ export function openCreateViewModal(entity) {
     ['gantt', '甘特视图']
   ], 'list');
   const config = h('div', { class: 'view-type-config' });
+  let createButton = null;
   const renderConfig = () => {
     config.innerHTML = '';
     if (typeSelect.value === 'quadrant') {
@@ -303,19 +305,51 @@ export function openCreateViewModal(entity) {
     if (typeSelect.value === 'gantt') {
       const titleFields = entity.fields.filter((field) => field.type !== 'formula' || field.formula?.resultType === 'text');
       const dateFields = entity.fields.filter((field) => ['date', 'datetime'].includes(field.type) || (field.type === 'formula' && field.formula?.resultType === 'date'));
+      const progressFields = entity.fields
+        .filter((field) => field.type === 'number' || (field.type === 'formula' && field.formula?.resultType === 'number'))
+        .sort((a, b) => Number(b.format === 'percent' || /进度|progress/i.test(`${b.label} ${b.id}`)) - Number(a.format === 'percent' || /进度|progress/i.test(`${a.label} ${a.id}`)));
       const title = selectFromOptions(titleFields.map((field) => [field.id, field.label]), titleFields[0]?.id || '');
       const start = selectFromOptions(dateFields.map((field) => [field.id, field.label]), dateFields[0]?.id || '');
       const end = selectFromOptions(dateFields.map((field) => [field.id, field.label]), dateFields[1]?.id || dateFields[0]?.id || '');
-      title.dataset.viewConfig = 'titleField'; start.dataset.viewConfig = 'startField'; end.dataset.viewConfig = 'endField';
+      const progress = selectFromOptions([['', '自动识别或按日期计算'], ...progressFields.map((field) => [field.id, field.label])], '');
+      title.dataset.viewConfig = 'titleField'; start.dataset.viewConfig = 'startField'; end.dataset.viewConfig = 'endField'; progress.dataset.viewConfig = 'progressField';
       config.append(
         h('label', { class: 'field' }, [h('span', { text: '标题字段' }), title]),
         h('label', { class: 'field' }, [h('span', { text: '开始日期' }), start]),
         h('label', { class: 'field' }, [h('span', { text: '结束日期' }), end]),
+        h('label', { class: 'field' }, [h('span', { text: '进度字段（可选）' }), progress]),
+        h('p', { class: 'muted field-hint', text: '百分比格式按 0–1 读取；普通数值可使用 0–1 或 0–100。' }),
         dateFields.length >= 2 ? null : h('p', { class: 'field-error', text: '甘特视图需要至少两个日期或日期时间字段。' })
       );
     }
+    if (createButton) {
+      const invalidQuadrant = typeSelect.value === 'quadrant' && !config.querySelector('[data-view-config="quadrantField"]')?.value;
+      const start = config.querySelector('[data-view-config="startField"]')?.value;
+      const end = config.querySelector('[data-view-config="endField"]')?.value;
+      const invalidGantt = typeSelect.value === 'gantt' && (!start || !end || start === end);
+      createButton.disabled = invalidQuadrant || invalidGantt;
+    }
   };
   typeSelect.addEventListener('change', renderConfig);
+  createButton = h('button', { text: '创建', onclick: () => {
+    const type = typeSelect.value;
+    const patch = { type };
+    if (type === 'quadrant') {
+      const field = entity.fields.find((item) => item.id === config.querySelector('[data-view-config="quadrantField"]')?.value);
+      if (!field || (field.options || []).length < 4) return toast('请选择至少包含 4 个选项的单选字段。');
+      patch.quadrant = { fieldId: field.id, optionIds: field.options.slice(0, 4).map((option) => optionObject(option).id) };
+    }
+    if (type === 'gantt') {
+      const titleField = config.querySelector('[data-view-config="titleField"]')?.value;
+      const startField = config.querySelector('[data-view-config="startField"]')?.value;
+      const endField = config.querySelector('[data-view-config="endField"]')?.value;
+      const progressField = config.querySelector('[data-view-config="progressField"]')?.value || '';
+      if (!titleField || !startField || !endField || startField === endField) return toast('请选择标题字段以及两个不同的日期字段。');
+      patch.gantt = { titleField, startField, endField, progressField };
+    }
+    createView(entity, nameInput.value.trim() || '新视图', patch);
+    backdrop.remove();
+  } });
   renderConfig();
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal compact-modal' }, [
@@ -325,24 +359,7 @@ export function openCreateViewModal(entity) {
       config,
       h('div', { class: 'row', style: 'margin-top:14px' }, [
         h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
-        h('button', { text: '创建', onclick: () => {
-          const type = typeSelect.value;
-          const patch = { type };
-          if (type === 'quadrant') {
-            const field = entity.fields.find((item) => item.id === config.querySelector('[data-view-config="quadrantField"]')?.value);
-            if (!field || (field.options || []).length < 4) return toast('请选择至少包含 4 个选项的单选字段。');
-            patch.quadrant = { fieldId: field.id, optionIds: field.options.slice(0, 4).map((option) => optionObject(option).id) };
-          }
-          if (type === 'gantt') {
-            const titleField = config.querySelector('[data-view-config="titleField"]')?.value;
-            const startField = config.querySelector('[data-view-config="startField"]')?.value;
-            const endField = config.querySelector('[data-view-config="endField"]')?.value;
-            if (!titleField || !startField || !endField || startField === endField) return toast('请选择标题字段以及两个不同的日期字段。');
-            patch.gantt = { titleField, startField, endField };
-          }
-          createView(entity, nameInput.value.trim() || '新视图', patch);
-          backdrop.remove();
-        } })
+        createButton
       ])
     ])
   ]);

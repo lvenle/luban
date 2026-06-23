@@ -7,6 +7,7 @@ const DATA_DIR = join(process.cwd(), 'data');
 const DB_PATH = join(DATA_DIR, 'db.sqlite');
 
 let db;
+let savepointCounter = 0;
 
 export function getDb() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -26,6 +27,21 @@ export function resetDbForTests(path) {
   db.exec('PRAGMA foreign_keys = ON;');
   migrate(db);
   return db;
+}
+
+export function withTransaction(callback) {
+  const database = getDb();
+  const savepoint = `sp_${++savepointCounter}`;
+  database.exec(`SAVEPOINT ${savepoint}`);
+  try {
+    const result = callback(database);
+    database.exec(`RELEASE SAVEPOINT ${savepoint}`);
+    return result;
+  } catch (error) {
+    database.exec(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+    database.exec(`RELEASE SAVEPOINT ${savepoint}`);
+    throw error;
+  }
 }
 
 function migrate(database) {
@@ -71,6 +87,8 @@ function migrate(database) {
       FOREIGN KEY (sourceRecordId) REFERENCES records(id) ON DELETE CASCADE,
       FOREIGN KEY (targetRecordId) REFERENCES records(id) ON DELETE CASCADE
     );
+
+    CREATE INDEX IF NOT EXISTS idx_records_app_entity_created ON records(appId, entityId, createdAt);
 
     CREATE INDEX IF NOT EXISTS idx_record_relations_source ON record_relations(sourceRecordId, fieldId);
     CREATE INDEX IF NOT EXISTS idx_record_relations_target ON record_relations(targetRecordId);

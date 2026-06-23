@@ -1,4 +1,4 @@
-import { getDb, rowToApp } from '../storage/db.js';
+import { getDb, rowToApp, withTransaction } from '../storage/db.js';
 import { getApp } from './app.js';
 import { createId } from '../core/ids.js';
 import { calculateFormulaFields } from '../core/formula.js';
@@ -26,8 +26,12 @@ export function listRecords(appId, options = {}) {
     conditions.push('entityId = ?');
     params.push(options.entityId);
   }
+  const limit = options.limit === undefined ? null : clampPageLimit(options.limit);
+  const offset = Math.max(0, Number.parseInt(options.offset, 10) || 0);
+  const pagination = limit === null ? '' : ' LIMIT ? OFFSET ?';
+  if (limit !== null) params.push(limit, offset);
   const rows = getDb()
-    .prepare(`SELECT * FROM records WHERE ${conditions.join(' AND ')} ORDER BY createdAt ASC, rowid ASC`)
+    .prepare(`SELECT * FROM records WHERE ${conditions.join(' AND ')} ORDER BY createdAt ASC, rowid ASC${pagination}`)
     .all(...params);
   let records = rows.map((row) => ({
     id: row.id,
@@ -41,22 +45,57 @@ export function listRecords(appId, options = {}) {
   records = records.map((record) => calculateRecordFormulas(record));
   if (options.q) {
     const q = String(options.q).toLowerCase();
-    records = records.filter((record) => JSON.stringify(record.data).toLowerCase().includes(q));
+    const app = getApp(appId);
+    records = records.filter((record) => recordSearchText(app, record).includes(q));
   }
   return records;
+}
+
+function recordSearchText(app, record) {
+  const entity = app?.schema?.entities?.find((item) => item.id === record.entityId);
+  const values = [JSON.stringify(record.data)];
+  for (const field of entity?.fields || []) {
+    const value = record.data?.[field.id];
+    if (field.type === 'select') {
+      const option = (field.options || []).find((item) => item.id === value || item.label === value);
+      if (option) values.push(option.label);
+    }
+    if (field.type === 'multiSelect') {
+      for (const id of Array.isArray(value) ? value : []) {
+        const option = (field.options || []).find((item) => item.id === id || item.label === id);
+        if (option) values.push(option.label);
+      }
+    }
+  }
+  return values.join(' ').toLowerCase();
+}
+
+export function countRecords(appId, options = {}) {
+  const conditions = ['appId = ?'];
+  const params = [appId];
+  if (options.entityId) { conditions.push('entityId = ?'); params.push(options.entityId); }
+  return getDb().prepare(`SELECT COUNT(*) AS count FROM records WHERE ${conditions.join(' AND ')}`).get(...params).count;
+}
+
+export function clampPageLimit(value, fallback = 100) {
+  const parsed = Number.parseInt(value, 10);
+  return Math.max(1, Math.min(1000, Number.isFinite(parsed) ? parsed : fallback));
 }
 
 export function createRecord(appId, entityId, data, customCreatedAt) {
   const app = getApp(appId);
   if (!app) throw notFoundError('找不到应用。');
   if (!app.schema.entities.some((entity) => entity.id === entityId)) throw validationError(`实体不存在：${entityId}`);
-  const { data: cleanData, relations } = splitRelationData(app, entityId, data);
+  const entity = app.schema.entities.find((item) => item.id === entityId);
+  const validated = validateRecordData(entity, data, { mode: 'create' });
+  const { data: cleanData, relations } = splitRelationData(app, entityId, validated);
   const id = createId('rec');
-  const createdAt = customCreatedAt || now();
-  getDb()
-    .prepare('INSERT INTO records (id, appId, entityId, dataJson, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(id, appId, entityId, JSON.stringify(cleanData || {}), createdAt, createdAt);
-  setRecordRelationValues(appId, entityId, id, relations);
+  const createdAt = validTimestamp(customCreatedAt) || now();
+  withTransaction((database) => {
+    database.prepare('INSERT INTO records (id, appId, entityId, dataJson, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(id, appId, entityId, JSON.stringify(cleanData || {}), createdAt, createdAt);
+    setRecordRelationValues(appId, entityId, id, relations);
+  });
   return calculateRecordFormulas(getRecord(id));
 }
 
@@ -73,24 +112,33 @@ export function getRecord(id) {
   };
 }
 
+export function getRecordForApp(appId, recordId) {
+  const record = getRecord(recordId);
+  if (!record || record.appId !== appId) return null;
+  return record;
+}
+
 export function updateRecord(recordId, data) {
   const existing = getRecord(recordId);
   if (!existing) return null;
   const app = getApp(existing.appId);
-  const { data: cleanData, relations } = splitRelationData(app, existing.entityId, data);
+  const entity = app?.schema?.entities?.find((item) => item.id === existing.entityId);
+  const validated = validateRecordData(entity, data, { mode: 'update' });
+  const { data: cleanData, relations } = splitRelationData(app, existing.entityId, validated);
   const nextJson = JSON.stringify(cleanData || {});
   const dataChanged = JSON.stringify(existing.data || {}) !== nextJson;
   const relationsChanged = relationsChangedSince(recordId, relations);
   if (!dataChanged && !relationsChanged) return existing;
-  if (dataChanged) {
-    getDb()
-      .prepare('UPDATE records SET dataJson = ?, updatedAt = ? WHERE id = ?')
-      .run(nextJson, now(), recordId);
-  }
-  if (relationsChanged) {
-    setRecordRelationValues(existing.appId, existing.entityId, recordId, relations);
-  }
+  withTransaction((database) => {
+    if (dataChanged) database.prepare('UPDATE records SET dataJson = ?, updatedAt = ? WHERE id = ?').run(nextJson, now(), recordId);
+    if (relationsChanged) setRecordRelationValues(existing.appId, existing.entityId, recordId, relations);
+  });
   return calculateRecordFormulas(getRecord(recordId));
+}
+
+export function updateRecordForApp(appId, recordId, data) {
+  if (!getRecordForApp(appId, recordId)) throw notFoundError('找不到记录。');
+  return updateRecord(recordId, data);
 }
 
 function relationsChangedSince(recordId, relations) {
@@ -112,8 +160,26 @@ export function deleteRecord(recordId, options = {}) {
     error.details = { referenceCount };
     throw error;
   }
-  database.prepare('DELETE FROM record_relations WHERE sourceRecordId = ? OR targetRecordId = ?').run(recordId, recordId);
-  return database.prepare('DELETE FROM records WHERE id = ?').run(recordId).changes > 0;
+  return withTransaction(() => {
+    database.prepare('DELETE FROM record_relations WHERE sourceRecordId = ? OR targetRecordId = ?').run(recordId, recordId);
+    return database.prepare('DELETE FROM records WHERE id = ?').run(recordId).changes > 0;
+  });
+}
+
+export function deleteRecordForApp(appId, recordId, options = {}) {
+  if (!getRecordForApp(appId, recordId)) throw notFoundError('找不到记录。');
+  return deleteRecord(recordId, options);
+}
+
+export function deleteRecordsForApp(appId, recordIds = [], options = {}) {
+  const ids = [...new Set(recordIds.map(String))];
+  if (!ids.length) return 0;
+  if (ids.length > 1000) throw validationError('单次最多删除 1000 条记录。');
+  return withTransaction(() => {
+    for (const id of ids) if (!getRecordForApp(appId, id)) throw notFoundError(`找不到记录：${id}`);
+    for (const id of ids) deleteRecord(id, options);
+    return ids.length;
+  });
 }
 
 export function countRecordReferences(recordId) {
@@ -132,11 +198,12 @@ export function listRelationOptions(appId, sourceEntityId, fieldId, keyword = ''
       recordId: record.id,
       displayValue: relationDisplayValue(app, field, record)
     }))
-    .filter((option) => !q || option.displayValue.toLowerCase().includes(q));
+    .filter((option) => !q || option.displayValue.toLowerCase().includes(q))
+    .slice(0, 1000);
 }
 
-export function getRecordRelations(recordId, fieldId) {
-  const record = getRecord(recordId);
+export function getRecordRelations(recordId, fieldId, appId = '') {
+  const record = appId ? getRecordForApp(appId, recordId) : getRecord(recordId);
   if (!record) throw notFoundError('找不到记录。');
   const app = getApp(record.appId);
   const field = relationField(app, record.entityId, fieldId);
@@ -146,13 +213,77 @@ export function getRecordRelations(recordId, fieldId) {
   }));
 }
 
-export function updateRecordRelations(recordId, fieldId, targetRecordIds = []) {
-  const record = getRecord(recordId);
+export function updateRecordRelations(recordId, fieldId, targetRecordIds = [], appId = '') {
+  const record = appId ? getRecordForApp(appId, recordId) : getRecord(recordId);
   if (!record) throw notFoundError('找不到记录。');
   const app = getApp(record.appId);
   const field = relationField(app, record.entityId, fieldId);
-  setSingleRecordRelation(record.appId, record.entityId, recordId, field, normalizeTargetIds(targetRecordIds, field));
-  return getRecordRelations(recordId, fieldId);
+  withTransaction(() => setSingleRecordRelation(record.appId, record.entityId, recordId, field, normalizeTargetIds(targetRecordIds, field)));
+  return getRecordRelations(recordId, fieldId, record.appId);
+}
+
+export function validateRecordData(entity, data = {}, options = {}) {
+  if (!entity) throw validationError('找不到记录对应的表。');
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw validationError('记录数据必须是对象。');
+  const fields = new Map((entity.fields || []).map((field) => [field.id, field]));
+  const unknown = Object.keys(data).filter((id) => !fields.has(id));
+  if (unknown.length) throw validationError(`记录包含不存在的字段：${unknown.join('、')}`);
+  const normalized = {};
+  for (const field of entity.fields || []) {
+    if (field.type === 'formula') continue;
+    const present = Object.prototype.hasOwnProperty.call(data, field.id);
+    const value = present ? data[field.id] : undefined;
+    if (field.required && isEmptyValue(value)) throw validationError(`字段「${field.label || field.id}」为必填项。`);
+    if (!present) continue;
+    normalized[field.id] = validateFieldValue(field, value);
+  }
+  return normalized;
+}
+
+function validateFieldValue(field, value) {
+  if (isEmptyValue(value)) return value;
+  if (field.type === 'number') {
+    const number = Number(value);
+    if (!Number.isFinite(number)) throw validationError(`字段「${field.label}」必须是数值。`);
+    return number;
+  }
+  if (field.type === 'boolean') {
+    if (typeof value !== 'boolean') throw validationError(`字段「${field.label}」必须是布尔值。`);
+    return value;
+  }
+  if (field.type === 'date' || field.type === 'datetime') {
+    if (Number.isNaN(Date.parse(value))) throw validationError(`字段「${field.label}」必须是有效日期。`);
+    return String(value);
+  }
+  if (field.type === 'select') {
+    const id = String(value?.optionId || value?.id || value);
+    const option = (field.options || []).find((item) => item.id === id || item.label === id);
+    if (!option) throw validationError(`字段「${field.label}」包含无效选项。`);
+    return option.id;
+  }
+  if (field.type === 'multiSelect') {
+    if (!Array.isArray(value)) throw validationError(`字段「${field.label}」必须是选项数组。`);
+    const ids = value.map((item) => String(item?.optionId || item?.id || item));
+    const normalized = ids.map((id) => (field.options || []).find((option) => option.id === id || option.label === id)?.id);
+    if (normalized.some((id) => !id)) throw validationError(`字段「${field.label}」包含无效选项。`);
+    return [...new Set(normalized)];
+  }
+  if (field.type === 'relation') return value;
+  if (field.type === 'image' || field.type === 'file') {
+    if (typeof value !== 'object' || Array.isArray(value) || !value.url) throw validationError(`字段「${field.label}」必须是有效文件。`);
+    return value;
+  }
+  return String(value);
+}
+
+function isEmptyValue(value) {
+  return value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0);
+}
+
+function validTimestamp(value) {
+  if (!value) return '';
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? '' : new Date(time).toISOString();
 }
 
 function splitRelationData(app, entityId, data = {}) {

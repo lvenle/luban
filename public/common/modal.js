@@ -1,5 +1,102 @@
 import { h } from './dom.js';
 
+let modalAccessibilityReady = false;
+let modalSequence = 0;
+const modalFocus = new WeakMap();
+let lastFocusOutsideModal = null;
+
+export function setupModalAccessibility() {
+  if (modalAccessibilityReady) return;
+  modalAccessibilityReady = true;
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (!(node instanceof HTMLElement)) continue;
+        if (node.classList.contains('modal-backdrop')) decorateModal(node);
+        node.querySelectorAll?.('.modal-backdrop').forEach(decorateModal);
+      }
+      for (const node of mutation.removedNodes) {
+        if (node instanceof HTMLElement && node.classList.contains('modal-backdrop')) restoreModalFocus(node);
+      }
+    }
+    updateBackgroundInert();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('keydown', handleModalKeydown, true);
+  document.addEventListener('focusin', (event) => {
+    if (!event.target.closest?.('.modal-backdrop')) lastFocusOutsideModal = event.target;
+  }, true);
+  document.addEventListener('pointerdown', (event) => {
+    if (!event.target.closest?.('.modal-backdrop')) lastFocusOutsideModal = event.target.closest?.('button,a,input,select,textarea,[tabindex]') || event.target;
+  }, true);
+}
+
+function decorateModal(backdrop) {
+  if (backdrop.dataset.accessibleModal === 'true') return;
+  backdrop.dataset.accessibleModal = 'true';
+  const active = document.activeElement;
+  modalFocus.set(backdrop, focusDescriptor(active && active !== document.body ? active : lastFocusOutsideModal));
+  const modal = backdrop.querySelector('.modal');
+  if (!modal) return;
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('tabindex', '-1');
+  const title = modal.querySelector('h1,h2,h3,h4');
+  if (title) {
+    title.id ||= `modal-title-${++modalSequence}`;
+    modal.setAttribute('aria-labelledby', title.id);
+  }
+  backdrop.addEventListener('pointerdown', (event) => {
+    if (event.target === backdrop) backdrop.remove();
+  });
+  queueMicrotask(() => {
+    if (!backdrop.isConnected || backdrop.contains(document.activeElement)) return;
+    (modal.querySelector('input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex="0"]') || modal).focus();
+  });
+}
+
+function handleModalKeydown(event) {
+  const backdrops = [...document.querySelectorAll('.modal-backdrop[data-accessible-modal="true"]')];
+  const backdrop = backdrops.at(-1);
+  if (!backdrop) return;
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    backdrop.remove();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const focusable = [...backdrop.querySelectorAll('input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href], [tabindex="0"]')]
+    .filter((item) => item.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
+
+function restoreModalFocus(backdrop) {
+  const previous = modalFocus.get(backdrop);
+  queueMicrotask(() => {
+    if (previous?.element?.isConnected) return previous.element.focus?.();
+    const candidates = [...document.querySelectorAll(previous?.tag || 'button')];
+    const replacement = candidates.find((item) => item.textContent?.trim() === previous?.text && (!previous?.title || item.title === previous.title));
+    replacement?.focus?.();
+  });
+}
+
+function focusDescriptor(element) {
+  if (!(element instanceof HTMLElement)) return null;
+  return { element, tag: element.tagName.toLowerCase(), text: element.textContent?.trim() || '', title: element.title || '' };
+}
+
+function updateBackgroundInert() {
+  const active = [...document.body.children].filter((item) => item.classList?.contains('modal-backdrop'));
+  for (const child of document.body.children) {
+    if (child.classList?.contains('modal-backdrop')) continue;
+    child.inert = active.length > 0;
+  }
+}
+
 export function openConfirmDialog({ title = '确认操作', message = '', confirmText = '确认', danger = false, onConfirm }) {
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal confirm-modal' }, [

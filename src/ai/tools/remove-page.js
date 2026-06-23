@@ -26,6 +26,6 @@ register({
     if (!app) throw new Error('App not found');
     const pkg = getPackageFromApp(app);
     pkg.ui.pages = pkg.ui.pages.filter((p) => p.id !== args.pageId);
-    return updateAppPackage(app.id, pkg);
+    return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
   }
 });

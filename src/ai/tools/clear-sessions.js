@@ -4,7 +4,7 @@ import { clearAiSessions, createAiSession } from '../../models/session.js';
 register({
   name: 'clear_sessions',
   description: 'Clear all AI chat history sessions for the current app.',
-  risk: 'low',
+  risk: 'high',
   schema: {
     type: 'function',
     function: {

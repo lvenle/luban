@@ -6,8 +6,9 @@ export async function openSettingsModal() {
   const body = await api('/api/settings');
   const ai = body.ai || {};
   const baseUrl = h('input', { value: ai.baseUrl || 'https://api.openai.com/v1' });
-  const apiKey = h('input', { value: ai.apiKey || '', type: 'password' });
+  const apiKey = h('input', { value: '', type: 'password', placeholder: ai.hasApiKey ? '已配置，留空保持不变' : '输入 API Key' });
   const model = h('input', { value: ai.model || 'gpt-4.1-mini' });
+  let clearApiKey = false;
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal' }, [
       h('div', { class: 'toolbar' }, [h('h3', { text: 'AI 设置' }), h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })]),
@@ -20,12 +21,14 @@ export async function openSettingsModal() {
         h('button', {
           text: '保存',
           onclick: async () => {
-            await api('/api/settings', { method: 'PUT', body: JSON.stringify({ ai: { baseUrl: baseUrl.value, apiKey: apiKey.value, model: model.value } }) });
+            const next = { baseUrl: baseUrl.value, model: model.value, clearApiKey };
+            if (apiKey.value) next.apiKey = apiKey.value;
+            await api('/api/settings', { method: 'PUT', body: JSON.stringify({ ai: next }) });
             backdrop.remove();
             toast('设置已保存');
           }
         }),
-        h('button', { class: 'secondary', text: '使用 Mock AI', onclick: () => (apiKey.value = '') })
+        h('button', { class: 'secondary', text: '使用 Mock AI', onclick: () => { apiKey.value = ''; clearApiKey = true; apiKey.placeholder = '保存后将清除现有 Key'; } })
       ])
     ])
   ]);

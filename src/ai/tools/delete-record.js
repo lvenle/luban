@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { getDb } from '../../storage/db.js';
+import { deleteRecordForApp } from '../../models/record.js';
 
 register({
   name: 'delete_record',
@@ -21,10 +21,7 @@ register({
     }
   },
   handler: async (args) => {
-    const db = getDb();
-    db.prepare('DELETE FROM record_relations WHERE appId = ? AND (sourceRecordId = ? OR targetRecordId = ?)').run(args.appId, args.recordId, args.recordId);
-    const info = db.prepare('DELETE FROM records WHERE appId = ? AND id = ?').run(args.appId, args.recordId);
-    if (info.changes === 0) throw new Error('Record not found');
-    return { ok: true, deleted: info.changes };
+    const deleted = deleteRecordForApp(args.appId, args.recordId, { force: true });
+    return { ok: true, deleted: deleted ? 1 : 0 };
   }
 });

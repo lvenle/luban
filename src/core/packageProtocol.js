@@ -93,6 +93,21 @@ export function normalizePackage(pkg) {
     for (const field of entity.fields) {
       if (field.type === 'formula') normalizeFormulaField(field, entity);
     }
+    const entityFieldIds = new Set(entity.fields.map((field) => field.id));
+    if (entity.formLayout) {
+      entity.formLayout = {
+        columns: [1, 2, 3, 4].includes(Number(entity.formLayout.columns)) ? Number(entity.formLayout.columns) : 2,
+        order: [...new Set(entity.formLayout.order || [])].filter((id) => entityFieldIds.has(id))
+      };
+      for (const field of entity.fields) if (!entity.formLayout.order.includes(field.id)) entity.formLayout.order.push(field.id);
+    }
+    if (entity.formDesign) {
+      entity.formDesign = {
+        descriptions: Object.fromEntries(Object.entries(entity.formDesign.descriptions || {}).filter(([id]) => entityFieldIds.has(id))),
+        requiredFields: (entity.formDesign.requiredFields || []).filter((id) => entityFieldIds.has(id)),
+        defaults: Object.fromEntries(Object.entries(entity.formDesign.defaults || {}).filter(([id]) => entityFieldIds.has(id)))
+      };
+    }
   }
 
   next.ui.pages ||= [];
@@ -100,6 +115,7 @@ export function normalizePackage(pkg) {
     page.id = slugify(page.id || page.name || page.title || page.displayName || page.type, 'page');
     page.title = page.title || page.displayName || page.name || page.id;
     page.type = normalizePageType(page.type || 'list');
+    if (page.type === 'list') page.pageSize = clampPageSize(page.pageSize, 100);
     if (!page.entity && page.bindEntity) page.entity = normalizeFieldId(page.bindEntity, 'entity');
     if (page.entity) page.entity = normalizeFieldId(page.entity, 'entity');
     const entity = next.schema.entities.find((item) => item.id === page.entity);
@@ -122,6 +138,11 @@ export function normalizePackage(pkg) {
   next.prompts.systemPrompt ||= '你是这个软件的助手，负责帮助用户使用和改进该软件。';
   next.prompts.suggestedCommands ||= [];
   return next;
+}
+
+function clampPageSize(value, fallback = 100) {
+  const parsed = Number.parseInt(value, 10);
+  return Math.max(1, Math.min(1000, Number.isFinite(parsed) ? parsed : fallback));
 }
 
 function normalizeSchemaShape(schema) {
@@ -227,10 +248,11 @@ export function normalizeTableView(view = {}, entity, index = 0) {
     next.gantt = {
       titleField: next.gantt?.titleField || next.titleField || '',
       startField: next.gantt?.startField || next.startField || '',
-      endField: next.gantt?.endField || next.endField || ''
+      endField: next.gantt?.endField || next.endField || '',
+      progressField: next.gantt?.progressField || next.progressField || ''
     };
   }
-  delete next.fieldId; delete next.optionIds; delete next.titleField; delete next.startField; delete next.endField;
+  delete next.fieldId; delete next.optionIds; delete next.titleField; delete next.startField; delete next.endField; delete next.progressField;
   next.allFields = fieldIds;
   return next;
 }
@@ -379,7 +401,11 @@ export function validatePackage(pkg) {
         const title = entity?.fields?.find((item) => item.id === view.gantt?.titleField);
         const start = entity?.fields?.find((item) => item.id === view.gantt?.startField);
         const end = entity?.fields?.find((item) => item.id === view.gantt?.endField);
+        const progress = view.gantt?.progressField
+          ? entity?.fields?.find((item) => item.id === view.gantt.progressField)
+          : null;
         if (!title || !['date', 'datetime'].includes(start?.type) || !['date', 'datetime'].includes(end?.type)) errors.push(`甘特视图 ${view.id} 配置无效。`);
+        if (view.gantt?.progressField && !isNumericField(progress)) errors.push(`甘特视图 ${view.id} 的进度字段必须是数值字段。`);
       }
     }
   }
@@ -392,6 +418,10 @@ export function validatePackage(pkg) {
     throw error;
   }
   return true;
+}
+
+function isNumericField(field) {
+  return field?.type === 'number' || (field?.type === 'formula' && field.formula?.resultType === 'number');
 }
 
 export function preparePackage(pkg) {

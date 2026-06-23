@@ -5,7 +5,7 @@ import { openRecordModal } from './RecordModal.js';
 import { openListConfigModal } from './TableRow.js';
 import { renderFieldValue } from './CellEditor.js';
 import { optionObject } from './FieldEditor.js';
-import { renderRuntime } from './index.js';
+import { renderRuntime, renderInfiniteLoadSentinel } from './index.js';
 import { orderSelectedOptions } from './Ordering.js';
 import { scheduleMarkdownPreview, cancelMarkdownPreview, openMarkdownRecordEditor } from './MarkdownEditor.js';
 
@@ -44,7 +44,8 @@ export function renderQuadrantView(page, entity, records, view) {
           ]),
           renderCompactTable(entity, groups.get(option.id) || [], visibleFields, view)
         ])
-      ))
+      )),
+      renderInfiniteLoadSentinel(entity)
     ])
   ]);
 }
@@ -91,7 +92,8 @@ export function renderGanttView(page, entity, records, view) {
           ]);
         }),
         valid.length ? null : h('div', { class: 'typed-empty muted', text: '暂无可绘制的排期记录。' })
-      ])
+      ]),
+      renderInfiniteLoadSentinel(entity)
     ])
   ]);
 }

@@ -1517,6 +1517,33 @@ textarea {
   background: #fff;
 }
 
+.record-load-sentinel {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: #f8fafc;
+  font-size: 12px;
+}
+
+.view-tab-shell {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.view-tab-shell .view-menu-trigger {
+  margin-left: -26px;
+  position: relative;
+  z-index: 1;
+}
+
+.view-tab-shell:has(.view-menu-trigger) .view-tab {
+  padding-right: 32px;
+}
+
 table {
   border-collapse: collapse;
   background: #fff;

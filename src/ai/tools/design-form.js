@@ -1,10 +1,11 @@
 import { register } from '../registry.js';
+import { getPackageFromApp } from '../../storage/db.js';
+import { getApp, updateAppPackage } from '../../models/app.js';
 
 register({
   name: 'design_form',
-  description: 'Configure the form layout field order and column count for a table. This is a client-side operation executed in the browser.',
+  description: 'Persist the form layout field order and column count for a table.',
   risk: 'low',
-  clientOnly: true,
   schema: {
     type: 'function',
     function: {
@@ -22,7 +23,17 @@ register({
       }
     }
   },
-  handler: async () => {
-    return { clientSide: true, message: 'This tool runs in the browser' };
+  handler: async (args) => {
+    const app = getApp(args.appId);
+    if (!app) throw new Error('App not found');
+    const pkg = getPackageFromApp(app);
+    const entity = pkg.schema.entities.find((item) => item.id === args.entityId);
+    if (!entity) throw new Error('找不到表。');
+    const fieldSet = new Set(entity.fields.map((field) => field.id));
+    const order = [...new Set(args.fieldOrder || [])].filter((id) => fieldSet.has(id));
+    for (const field of entity.fields) if (!order.includes(field.id)) order.push(field.id);
+    entity.formLayout = { columns: [1, 2, 3, 4].includes(Number(args.columns)) ? Number(args.columns) : 2, order };
+    const saved = updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
+    return { appId: saved.id, entityId: entity.id, formLayout: entity.formLayout };
   }
 });

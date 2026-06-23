@@ -75,7 +75,7 @@ const isMain = process.argv[1] && (
   import.meta.url.endsWith('/' + process.argv[1].split('/').pop())
 );
 if (isMain) {
-  createAppServer().listen(PORT, '127.0.0.1', () => {
+  createAppServer().listen(PORT, '0.0.0.0', () => {
     console.log(`Software Garden MVP running at http://localhost:${PORT}`);
   });
 }

@@ -36,6 +36,6 @@ register({
       entity: args.entityId,
       color: args.color || 'brand'
     });
-    return updateAppPackage(app.id, pkg);
+    return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
   }
 });

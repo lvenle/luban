@@ -39,6 +39,6 @@ register({
     if (args.type === 'chart') page.charts = [];
     if (args.type === 'dashboard') page.cards = [];
     pkg.ui.pages.push(page);
-    return updateAppPackage(app.id, pkg);
+    return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
   }
 });

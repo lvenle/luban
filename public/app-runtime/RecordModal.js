@@ -32,6 +32,7 @@ export function openRecordModal(entity, record = null) {
         h('button', {
           text: '保存',
           onclick: async (event) => {
+            if (!form.reportValidity()) return;
             const button = event.currentTarget;
             button.disabled = true;
             try {
@@ -88,6 +89,11 @@ export async function removeRecord(recordId, entityId) {
 
 export async function quickAddRecord(entity) {
   try {
+    if (entity.fields.some((field) => field.required && field.type !== 'formula')) {
+      openRecordModal(entity);
+      toast('当前表包含必填字段，请在表单中完成填写。');
+      return null;
+    }
     const data = {};
     for (const field of entity.fields) data[field.id] = defaultValueForField(field);
     const body = await api(`/api/apps/${state.currentApp.id}/records`, { method: 'POST', body: JSON.stringify({ entityId: entity.id, data }) });
@@ -120,9 +126,7 @@ export async function bulkDeleteRecords(entity, selectedIds, selectionKey) {
     confirmText: '批量删除',
     danger: true,
     onConfirm: async () => {
-      for (const recordId of selectedIds) {
-        await api(`/api/apps/${state.currentApp.id}/records/${recordId}`, { method: 'DELETE' });
-      }
+      await api(`/api/apps/${state.currentApp.id}/records/bulk-delete`, { method: 'POST', body: JSON.stringify({ recordIds: [...selectedIds] }) });
       writeStorage(selectionKey, []);
       await loadCurrentPageRecords();
       renderRuntime();

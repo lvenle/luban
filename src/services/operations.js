@@ -1,9 +1,11 @@
-import { getDb, getPackageFromApp } from '../storage/db.js';
+import { getDb, getPackageFromApp, withTransaction } from '../storage/db.js';
 import { updateAppPackage } from '../models/app.js';
 import { createRecord } from '../models/record.js';
 import { normalizeFieldId } from '../core/ids.js';
+import { preparePackage } from '../core/packageProtocol.js';
 import { importRowsFromFile } from '../utils/importData.js';
 import { formulaDependents, renameFormulaBinding } from '../core/formula.js';
+import { readBuffer } from '../routes/_helpers.js';
 
 function notFound(message) {
   const error = new Error(message);
@@ -29,7 +31,7 @@ export function createTableInApp(app, body = {}) {
     fields: [{ id: 'name', label: '名称', type: 'text', required: true }]
   });
   pkg.ui.pages.push({ id: `${entityId}-list`, title: `${name}列表`, type: 'list', entity: entityId, navKind: 'table', features: ['create', 'edit', 'delete', 'search', 'export'], views: [{ id: 'default', name: '全部记录', type: 'list' }] });
-  return updateAppPackage(app.id, pkg);
+  return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
 }
 
 export function updateTableInApp(app, entityId, body = {}) {
@@ -39,7 +41,7 @@ export function updateTableInApp(app, entityId, body = {}) {
   if (body.name) entity.name = String(body.name).trim();
   if (body.description !== undefined) entity.description = String(body.description || '');
   for (const page of pkg.ui.pages.filter((item) => item.entity === entityId && body.name)) page.title = `${entity.name}列表`;
-  return updateAppPackage(app.id, pkg);
+  return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
 }
 
 export function deleteTableInApp(app, entityId) {
@@ -60,9 +62,12 @@ export function deleteTableInApp(app, entityId) {
     sourceEntity.fields = (sourceEntity.fields || []).filter((field) => !(field.type === 'relation' && field.targetEntity === entityId));
   }
   pkg.ui.pages = pkg.ui.pages.filter((page) => page.entity !== entityId);
-  getDb().prepare('DELETE FROM record_relations WHERE appId = ? AND (sourceEntityId = ? OR targetEntityId = ?)').run(app.id, entityId, entityId);
-  getDb().prepare('DELETE FROM records WHERE appId = ? AND entityId = ?').run(app.id, entityId);
-  return updateAppPackage(app.id, pkg);
+  preparePackage(pkg);
+  return withTransaction((database) => {
+    database.prepare('DELETE FROM record_relations WHERE appId = ? AND (sourceEntityId = ? OR targetEntityId = ?)').run(app.id, entityId, entityId);
+    database.prepare('DELETE FROM records WHERE appId = ? AND entityId = ?').run(app.id, entityId);
+    return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
+  });
 }
 
 export function clearTableRecordsInApp(app, entityId) {
@@ -76,10 +81,11 @@ export function clearTableRecordsInApp(app, entityId) {
     error.details = { references };
     throw error;
   }
-  const database = getDb();
-  database.prepare('DELETE FROM record_relations WHERE appId = ? AND (sourceEntityId = ? OR targetEntityId = ?)').run(app.id, entityId, entityId);
-  const deleted = database.prepare('DELETE FROM records WHERE appId = ? AND entityId = ?').run(app.id, entityId);
-  return { ok: true, deletedCount: deleted.changes };
+  return withTransaction((database) => {
+    database.prepare('DELETE FROM record_relations WHERE appId = ? AND (sourceEntityId = ? OR targetEntityId = ?)').run(app.id, entityId, entityId);
+    const deleted = database.prepare('DELETE FROM records WHERE appId = ? AND entityId = ?').run(app.id, entityId);
+    return { ok: true, deletedCount: deleted.changes };
+  });
 }
 
 export async function importTableRecordsInApp(req, app, entityId, fileName) {
@@ -89,7 +95,7 @@ export async function importTableRecordsInApp(req, app, entityId, fileName) {
   if (!buffer.length) throw badRequest('导入文件不能为空。');
   const rows = importRowsFromFile(buffer, entity, fileName);
   if (!rows.length) throw badRequest('没有找到可导入的数据。请确认第一行是表头，且表头与字段名一致。');
-  const records = rows.map((data) => createRecord(app.id, entityId, data));
+  const records = withTransaction(() => rows.map((data) => createRecord(app.id, entityId, data)));
   return { ok: true, importedCount: records.length, recordIds: records.map((record) => record.id) };
 }
 
@@ -129,7 +135,7 @@ export function createFieldsInApp(app, entityId, fields = []) {
     const id = uniqueFieldId(entity, field.id || label);
     entity.fields.push({ ...field, id, label });
   }
-  return updateAppPackage(app.id, pkg);
+  return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
 }
 
 export function updateFieldInApp(app, entityId, fieldId, patch = {}) {
@@ -139,11 +145,24 @@ export function updateFieldInApp(app, entityId, fieldId, patch = {}) {
   if (!field) throw notFound('找不到字段。');
   const dependents = formulaDependents(entity, fieldId);
   if (patch.type && patch.type !== field.type && dependents.length) throw formulaDependencyError(field, dependents, '修改类型');
+  if (patch.type && patch.type !== field.type) {
+    const hasValues = getDb().prepare('SELECT dataJson FROM records WHERE appId = ? AND entityId = ?').all(app.id, entityId)
+      .some((row) => {
+        const value = JSON.parse(row.dataJson)?.[fieldId];
+        return value !== undefined && value !== null && value !== '' && (!Array.isArray(value) || value.length > 0);
+      });
+    if (hasValues) {
+      const error = new Error(`字段「${field.label}」已有数据，不能直接修改类型。请先清空或迁移该字段数据。`);
+      error.status = 409;
+      throw error;
+    }
+  }
   if (patch.label && patch.label !== field.label) {
     for (const formulaField of entity.fields) renameFormulaBinding(formulaField, fieldId, String(patch.label).trim());
   }
-  Object.assign(field, patch);
-  return updateAppPackage(app.id, pkg);
+  const allowed = ['label', 'type', 'options', 'required', 'format', 'formula', 'placeholder'];
+  Object.assign(field, Object.fromEntries(Object.entries(patch).filter(([key]) => allowed.includes(key))));
+  return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
 }
 
 export function deleteFieldInApp(app, entityId, fieldId) {
@@ -154,9 +173,47 @@ export function deleteFieldInApp(app, entityId, fieldId) {
   if (!field) throw notFound('找不到字段。');
   const dependents = formulaDependents(entity, fieldId);
   if (dependents.length) throw formulaDependencyError(field, dependents, '删除');
+  const references = packageFieldReferences(pkg, entityId, fieldId);
+  if (references.length) {
+    const error = new Error(`不能删除字段「${field.label}」，以下配置正在引用它：${references.map((item) => item.label).join('、')}`);
+    error.status = 409;
+    error.details = { fieldId, references };
+    throw error;
+  }
   entity.fields = entity.fields.filter((field) => field.id !== fieldId);
-  getDb().prepare('DELETE FROM record_relations WHERE appId = ? AND sourceEntityId = ? AND fieldId = ?').run(app.id, entityId, fieldId);
-  return updateAppPackage(app.id, pkg);
+  preparePackage(pkg);
+  return withTransaction((database) => {
+    database.prepare('DELETE FROM record_relations WHERE appId = ? AND sourceEntityId = ? AND fieldId = ?').run(app.id, entityId, fieldId);
+    const rows = database.prepare('SELECT id, dataJson FROM records WHERE appId = ? AND entityId = ?').all(app.id, entityId);
+    const update = database.prepare('UPDATE records SET dataJson = ?, updatedAt = ? WHERE id = ?');
+    for (const row of rows) {
+      const data = JSON.parse(row.dataJson);
+      if (!Object.prototype.hasOwnProperty.call(data, fieldId)) continue;
+      delete data[fieldId];
+      update.run(JSON.stringify(data), new Date().toISOString(), row.id);
+    }
+    return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
+  });
+}
+
+function packageFieldReferences(pkg, entityId, fieldId) {
+  const references = [];
+  for (const page of pkg.ui?.pages || []) {
+    if (page.entity !== entityId) continue;
+    if (page.chart?.groupBy === fieldId || page.chart?.value === fieldId) references.push({ type: 'chart', id: page.id, label: `页面「${page.title}」图表` });
+    for (const view of page.views || []) {
+      const used = view.quadrant?.fieldId === fieldId
+        || Object.values(view.gantt || {}).includes(fieldId)
+        || (view.filters || []).some((item) => item.field === fieldId)
+        || (view.sorts || []).some((item) => item.field === fieldId)
+        || view.group?.field === fieldId;
+      if (used) references.push({ type: 'view', id: view.id, label: `视图「${view.name}」` });
+    }
+  }
+  for (const action of pkg.actions?.actions || []) {
+    if (JSON.stringify(action).includes(`"${fieldId}"`)) references.push({ type: 'action', id: action.id, label: `操作「${action.name}」` });
+  }
+  return references;
 }
 
 function formulaDependencyError(field, dependents, action) {
@@ -186,17 +243,4 @@ export function uniqueFieldId(entity, base) {
     index += 1;
   }
   return id;
-}
-
-async function readBuffer(req) {
-  return Buffer.concat(await collect(req));
-}
-
-function collect(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', () => resolve(chunks));
-    req.on('error', reject);
-  });
 }

@@ -42,6 +42,6 @@ register({
       multiple: args.multiple || false,
       displayField: displayField?.id || null
     });
-    return updateAppPackage(app.id, pkg);
+    return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
   }
 });

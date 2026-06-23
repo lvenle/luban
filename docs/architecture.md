@@ -1,6 +1,6 @@
 # 软件花园 MVP — 项目架构与功能说明
 
-## 零依赖架构（Node.js 25+ Built-in Only）
+## 轻依赖架构（Node.js 25+，运行时主要使用内置能力）
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -9,8 +9,8 @@
 │   public/index.html  (13 lines, 单一入口)                             │
 │        └── <script type="module" src="app.js">                       │
 │                                                                      │
-│   public/app.js     (4999 lines, 完整 SPA)                           │
-│   public/styles.css (3196 lines, 完整样式)                           │
+│   public/app.js + app-home/app-runtime/ai-assistant 模块             │
+│   public/styles.css + AI 助理样式                                    │
 │                                                                      │
 │   ┌──────────┐  ┌──────────────┐  ┌──────────────┐  ┌───────────┐  │
 │   │ Home 页  │  │ Runtime      │  │ AI 助理抽屉  │  │ 设置 Modal│  │
@@ -36,7 +36,7 @@
 │   └──────────┘ └─────────────────┘ └──────────────────────────┘     │
 │                                                                      │
 │   ┌────────────┐ ┌───────────────┐ ┌────────────┐ ┌────────────┐   │
-│   │ src/db.js  │ │ src/ai.js     │ │ src/agent  │ │ src/actions│   │
+│   │ storage/db │ │ ai/service    │ │ ai/agent   │ │ services/  │   │
 │   │ SQLite 层  │ │ AI + Mock     │ │ .js        │ │ .js        │   │
 │   │ CRUD       │ │ 50+ 场景      │ │ Agent 逻辑 │ │ Action 执行│   │
 │   │ 关系处理   │ │ Patch 生成    │ │ 意图识别   │ │ 内置 Action│   │
@@ -71,14 +71,11 @@
 
 ## 模块功能说明
 
-### 1. `src/server.js` — HTTP 路由与请求处理
+### 1. `src/server.js` 与 `src/routes/*` — HTTP 路由与请求处理
 
 **入口**：`npm start` → `node src/server.js`
 
-**职责**：
-- 创建 HTTP 服务，监听 `process.env.PORT || 5173`
-- 静态文件分发（`public/` 目录 + `/uploads` 目录）
-- 30+ 个 REST API 端点的路由分发
+**职责**：创建回环地址 HTTP 服务、分发静态文件，并将 App、Runtime、AI、Settings API 分发到独立路由模块。JSON 请求限制为 2 MB，上传/导入限制为 20 MB。
 
 **API 端点分类**：
 
@@ -115,7 +112,7 @@
 
 ---
 
-### 2. `src/db.js` — 数据库层
+### 2. `src/storage/db.js` 与 `src/models/*` — 数据库与模型层
 
 **技术**：`node:sqlite`（Node 25+ 内置）
 
@@ -135,7 +132,7 @@
 
 - `createAppFromPackage(pkg)` — 规范化 + 校验 + 插入数据库
 - `updateAppPackage(appId, pkg)` — 重新规范化校验后更新
-- `listRecords(appId, { entityId, q })` — 支持全文搜索 + 关系数据水合
+- `listRecords(appId, { entityId, q, limit, offset })` — 支持搜索、关系水合和最多 1000 条的分页读取
 - `createRecord(appId, entityId, data)` — 自动拆分关系字段写入 `record_relations`
 - `updateRecord(recordId, data)` — No-op 检测（相同数据不更新 updatedAt）
 - `deleteRecord(recordId, { force })` — 检查引用约束，force=true 时级联删除
@@ -165,9 +162,9 @@ app.sgpkg
 └── sample-data.json    # 可选样本数据
 ```
 
-**字段类型**（17 种）：
+**字段类型**（13 种）：
 
-`text`, `textarea`, `number`, `date`, `datetime`, `select`, `multiSelect`, `boolean`, `relation`, `image`, `file`, `richText`, `email`, `phone`, `url`, `color`, `rating`
+`text`, `textarea`, `number`, `date`, `datetime`, `select`, `multiSelect`, `boolean`, `relation`, `image`, `file`, `richText`, `formula`
 
 **页面类型**（7 种）：
 

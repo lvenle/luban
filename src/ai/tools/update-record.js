@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { updateRecord, getRecord } from '../../models/record.js';
+import { updateRecordForApp, getRecordForApp } from '../../models/record.js';
 
 register({
   name: 'update_record',
@@ -22,9 +22,9 @@ register({
     }
   },
   handler: async (args) => {
-    const record = getRecord(args.appId, args.recordId);
+    const record = getRecordForApp(args.appId, args.recordId);
     if (!record) throw new Error('Record not found');
     const merged = { ...record.data, ...args.data };
-    return updateRecord(args.appId, args.recordId, merged);
+    return updateRecordForApp(args.appId, args.recordId, merged);
   }
 });

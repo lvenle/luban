@@ -2,7 +2,7 @@ import { renderAssistantDrawer } from './ai-assistant/index.js';
 import { h, uiIcon, buttonLabel } from './common/dom.js';
 import { api } from './common/api.js';
 import { toast } from './common/toast.js';
-import { openConfirmDialog, openTextModal, floatingMenus, closeFloatingMenus, bindFloatingMenu } from './common/modal.js';
+import { openConfirmDialog, openTextModal, floatingMenus, closeFloatingMenus, bindFloatingMenu, setupModalAccessibility } from './common/modal.js';
 import { readStorage, writeStorage, globalStorageKey, clampSidebarWidth } from './common/storage.js';
 import { renderHome, loadApps, goHome } from './app-home/index.js';
 import { appCategory } from './app-home/AppCard.js';
@@ -12,7 +12,7 @@ export const state = {
   apps: [], currentApp: null, currentPageId: null, records: [],
   inlineEditId: null, loading: false, appCategory: '全部', currentViewId: '',
   assistantOpen: false, pageDragId: '', cellSelection: null, cellClipboard: null,
-  sidebarCollapsed: false, sidebarWidth: 168
+  sidebarCollapsed: false, sidebarWidth: 168, recordPagination: {}, loadingRecordPages: {}
 };
 
 export const root = document.querySelector('#app');
@@ -38,6 +38,7 @@ export function uniquePageId(title, entityId = 'page') {
 }
 
 async function boot() {
+  setupModalAccessibility();
   state.apps = (await api('/api/apps')).apps;
   const route = currentRoute();
   document.body.addEventListener('ai-message-end', async () => {
@@ -103,7 +104,7 @@ function renderTopbarAppInfo(app) {
 }
 
 async function saveAppMetadata(name, category, description) {
-  const body = await api(`/api/apps/${state.currentApp.id}`, { method: 'PUT', body: JSON.stringify({ name, category, description: description || '' }) });
+  const body = await api(`/api/apps/${state.currentApp.id}`, { method: 'PUT', body: JSON.stringify({ name, category, description: description || '', expectedUpdatedAt: state.currentApp.updatedAt }) });
   state.currentApp = body.app;
   state.apps = state.apps.map((a) => a.id === body.app.id ? body.app : a);
   (await import('./app-runtime/index.js')).renderRuntime();
@@ -248,16 +249,34 @@ function groupKeyForRecord(record, field, group) {
 
 export function getFormLayout(entity) {
   const fb = { columns: 2, order: entity.fields.map(f => f.id) };
-  const stored = readStorage(storageKey('form-layout', entity.id), null) || fb;
-  stored.columns = [2, 3, 4].includes(Number(stored.columns)) ? Number(stored.columns) : 2;
+  const legacy = readStorage(storageKey('form-layout', entity.id), null);
+  const stored = structuredClone(entity.formLayout || legacy || fb);
+  stored.columns = [1, 2, 3, 4].includes(Number(stored.columns)) ? Number(stored.columns) : 2;
   stored.order = (stored.order || []).filter(id => new Set(entity.fields.map(f => f.id)).has(id));
-  if (!('order' in (readStorage(storageKey('form-layout', entity.id), null) || {}))) entity.fields.forEach(f => { if (!stored.order.includes(f.id)) stored.order.push(f.id); });
+  entity.fields.forEach(f => { if (!stored.order.includes(f.id)) stored.order.push(f.id); });
   return stored;
 }
 
-export function setFormLayout(entity, layout) { writeStorage(storageKey('form-layout', entity.id), layout); }
-export function getFormDesign(entity) { return getFormDesignFromPatch(entity, readStorage(storageKey('form-design', entity.id), null)); }
-export function setFormDesign(entity, design) { writeStorage(storageKey('form-design', entity.id), getFormDesignFromPatch(entity, design)); }
+export async function setFormLayout(entity, layout) {
+  const normalized = { columns: [1, 2, 3, 4].includes(Number(layout.columns)) ? Number(layout.columns) : 2, order: layout.order };
+  entity.formLayout = normalized;
+  const { saveCurrentPackage } = await import('./app-runtime/index.js');
+  await saveCurrentPackage((pkg) => {
+    const target = pkg.schema.entities.find((item) => item.id === entity.id);
+    if (target) target.formLayout = normalized;
+  });
+  localStorage.removeItem(storageKey('form-layout', entity.id));
+}
+export function getFormDesign(entity) { return getFormDesignFromPatch(entity, entity.formDesign || readStorage(storageKey('form-design', entity.id), null)); }
+export async function setFormDesign(entity, design) {
+  const normalized = getFormDesignFromPatch(entity, design);
+  const { saveCurrentPackage } = await import('./app-runtime/index.js');
+  await saveCurrentPackage((pkg) => {
+    const target = pkg.schema.entities.find((item) => item.id === entity.id);
+    if (target) target.formDesign = normalized;
+  });
+  localStorage.removeItem(storageKey('form-design', entity.id));
+}
 
 function getFormDesignFromPatch(entity, design = {}) {
   const fSet = new Set(entity.fields.map(f => f.id));
