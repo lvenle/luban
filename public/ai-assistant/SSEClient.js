@@ -1,7 +1,10 @@
+const STALL_TIMEOUT_MS = 60_000;
+
 export default class SSEClient {
   constructor() {
     this.abortController = null;
     this.callbacks = {};
+    this.stallTimer = null;
   }
 
   on(event, callback) {
@@ -12,6 +15,26 @@ export default class SSEClient {
 
   emit(event, data) {
     for (const cb of this.callbacks[event] || []) cb(data);
+  }
+
+  /**
+   * Reset the stall watchdog timer. Called whenever new data arrives.
+   * If no data arrives within STALL_TIMEOUT_MS, the connection is considered dead
+   * and an 'error' event is emitted so the UI can show a timeout message.
+   */
+  resetStallTimer() {
+    if (this.stallTimer) clearTimeout(this.stallTimer);
+    this.stallTimer = setTimeout(() => {
+      this.emit('error', { message: '连接超时：长时间未收到服务器响应，请重试。' });
+      this.abortController?.abort();
+    }, STALL_TIMEOUT_MS);
+  }
+
+  clearStallTimer() {
+    if (this.stallTimer) {
+      clearTimeout(this.stallTimer);
+      this.stallTimer = null;
+    }
   }
 
   async connect(url, body) {
@@ -41,9 +64,14 @@ export default class SSEClient {
       const decoder = new TextDecoder();
       let buffer = '';
 
+      this.resetStallTimer();
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+
+        // Data received — reset the stall timer
+        this.resetStallTimer();
 
         buffer += decoder.decode(value, { stream: true });
         const parts = buffer.split('\n\n');
@@ -67,14 +95,17 @@ export default class SSEClient {
         }
       }
 
+      this.clearStallTimer();
       this.emit('stream_end', {});
     } catch (error) {
+      this.clearStallTimer();
       if (error.name === 'AbortError') return;
       this.emit('error', { message: error.message });
     }
   }
 
   disconnect() {
+    this.clearStallTimer();
     this.abortController?.abort();
     this.abortController = null;
   }

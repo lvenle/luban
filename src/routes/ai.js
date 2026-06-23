@@ -16,6 +16,30 @@ function sseEvent(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+/**
+ * Read a chunk from a ReadableStream reader with a per-read timeout.
+ * If no data arrives within timeoutMs, rejects so the caller can propagate an error.
+ * This prevents the AI assistant from hanging silently when the AI provider stalls mid-stream.
+ */
+function readWithTimeout(reader, timeoutMs = 120_000) {
+  const read = reader.read();
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('AI 响应超时：长时间未收到数据')), timeoutMs)
+  );
+  return Promise.race([read, timeout]);
+}
+
+/**
+ * Race a promise against a timeout. If the promise doesn't settle within timeoutMs,
+ * rejects with the given error message. Used to prevent tool handlers from hanging.
+ */
+function withTimeout(promise, timeoutMs, errorMessage) {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+  );
+  return Promise.race([promise, timeout]);
+}
+
 async function* streamOpenAI(settings, messages, tools) {
   const payload = {
     model: settings.model || 'gpt-4.1-mini',
@@ -41,7 +65,7 @@ async function* streamOpenAI(settings, messages, tools) {
   let buffer = '';
 
   while (true) {
-    const { done, value } = await reader.read();
+    const { done, value } = await readWithTimeout(reader);
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
@@ -244,7 +268,11 @@ export async function handleAiApi(req, res, method, parts, url) {
           });
           try {
             addAiExecutionLog(session.id, `执行 ${tc.function.name}`, 'running', { toolName: tc.function.name, input: args });
-            const result = await tool.handler(args, { app, session: getAiSession(session.id) });
+            const result = await withTimeout(
+              tool.handler(args, { app, session: getAiSession(session.id) }),
+              120_000,
+              `工具 ${tc.function.name} 执行超时（120秒）`
+            );
             addAiExecutionLog(session.id, `执行 ${tc.function.name}`, 'success', { toolName: tc.function.name, output: result });
             const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
             messages.push({ role: 'tool', tool_call_id: tc.id, content: resultStr });
