@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import { sendJson, statusForError, serveStatic, serveUpload, HttpError } from './routes/_helpers.js';
 import { handleAiApi } from './routes/ai.js';
 import { handleAppApi, handleGenerateApp, handleImportApp } from './routes/app.js';
@@ -120,6 +121,12 @@ async function handleApi(req, res, url) {
 
   if (method === 'GET' && url.pathname === '/api/health') {
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/version') {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
+    sendJson(res, 200, { version: pkg.version });
     return;
   }
 

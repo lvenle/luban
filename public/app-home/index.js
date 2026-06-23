@@ -19,6 +19,7 @@ export function renderHome() {
       h('main', { class: 'container' }, [
         h('section', { class: 'hero' }, [
           h('h1', { text: '鲁班AI系统' }),
+          h('span', { class: 'version-badge', text: '' }),
           h('p', { text: 'AI 原生软件自定义平台，用自然语言创建、运行和持续改造属于你的业务软件。' }),
           h('div', { class: 'hero-meta' }, [
             h('button', {
@@ -49,6 +50,7 @@ export function renderHome() {
       ])
     ])
   );
+  loadVersionBadge();
   if (state.assistantOpen) {
     renderAssistantDrawer(() => {
       state.assistantOpen = false;
@@ -58,6 +60,16 @@ export function renderHome() {
   } else {
     removeAssistantDrawer();
   }
+}
+
+async function loadVersionBadge() {
+  try {
+    const res = await fetch('/api/version');
+    if (!res.ok) return;
+    const data = await res.json();
+    const badge = document.querySelector('.version-badge');
+    if (badge) badge.textContent = `v${data.version}`;
+  } catch { /* ignore */ }
 }
 
 export async function loadApps() {
