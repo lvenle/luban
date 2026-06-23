@@ -16,6 +16,7 @@ export const state = {
 };
 
 export const root = document.querySelector('#app');
+export const APP_VERSION = '2026.06.23';
 
 export function storageKey(scope, suffix = '') {
   const appId = state.currentApp?.id || 'global';
@@ -80,7 +81,10 @@ export function topbar() {
     h('div', { class: 'topbar-left' }, [
       h('button', { class: 'brand brand-button', onclick: goHome, title: '返回首页' }, [
         h('img', { class: 'brand-logo', src: '/images/logo.png', alt: '鲁班AI系统' }),
-        h('span', { text: '鲁班AI系统' })
+        h('div', { class: 'brand-title-group' }, [
+          h('span', { text: '鲁班AI系统' }),
+          h('span', { class: 'version-badge', text: `v${APP_VERSION}` })
+        ])
       ]),
       inRuntime ? renderTopbarAppInfo(state.currentApp) : null
     ]),
