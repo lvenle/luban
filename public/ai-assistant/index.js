@@ -4,6 +4,7 @@ import StreamRenderer from './StreamRenderer.js';
 import ToolDisplay from './ToolDisplay.js';
 import ChatView from './ChatView.js';
 import SessionManager from './SessionManager.js';
+import { toast } from '../common/toast.js';
 
 let chatView;
 let streamRenderer;
@@ -38,32 +39,43 @@ export function init() {
     onSwitch: async (sessionId) => {
       try {
         const res = await fetch(`/api/ai/sessions/${sessionId}`);
+        if (!res.ok) {
+          console.error('[ai-assistant] 会话加载失败:', res.status);
+          toast('会话加载失败');
+          return;
+        }
         const body = await res.json();
-        if (body.session) {
-          currentSessionId = sessionId;
-          sessionManager.setCurrent(sessionId);
-          chatView.clear();
-          const history = sessionHistoryEntries(body.session.messages || [], body.session.logs || []);
-          for (const entry of history) {
-            if (entry.kind === 'tool') {
-              const toolCard = toolDisplay.showHistoryLog(entry.item);
-              if (toolCard) chatView.addElement(toolCard);
-              continue;
-            }
-            const msg = entry.item;
-            if (msg.role === 'user') chatView.addMessage('user', msg.content);
-            else if (msg.role === 'assistant' && msg.content) {
-              const bubble = h('div', { class: 'assistant-bubble' });
-              bubble.innerHTML = streamRenderer.renderMarkdown(msg.content);
-              const card = h('div', { class: 'assistant-msg ai' }, [
-                h('div', { class: 'assistant-avatar ai', text: 'AI' }),
-                bubble
-              ]);
-              chatView.addElement(card);
-            }
+        if (!body.session) {
+          console.error('[ai-assistant] 会话不存在:', sessionId);
+          toast('会话记录不存在');
+          return;
+        }
+        currentSessionId = sessionId;
+        sessionManager.setCurrent(sessionId);
+        chatView.clear();
+        const history = sessionHistoryEntries(body.session.messages || [], body.session.logs || []);
+        for (const entry of history) {
+          if (entry.kind === 'tool') {
+            const toolCard = toolDisplay.showHistoryLog(entry.item);
+            if (toolCard) chatView.addElement(toolCard);
+            continue;
+          }
+          const msg = entry.item;
+          if (msg.role === 'user') chatView.addMessage('user', msg.content);
+          else if (msg.role === 'assistant' && msg.content) {
+            const bubble = h('div', { class: 'assistant-bubble' });
+            bubble.innerHTML = streamRenderer.renderMarkdown(msg.content);
+            const card = h('div', { class: 'assistant-msg ai' }, [
+              h('div', { class: 'assistant-avatar ai', text: 'AI' }),
+              bubble
+            ]);
+            chatView.addElement(card);
           }
         }
-      } catch { /* ignore */ }
+      } catch (error) {
+        console.error('[ai-assistant] 切换会话出错:', error);
+        toast('会话加载失败');
+      }
     },
     onNew: startNewSession
   });
@@ -102,8 +114,11 @@ export function completedToolLogs(logs) {
       pendingInputs.set(log.toolName, queue);
       continue;
     }
+    // 如果日志已有自己的 input，不消费 pendingInputs 队列中的 input
+    // 避免多个同 toolName 的 running 日志与 completed 日志之间的 input 匹配错误
+    const hasOwnInput = log.input != null;
     const queue = pendingInputs.get(log.toolName) || [];
-    const input = log.input || queue.shift() || null;
+    const input = hasOwnInput ? log.input : (queue.shift() || null);
     pendingInputs.set(log.toolName, queue);
     completed.push({ ...log, input });
   }
@@ -211,6 +226,8 @@ export function renderAssistantDrawer(onClose) {
   if (existingDrawer) {
     document.body.classList.add('assistant-open');
     updateAssistantModeLabels();
+    // 确保会话列表刷新——当 loadApps() 触发重绘时 load() 可能还在进行中
+    sessionManager.load(currentAppId);
     return existingDrawer;
   }
 
