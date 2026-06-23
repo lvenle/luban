@@ -4,6 +4,7 @@ import { handleAiApi } from './routes/ai.js';
 import { handleAppApi, handleGenerateApp, handleImportApp } from './routes/app.js';
 import { handleRuntimeApi } from './routes/runtime.js';
 import { handleSettingsApi } from './routes/settings.js';
+import { initDb, closeDb } from './storage/db.js';
 
 const PORT = Number(process.env.PORT || 5173);
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 100);
@@ -163,7 +164,30 @@ const isMain = process.argv[1] && (
   import.meta.url.endsWith('/' + process.argv[1].split('/').pop())
 );
 if (isMain) {
-  createAppServer().listen(PORT, '0.0.0.0', () => {
-    console.log(`Software Garden MVP running at http://localhost:${PORT}`);
+  // On Render (free tier), the filesystem is ephemeral — every redeploy
+  // wipes the SQLite database.  initDb() downloads the .sqlite file from
+  // Supabase Storage (if configured) before the server starts, and sets
+  // up a periodic backup timer so data survives redeploys.
+  //
+  // Required env vars: SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_BUCKET
+  initDb().then(() => {
+    const server = createAppServer().listen(PORT, '0.0.0.0', () => {
+      console.log(`Software Garden MVP running at http://localhost:${PORT}`);
+    });
+
+    // Graceful shutdown — upload the database to Supabase before exiting
+    const shutdown = async (signal) => {
+      console.log(`\n收到 ${signal}，正在关闭服务...`);
+      server.close(() => {
+        closeDb().then(() => process.exit(0)).catch(() => process.exit(1));
+      });
+      // Force exit after 8 seconds if closeDb hangs
+      setTimeout(() => process.exit(1), 8_000);
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+  }).catch((err) => {
+    console.error('[fatal] Failed to initialize database:', err);
+    process.exit(1);
   });
 }

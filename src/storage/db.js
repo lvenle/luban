@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { slugify } from '../core/ids.js';
@@ -9,6 +9,134 @@ const DB_PATH = join(DATA_DIR, 'db.sqlite');
 let db;
 let savepointCounter = 0;
 
+/**
+ * ─── Supabase Storage backup (Render persistence) ───
+ *
+ * Render's free tier has an ephemeral filesystem — every redeploy wipes the
+ * SQLite database.  This module syncs the .sqlite file to Supabase Storage so
+ * your apps, records, and settings survive redeploys.
+ *
+ * Required env vars (set in Render Dashboard → Environment):
+ *   SUPABASE_URL          https://xxxxx.supabase.co
+ *   SUPABASE_SERVICE_KEY  Service role key (Settings → API → service_role key)
+ *   SUPABASE_BUCKET       Bucket name (default: luban-data)
+ *
+ * To set up:
+ *   1. Create a free Supabase account + project
+ *   2. In Supabase Dashboard → Storage → Create a bucket named "luban-data"
+ *   3. In Supabase Dashboard → Settings → API → copy the project URL & service_role key
+ *   4. Set the three environment variables above in Render Dashboard
+ *   5. Redeploy — your data will now persist across deploys
+ */
+
+function supabaseConfig() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !key) return null;
+  const bucket = process.env.SUPABASE_BUCKET || 'luban-data';
+  return {
+    downloadUrl: `${url.replace(/\/$/, '')}/storage/v1/object/${bucket}/db.sqlite`,
+    uploadUrl: `${url.replace(/\/$/, '')}/storage/v1/object/${bucket}/db.sqlite`,
+    key
+  };
+}
+
+async function downloadFromSupabase(cfg) {
+  try {
+    const res = await fetch(cfg.downloadUrl, {
+      headers: { authorization: `Bearer ${cfg.key}` }
+    });
+    if (res.status === 404) {
+      console.log('[db] 未找到远程备份，将创建新数据库。');
+      return;
+    }
+    if (!res.ok) {
+      console.error(`[db] 从 Supabase 下载失败：${res.status}`);
+      return;
+    }
+    const buffer = Buffer.from(await res.arrayBuffer());
+    writeFileSync(DB_PATH, buffer);
+    console.log(`[db] 已从 Supabase 恢复数据库 (${(buffer.length / 1024).toFixed(1)} KB)`);
+  } catch (err) {
+    console.error('[db] 从 Supabase 下载出错：', err.message);
+  }
+}
+
+async function uploadToSupabase(cfg) {
+  try {
+    // Flush WAL to the main DB file so the snapshot is consistent
+    getDb().exec('PRAGMA wal_checkpoint(TRUNCATE)');
+    const buffer = readFileSync(DB_PATH);
+    const res = await fetch(cfg.uploadUrl, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${cfg.key}`,
+        'content-type': 'application/octet-stream'
+      },
+      body: buffer
+    });
+    if (!res.ok) {
+      console.error(`[db] 上传到 Supabase 失败：${res.status}`);
+      return;
+    }
+    console.log(`[db] 已备份数据库到 Supabase (${(buffer.length / 1024).toFixed(1)} KB)`);
+  } catch (err) {
+    console.error('[db] 上传到 Supabase 出错：', err.message);
+  }
+}
+
+let backupTimer = null;
+
+function startBackupTimer(cfg) {
+  if (backupTimer) return;
+  // Upload the DB file every 1 hour if Supabase is configured.
+  // Uses .unref() so the timer does not prevent the process from exiting.
+  backupTimer = setInterval(async () => {
+    await uploadToSupabase(cfg);
+  }, 3_600_000).unref();
+}
+
+function stopBackupTimer() {
+  if (backupTimer) {
+    clearInterval(backupTimer);
+    backupTimer = null;
+  }
+}
+
+/**
+ * Initialize the database asynchronously.
+ * - On Render: downloads the SQLite file from Supabase Storage if available
+ * - Opens the database and runs pending migrations
+ * - Starts the periodic backup timer (if Supabase is configured)
+ *
+ * Call this once at server startup (server.js) before handling requests.
+ * getDb() remains synchronous for existing code — it lazy-initialises with a
+ * fresh local database, so it's safe to call before initDb() in tests or dev.
+ */
+let initialized = false;
+
+export async function initDb() {
+  if (initialized) return;
+  initialized = true;
+
+  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+
+  // If Supabase is configured and there's no local file yet, restore from backup
+  const cfg = supabaseConfig();
+  if (cfg && !existsSync(DB_PATH)) {
+    await downloadFromSupabase(cfg);
+  }
+
+  if (!db) {
+    db = new DatabaseSync(DB_PATH);
+    db.exec('PRAGMA journal_mode = WAL;');
+    db.exec('PRAGMA foreign_keys = ON;');
+    migrate(db);
+  }
+
+  if (cfg) startBackupTimer(cfg);
+}
+
 export function getDb() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
   if (!db) {
@@ -18,6 +146,22 @@ export function getDb() {
     migrate(db);
   }
   return db;
+}
+
+/**
+ * Upload the database to Supabase immediately and stop the backup timer.
+ * Called during graceful shutdown so the latest data is persisted before exit.
+ */
+export async function closeDb() {
+  stopBackupTimer();
+  const cfg = supabaseConfig();
+  if (cfg) {
+    await uploadToSupabase(cfg);
+  }
+  if (db) {
+    db.close();
+    db = null;
+  }
 }
 
 export function resetDbForTests(path) {
