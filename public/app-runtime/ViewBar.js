@@ -6,7 +6,7 @@ import { readStorage, writeStorage } from '../common/storage.js';
 import { state, writeRoute, formatFieldValue, dateKey, storageKey } from '../app.js';
 import { renderRuntime, saveCurrentPackage } from './index.js';
 import { optionObject, effectiveFieldType } from './FieldEditor.js';
-import { dateInputValue } from './DateFormat.js';
+import { dateInputValue, dateInputLocale } from './DateFormat.js';
 import { reorderItemsById } from './Ordering.js';
 
 function defaultView(entity) {
@@ -581,7 +581,7 @@ export function filterValueInput(field, filter) {
   const effectiveType = effectiveFieldType(field);
   const type = effectiveType === 'number' ? 'number' : effectiveType === 'date' ? 'date' : effectiveType === 'datetime' ? 'datetime-local' : 'text';
   const inputValue = effectiveType === 'date' || effectiveType === 'datetime' ? dateInputValue(filter.value, effectiveType) : filter.value || '';
-  return h('input', { type, value: inputValue });
+  return h('input', { type, value: inputValue, lang: dateInputLocale(effectiveType) || undefined });
 }
 
 export function valueFromFilterInput(input, field) {

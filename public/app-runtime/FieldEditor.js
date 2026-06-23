@@ -207,7 +207,6 @@ export function fieldPatchFromEditor(label, type, advanced) {
       expression: advanced.querySelector('[data-field-editor="formulaExpression"]')?.value.trim() || '',
       resultType: advanced.querySelector('[data-field-editor="formulaResultType"]')?.value || 'number'
     };
-    patch.required = false;
   }
   if (type !== 'select' && type !== 'multiSelect') patch.options = [];
   return patch;

@@ -413,7 +413,7 @@ export function mergeBatchableToolCalls(toolCalls) {
     }
     const fields = Array.isArray(args.fields) && args.fields.length
       ? args.fields
-      : [{ id: args.id, label: args.label, type: args.type, options: args.options, required: args.required, formula: args.formula }];
+      : [{ id: args.id, label: args.label, type: args.type, options: args.options, formula: args.formula }];
     const existing = addFieldGroups.get(key);
     if (existing) {
       existing.args.fields.push(...fields);

@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
 import { resetDbForTests } from '../src/storage/db.js';
-import { createAppServer } from '../src/server.js';
 import { allSamplePackages } from '../src/ai/samplePackages.js';
+
+process.env.RATE_LIMIT_MAX = '1000';
+const { createAppServer } = await import('../src/server.js');
 
 const SCENARIOS = allSamplePackages()
   .slice(0, 50)
@@ -63,8 +65,9 @@ test('50 generated app scenarios are usable through HTTP runtime APIs', async ()
 
 function sampleRecord(entity, marker) {
   const data = {};
+  const markerField = entity.fields.find((field) => ['text', 'textarea', 'richText'].includes(field.type));
   for (const [index, field] of entity.fields.entries()) {
-    data[field.id] = sampleValue(field, index === 0 ? marker : undefined);
+    data[field.id] = sampleValue(field, field.id === markerField?.id ? marker : undefined);
   }
   return data;
 }
@@ -75,9 +78,13 @@ function sampleValue(field, marker) {
   if (field.type === 'date') return '2026-06-11';
   if (field.type === 'datetime') return '2026-06-11T10:00';
   if (field.type === 'boolean') return true;
-  if (field.type === 'select') return field.options?.[0] || '默认';
-  if (field.type === 'multiSelect') return [field.options?.[0] || '默认'];
+  if (field.type === 'select') return optionValue(field.options?.[0]) || '默认';
+  if (field.type === 'multiSelect') return [optionValue(field.options?.[0]) || '默认'];
   return '验收数据';
+}
+
+function optionValue(option) {
+  return typeof option === 'object' && option ? (option.id || option.value || option.label) : option;
 }
 
 async function post(url, body) {

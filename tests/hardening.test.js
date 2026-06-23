@@ -28,13 +28,23 @@ test('record validation, ownership, transactions, pagination and persisted AI to
 
   const first = createAppFromPackage(testPackage('first'));
   const second = createAppFromPackage(testPackage('second'));
-  assert.throws(() => createRecord(first.id, 'task', { status: 'todo' }), /必填项/);
+  assert.equal(first.schema.entities[0].fields[0].required, undefined, 'legacy required flags must be removed during normalization');
+  const incomplete = createRecord(first.id, 'task', { status: 'todo' });
+  assert.equal(incomplete.data.name, undefined);
+  assert.equal(deleteRecordForApp(first.id, incomplete.id, { force: true }), true);
   assert.throws(() => createRecord(first.id, 'task', { name: '坏关联', status: 'todo', owner: 'missing' }), /无效记录/);
   assert.equal(countRecords(first.id, { entityId: 'task' }), 0, 'failed relation writes must roll back the inserted record');
 
   const owner = createRecord(first.id, 'person', { name: '小明' });
   const record = createRecord(first.id, 'task', { name: '任务 1', status: '待办', owner: owner.id });
   assert.equal(record.data.status, 'todo', 'select labels normalize to option IDs');
+  const labeledRecord = createRecord(first.id, 'task', { 名称: '显示名写入', 状态: '待办', 负责人: owner.id });
+  assert.equal(labeledRecord.data.name, '显示名写入');
+  assert.equal(labeledRecord.data.status, 'todo');
+  const labeledSaved = listRecords(first.id, { entityId: 'task' }).find((item) => item.id === labeledRecord.id);
+  assert.equal(labeledSaved.data.owner[0].targetRecordId, owner.id);
+  assert.equal(deleteRecordForApp(first.id, labeledRecord.id, { force: true }), true);
+  assert.throws(() => createRecord(first.id, 'task', { 不存在: '错误' }), /不存在的字段/);
   assert.equal(getRecordForApp(second.id, record.id), null);
   assert.throws(() => updateRecordForApp(second.id, record.id, record.data), /找不到记录/);
   assert.throws(() => deleteRecordForApp(second.id, record.id), /找不到记录/);

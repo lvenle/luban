@@ -169,7 +169,7 @@ if (isMain) {
   // redeploys.  Locally (no env vars), everything works with the local SQLite file.
   initDb().then(() => {
     const server = createAppServer().listen(PORT, '0.0.0.0', () => {
-      console.log(`Software Garden MVP running at http://localhost:${PORT}`);
+      console.log(`luban-ai MVP running at http://localhost:${PORT}`);
     });
 
     // Graceful shutdown — upload the database to Supabase before exiting

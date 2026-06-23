@@ -10,7 +10,6 @@ const FIELD_SCHEMA = {
     label: { type: 'string', description: 'Field display name' },
     type: { type: 'string', enum: FIELD_TYPES, description: 'Field type' },
     options: { type: 'array', items: { type: 'string' }, description: 'Options for select/multiSelect fields' },
-    required: { type: 'boolean', description: 'Whether field is required' },
     formula: {
       type: 'object',
       properties: {
@@ -41,7 +40,6 @@ register({
           label: { type: 'string', description: 'Field display name' },
           type: { type: 'string', enum: FIELD_TYPES, description: 'Legacy single-field type' },
           options: { type: 'array', items: { type: 'string' }, description: 'Options for select/multiSelect fields' },
-          required: { type: 'boolean', description: 'Whether field is required' },
           formula: { type: 'object', description: 'Formula definition for formula fields' }
         },
         required: ['appId', 'entityId']
@@ -53,7 +51,7 @@ register({
     if (!app) throw new Error('App not found');
     const requestedFields = Array.isArray(args.fields) && args.fields.length
       ? args.fields
-      : [{ id: args.id, label: args.label, type: args.type, options: args.options, required: args.required, formula: args.formula }];
+      : [{ id: args.id, label: args.label, type: args.type, options: args.options, formula: args.formula }];
     const fields = requestedFields.map(normalizeToolField);
     const beforeIds = new Set(app.schema.entities.find((entity) => entity.id === args.entityId)?.fields.map((field) => field.id) || []);
     const nextApp = createFieldsInApp(app, args.entityId, fields);
@@ -66,7 +64,6 @@ register({
 function normalizeToolField(field) {
   const normalized = { id: field.id, label: field.label, type: field.type };
   if (field.options) normalized.options = field.options.map((option) => typeof option === 'string' ? { id: option, label: option } : option);
-  if (field.required) normalized.required = true;
   if (field.type === 'formula') normalized.formula = field.formula;
   return normalized;
 }

@@ -28,7 +28,7 @@ export function createTableInApp(app, body = {}) {
     id: entityId,
     name,
     description: body.description || '',
-    fields: [{ id: 'name', label: '名称', type: 'text', required: true }]
+    fields: [{ id: 'name', label: '名称', type: 'text' }]
   });
   pkg.ui.pages.push({ id: `${entityId}-list`, title: `${name}列表`, type: 'list', entity: entityId, navKind: 'table', features: ['create', 'edit', 'delete', 'search', 'export'], views: [{ id: 'default', name: '全部记录', type: 'list' }] });
   return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
@@ -133,7 +133,8 @@ export function createFieldsInApp(app, entityId, fields = []) {
     const label = String(field?.label || field?.name || '').trim();
     if (!label) throw badRequest('字段名不能为空。');
     const id = uniqueFieldId(entity, field.id || label);
-    entity.fields.push({ ...field, id, label });
+    const { required: _required, ...optionalField } = field;
+    entity.fields.push({ ...optionalField, id, label });
   }
   return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
 }
@@ -160,7 +161,7 @@ export function updateFieldInApp(app, entityId, fieldId, patch = {}) {
   if (patch.label && patch.label !== field.label) {
     for (const formulaField of entity.fields) renameFormulaBinding(formulaField, fieldId, String(patch.label).trim());
   }
-  const allowed = ['label', 'type', 'options', 'required', 'format', 'formula', 'placeholder'];
+  const allowed = ['label', 'type', 'options', 'format', 'formula', 'placeholder'];
   Object.assign(field, Object.fromEntries(Object.entries(patch).filter(([key]) => allowed.includes(key))));
   return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
 }

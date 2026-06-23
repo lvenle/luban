@@ -89,11 +89,6 @@ export async function removeRecord(recordId, entityId) {
 
 export async function quickAddRecord(entity) {
   try {
-    if (entity.fields.some((field) => field.required && field.type !== 'formula')) {
-      openRecordModal(entity);
-      toast('当前表包含必填字段，请在表单中完成填写。');
-      return null;
-    }
     const data = {};
     for (const field of entity.fields) data[field.id] = defaultValueForField(field);
     const body = await api(`/api/apps/${state.currentApp.id}/records`, { method: 'POST', body: JSON.stringify({ entityId: entity.id, data }) });

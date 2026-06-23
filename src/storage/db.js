@@ -150,7 +150,12 @@ export async function initDb() {
     migrate(db);
   }
 
-  if (cfg) startBackupTimer(cfg);
+  if (cfg) {
+    // 启动后立即备份一次，确保文件立即可见
+    await uploadToSupabase(cfg);
+    // 之后每 1 小时自动备份
+    startBackupTimer(cfg);
+  }
 }
 
 export function getDb() {
@@ -177,6 +182,17 @@ export async function closeDb() {
   if (db) {
     db.close();
     db = null;
+  }
+}
+
+/**
+ * Trigger an immediate backup to Supabase (fire-and-forget).
+ * Used after data-changing operations like app creation.
+ */
+export function triggerBackup() {
+  const cfg = supabaseConfig();
+  if (cfg) {
+    uploadToSupabase(cfg).catch((err) => console.error('[db] triggerBackup failed:', err.message));
   }
 }
 

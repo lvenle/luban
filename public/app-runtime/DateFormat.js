@@ -15,6 +15,10 @@ export function dateInputValue(value, fieldType) {
   return normalized;
 }
 
+export function dateInputLocale(fieldType) {
+  return fieldType === 'date' || fieldType === 'datetime' ? 'en-CA' : '';
+}
+
 export function bindDateTimePicker(input) {
   if (!input || !['date', 'datetime-local'].includes(input.type)) return input;
   input.addEventListener('click', () => showDateTimePicker(input));

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { dateInputValue, formatDateFieldValue } from '../public/app-runtime/DateFormat.js';
+import { dateInputValue, dateInputLocale, formatDateFieldValue } from '../public/app-runtime/DateFormat.js';
 
 test('all date displays use hyphen separators', () => {
   assert.equal(formatDateFieldValue('2026-06-21', { type: 'date' }), '2026-06-21');
@@ -19,6 +19,8 @@ test('datetime display never exposes the storage T separator', () => {
 test('date editor values are normalized for native controls', () => {
   assert.equal(dateInputValue('2026/06/21', 'date'), '2026-06-21');
   assert.equal(dateInputValue('2026/06/21 09:30', 'datetime'), '2026-06-21T09:30');
+  assert.equal(dateInputLocale('date'), 'en-CA');
+  assert.equal(dateInputLocale('datetime'), 'en-CA');
 });
 
 test('table and record modal bind the same date-time picker behavior', () => {

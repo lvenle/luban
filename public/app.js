@@ -280,7 +280,7 @@ export async function setFormDesign(entity, design) {
 
 function getFormDesignFromPatch(entity, design = {}) {
   const fSet = new Set(entity.fields.map(f => f.id));
-  return { descriptions: Object.fromEntries(Object.entries(design?.descriptions || {}).filter(([id]) => fSet.has(id))), requiredFields: (design?.requiredFields || []).filter(id => fSet.has(id)), defaults: Object.fromEntries(Object.entries(design?.defaults || {}).filter(([id]) => fSet.has(id))) };
+  return { descriptions: Object.fromEntries(Object.entries(design?.descriptions || {}).filter(([id]) => fSet.has(id))), defaults: Object.fromEntries(Object.entries(design?.defaults || {}).filter(([id]) => fSet.has(id))) };
 }
 
 function normalizeView(entity, view) {

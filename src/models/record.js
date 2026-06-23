@@ -225,18 +225,51 @@ export function updateRecordRelations(recordId, fieldId, targetRecordIds = [], a
 export function validateRecordData(entity, data = {}, options = {}) {
   if (!entity) throw validationError('找不到记录对应的表。');
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw validationError('记录数据必须是对象。');
+  data = normalizeRecordDataKeys(entity, data);
   const fields = new Map((entity.fields || []).map((field) => [field.id, field]));
-  const unknown = Object.keys(data).filter((id) => !fields.has(id));
-  if (unknown.length) throw validationError(`记录包含不存在的字段：${unknown.join('、')}`);
   const normalized = {};
   for (const field of entity.fields || []) {
     if (field.type === 'formula') continue;
     const present = Object.prototype.hasOwnProperty.call(data, field.id);
     const value = present ? data[field.id] : undefined;
-    if (field.required && isEmptyValue(value)) throw validationError(`字段「${field.label || field.id}」为必填项。`);
     if (!present) continue;
     normalized[field.id] = validateFieldValue(field, value);
   }
+  return normalized;
+}
+
+export function normalizeRecordDataKeys(entity, data = {}) {
+  const fields = new Map((entity.fields || []).map((field) => [field.id, field]));
+  const aliases = new Map();
+  for (const field of entity.fields || []) {
+    for (const alias of [field.label, field.name, field.displayName]) {
+      const key = String(alias || '').trim();
+      if (!key || key === field.id) continue;
+      const matches = aliases.get(key) || [];
+      matches.push(field);
+      aliases.set(key, matches);
+    }
+  }
+
+  const normalized = {};
+  const unknown = [];
+  for (const [rawKey, value] of Object.entries(data)) {
+    const key = String(rawKey).trim();
+    const direct = fields.get(key);
+    const matches = direct ? [direct] : aliases.get(key) || [];
+    if (!matches.length) {
+      unknown.push(rawKey);
+      continue;
+    }
+    if (matches.length > 1) throw validationError(`字段名称「${rawKey}」不唯一，请使用字段 ID。`);
+    const fieldId = matches[0].id;
+    if (Object.prototype.hasOwnProperty.call(normalized, fieldId)
+      && JSON.stringify(normalized[fieldId]) !== JSON.stringify(value)) {
+      throw validationError(`字段「${matches[0].label || fieldId}」被重复赋值。`);
+    }
+    normalized[fieldId] = value;
+  }
+  if (unknown.length) throw validationError(`记录包含不存在的字段：${unknown.join('、')}`);
   return normalized;
 }
 

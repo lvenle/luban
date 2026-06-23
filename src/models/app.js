@@ -1,4 +1,4 @@
-import { getDb, rowToApp, getPackageFromApp, withTransaction } from '../storage/db.js';
+import { getDb, rowToApp, getPackageFromApp, withTransaction, triggerBackup } from '../storage/db.js';
 import { preparePackage } from '../core/packageProtocol.js';
 import { createId, slugify } from '../core/ids.js';
 import { formulaDependents } from '../core/formula.js';
@@ -57,6 +57,7 @@ export function createAppFromPackage(pkg, options = {}) {
     createdAt,
     createdAt
   );
+  triggerBackup();
   return getApp(id);
 }
 

@@ -16,6 +16,7 @@ export function clearPageDragStyles() {
 
 export function pageNavKind(app, page) {
   if (page?.navKind === 'table' || page?.source === 'table') return 'table';
+  if (page?.navKind === 'link' || page?.source === 'link') return 'link';
   if (page?.navKind === 'page' || page?.source === 'page') return 'page';
   if (page?.type === 'list' && page.entity) {
     const entity = app.schema.entities.find((item) => item.id === page.entity);
@@ -34,25 +35,23 @@ export function pageTypeIcon(navKind) {
       svgLine(4, 13, 14, 13)
     ], 'page-type-svg');
   }
+  if (navKind === 'link') {
+    return svgIcon('0 0 18 18', [
+      svgPath('M7.25 6.1 6.1 7.25a3 3 0 0 0 4.24 4.24l1.15-1.15'),
+      svgPath('M10.75 11.9 11.9 10.75a3 3 0 0 0-4.24-4.24L6.5 7.66'),
+      svgLine(7.4, 10.6, 10.6, 7.4)
+    ], 'page-type-svg');
+  }
   return svgIcon('0 0 18 18', [
-    svgPath('M7.25 6.1 6.1 7.25a3 3 0 0 0 4.24 4.24l1.15-1.15'),
-    svgPath('M10.75 11.9 11.9 10.75a3 3 0 0 0-4.24-4.24L6.5 7.66'),
-    svgLine(7.4, 10.6, 10.6, 7.4)
+    svgPath('M4 2h6l4 4v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z'),
+    svgPath('M10 2v4h4')
   ], 'page-type-svg');
 }
 
 export function pageTypeLabel(page, navKind = 'page') {
   if (navKind === 'table') return '数据表';
-  const labels = {
-    blank: '空白页面',
-    list: '表格页面',
-    chart: '统计图表',
-    dashboard: '仪表盘页面',
-    editor: '编辑页面',
-    form: '表单页面',
-    detail: '详情页面'
-  };
-  return labels[page?.type] || '页面';
+  if (navKind === 'link') return '链接';
+  return '页面';
 }
 
 export function renderSidebarContent(app, page) {
@@ -79,6 +78,10 @@ export function renderSidebarContent(app, page) {
     h('button', { class: 'page-button create-table-button', onclick: openCreateTableModal }, [
       h('span', { class: 'button-icon table-icon' }, [pageTypeIcon('table')]),
       h('span', { text: '+ 新建表' })
+    ]),
+    h('button', { class: 'page-button create-link-button', onclick: openCreateLinkModal }, [
+      h('span', { class: 'button-icon page-icon' }, [pageTypeIcon('link')]),
+      h('span', { text: '+ 新增链接' })
     ])
   ];
 }
@@ -89,9 +92,9 @@ export function renderPageNavItem(app, activePage, item) {
   const menu = bindFloatingMenu(h('details', { class: 'page-menu', onclick: (event) => event.stopPropagation() }, [
     h('summary', { title: '页面操作' }, '⋮'),
     h('div', { class: 'page-menu-popover' }, [
-      navKind === 'page' ? h('button', {
+      navKind === 'page' || navKind === 'link' ? h('button', {
         class: 'ghost-menu',
-        text: '删除页面',
+        text: navKind === 'link' ? '删除链接' : '删除页面',
         onclick: (event) => {
           event.preventDefault();
           menu.open = false;
@@ -159,6 +162,10 @@ export function renderPageNavItem(app, activePage, item) {
       class: `menu-item ${item.id === activePage?.id ? 'active' : ''}`,
       text: item.title,
       onclick: async () => {
+        if (navKind === 'link' && item.url) {
+          window.open(item.url, '_blank', 'noopener');
+          return;
+        }
         state.currentPageId = item.id;
         await loadCurrentPageRecords();
         const nextEntity = entityFor(item);
@@ -389,6 +396,49 @@ export function openCreateTableModal() {
             backdrop.remove();
             renderRuntime();
             toast('表已创建');
+          }
+        })
+      ])
+    ])
+  ]);
+  document.body.append(backdrop);
+}
+
+export function openCreateLinkModal() {
+  const titleInput = h('input', { placeholder: '例如：帮助文档' });
+  const urlInput = h('input', { placeholder: 'https://...' });
+  const backdrop = h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal compact-modal' }, [
+      h('div', { class: 'toolbar' }, [
+        h('h3', { text: '新增链接' }),
+        h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
+      ]),
+      h('div', { class: 'field' }, [h('label', { text: '链接名称' }), titleInput]),
+      h('div', { class: 'field' }, [h('label', { text: '链接地址' }), urlInput]),
+      h('div', { class: 'row', style: 'margin-top:14px' }, [
+        h('button', {
+          text: '创建',
+          onclick: async () => {
+            const title = titleInput.value.trim();
+            const url = urlInput.value.trim();
+            if (!title) return toast('请输入链接名称。');
+            if (!url) return toast('请输入链接地址。');
+            const linkPage = {
+              id: uniquePageId(title, 'link'),
+              title,
+              url,
+              navKind: 'link'
+            };
+            try {
+              await saveCurrentPackage((pkg) => {
+                pkg.ui.pages.push(linkPage);
+              });
+              backdrop.remove();
+              renderRuntime();
+              toast('链接已创建');
+            } catch (error) {
+              toast(error.message);
+            }
           }
         })
       ])

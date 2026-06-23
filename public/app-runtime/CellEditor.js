@@ -5,7 +5,7 @@ import { state, recordsFor, dateKey } from '../app.js';
 import { loadCurrentPageRecords, renderRuntime } from './index.js';
 import { optionObject, effectiveFieldType } from './FieldEditor.js';
 import { clearActiveTableSelection } from './CellSelection.js';
-import { dateInputValue, formatDateFieldValue, bindDateTimePicker, showDateTimePicker } from './DateFormat.js';
+import { dateInputValue, dateInputLocale, formatDateFieldValue, bindDateTimePicker, showDateTimePicker } from './DateFormat.js';
 import { normalizeChoiceInitialValue, relationChoicesFromValue, mergeChoiceOptions, relationValueId } from './ChoiceValues.js';
 import { renderMarkdown } from './Markdown.js';
 
@@ -118,7 +118,7 @@ export function inputForField(field, value) {
   }
   const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : 'text';
   const inputValue = field.type === 'date' || field.type === 'datetime' ? dateInputValue(value, field.type) : value ?? '';
-  const input = h('input', { type, value: inputValue, placeholder: field.placeholder || '' });
+  const input = h('input', { type, value: inputValue, lang: dateInputLocale(field.type) || undefined, placeholder: field.placeholder || '' });
   return bindDateTimePicker(input);
 }
 
@@ -140,7 +140,7 @@ export function searchInputForField(field) {
     return select;
   }
   const type = field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : field.type === 'number' ? 'number' : 'text';
-  return h('input', { type, placeholder: `搜索${field.label}` });
+  return h('input', { type, lang: dateInputLocale(field.type) || undefined, placeholder: `搜索${field.label}` });
 }
 
 export async function valueFromInput(input, field) {
@@ -365,9 +365,7 @@ export function fieldValuesEqual(currentValue, nextValue) {
 }
 
 export function renderFormFieldBlock(field, input, design = {}, options = {}) {
-  const required = field.required || (design.requiredFields || []).includes(field.id);
-  if (required && ['INPUT', 'SELECT', 'TEXTAREA'].includes(input.tagName) && input.type !== 'file') input.required = true;
-  const label = h('label', { text: `${field.label}${required ? ' *' : ''}` });
+  const label = h('label', { text: field.label });
   const labelNode = options.actions?.length
     ? h('div', { class: 'field-label-row' }, [label, ...options.actions])
     : label;

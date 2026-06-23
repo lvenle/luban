@@ -82,6 +82,7 @@ export function normalizePackage(pkg) {
       fieldIds.add(field.id);
       field.label = field.label || field.displayName || field.name || field.id;
       field.type = normalizeFieldType(field.type || 'text');
+      delete field.required;
       if (field.type === 'select' || field.type === 'multiSelect') {
         field.options = normalizeOptions(field.options || field.config?.options || []);
         field.config = { ...(field.config || {}), options: field.options };
@@ -104,7 +105,6 @@ export function normalizePackage(pkg) {
     if (entity.formDesign) {
       entity.formDesign = {
         descriptions: Object.fromEntries(Object.entries(entity.formDesign.descriptions || {}).filter(([id]) => entityFieldIds.has(id))),
-        requiredFields: (entity.formDesign.requiredFields || []).filter((id) => entityFieldIds.has(id)),
         defaults: Object.fromEntries(Object.entries(entity.formDesign.defaults || {}).filter(([id]) => entityFieldIds.has(id)))
       };
     }
@@ -157,7 +157,6 @@ function normalizeSchemaShape(schema) {
         id: fieldKey,
         label: field.label || field.displayName || field.description || fieldKey,
         type: field.type || 'text',
-        required: Boolean(field.required),
         options: field.options || field.values
       }))
     });

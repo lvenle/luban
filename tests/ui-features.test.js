@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
+const indexHtml = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const appShellJs = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const assistantCss = readFileSync(new URL('../public/ai-assistant/style.css', import.meta.url), 'utf8');
@@ -55,6 +56,9 @@ const appJs = [
 ].join('\n');
 
 test('frontend exposes required runtime configuration features', () => {
+  assert.match(indexHtml, /rel="icon" href="\/favicon\.ico" sizes="32x32"/);
+  assert.equal(existsSync(new URL('../public/favicon.ico', import.meta.url)), true);
+  assert.match(css, /\.brand-logo\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px;/s);
   assert.match(homeAppCardJs, /export function appCategory/);
   assert.match(homeAppCardJs, /card-menu/);
   assert.match(homeAppCardJs, /clickable-card/);
@@ -233,6 +237,7 @@ test('frontend exposes required runtime configuration features', () => {
 });
 
 test('frontend has styles for list config, form layout, inline edit, and logs', () => {
+  assert.match(css, /\.page-nav-item \.menu-item:hover,[\s\S]*?\.page-nav-item \.page-menu summary:hover[\s\S]*?background:\s*transparent/);
   assert.match(css, /\.hero-meta/);
   assert.match(css, /\.section-heading/);
   assert.match(css, /\.category-filter/);

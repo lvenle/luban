@@ -126,11 +126,11 @@ test('HTTP API supports V2 tables, relation fields, colored options, and confirm
 
     const category = await post(`${base}/api/apps/${appId}/records`, {
       entityId: categoryEntity.id,
-      data: { name: '手机' }
+      data: { ...sampleEntityData(categoryEntity, '手机'), category_code: '手机' }
     });
     const product = await post(`${base}/api/apps/${appId}/records`, {
       entityId: productEntity.id,
-      data: { name: 'iPhone', [relation.id]: [category.record.id] }
+      data: { ...sampleEntityData(productEntity, 'iPhone'), [relation.id]: [category.record.id] }
     });
     assert.ok(product.record.id);
 
@@ -159,7 +159,7 @@ test('HTTP API supports V2 tables, relation fields, colored options, and confirm
 
     await post(`${base}/api/apps/${appId}/records`, {
       entityId: categoryEntity.id,
-      data: { name: '电脑' }
+      data: { ...sampleEntityData(categoryEntity, '电脑'), category_code: '电脑' }
     });
     const clearedTable = await fetch(`${base}/api/apps/${appId}/tables/${categoryEntity.id}/records`, { method: 'DELETE' }).then((res) => res.json());
     assert.equal(clearedTable.deletedCount, 1);
@@ -201,7 +201,8 @@ test('bidirectional relation fields stay synchronized from either table', async 
     const created = await post(`${base}/api/apps/generate`, { prompt: '帮我创建一个商品管理系统' });
     const appId = created.appId;
     const productEntity = created.app.schema.entities[0];
-    const productDisplayField = productEntity.fields.find((field) => field.type !== 'relation');
+    const productDisplayField = productEntity.fields.find((field) => ['text', 'textarea', 'richText'].includes(field.type))
+      || productEntity.fields.find((field) => field.type !== 'relation');
     const categoryTable = await post(`${base}/api/apps/${appId}/tables`, { name: '分类表' });
     const categoryEntity = categoryTable.app.schema.entities.find((entity) => entity.name === '分类表');
 
@@ -220,7 +221,8 @@ test('bidirectional relation fields stay synchronized from either table', async 
       entityId: categoryEntity.id, data: { name: '手机' }
     });
     const product = await post(`${base}/api/apps/${appId}/records`, {
-      entityId: productEntity.id, data: { [productDisplayField.id]: 'iPhone', [productRelation.id]: [category.record.id] }
+      entityId: productEntity.id,
+      data: { ...sampleEntityData(productEntity, 'iPhone', productDisplayField.id), [productRelation.id]: [category.record.id] }
     });
 
     let categories = await getJson(`${base}/api/apps/${appId}/records?entity=${categoryEntity.id}`);
@@ -263,6 +265,29 @@ test('AI agent clarifies vague requests before planning or execution', async () 
     assert.equal(cancelled.session.status, 'cancelled');
   });
 });
+
+function sampleEntityData(entity, marker, markerFieldId) {
+  const textField = markerFieldId
+    ? entity.fields.find((field) => field.id === markerFieldId)
+    : entity.fields.find((field) => ['text', 'textarea', 'richText'].includes(field.type));
+  return Object.fromEntries(entity.fields
+    .filter((field) => field.type !== 'formula' && field.type !== 'relation')
+    .map((field) => [field.id, sampleFieldValue(field, field.id === textField?.id ? marker : undefined)]));
+}
+
+function sampleFieldValue(field, marker) {
+  if (marker !== undefined) return marker;
+  if (field.type === 'number') return 42;
+  if (field.type === 'date') return '2026-06-11';
+  if (field.type === 'datetime') return '2026-06-11T10:00';
+  if (field.type === 'boolean') return true;
+  const firstOption = typeof field.options?.[0] === 'object'
+    ? (field.options[0].id || field.options[0].value || field.options[0].label)
+    : field.options?.[0];
+  if (field.type === 'select') return firstOption || '';
+  if (field.type === 'multiSelect') return firstOption ? [firstOption] : [];
+  return '验收数据';
+}
 
 async function post(url, body) {
   const response = await fetch(url, {

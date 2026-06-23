@@ -367,8 +367,8 @@ textarea {
 }
 
 .brand-logo {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
   object-fit: cover;
   display: block;
@@ -965,19 +965,10 @@ textarea {
   color: #6d5bd0;
 }
 
-.page-type-icon.chart,
-.page-type-icon.dashboard {
-  border-color: #e3d7ff;
-  background: #f5f3ff;
-  color: #6d5bd0;
-}
-
-.page-type-icon.editor,
-.page-type-icon.form,
-.page-type-icon.detail {
-  border-color: #e3d7ff;
-  background: #f5f3ff;
-  color: #6d5bd0;
+.page-type-icon.link {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
 }
 
 .menu-item {
@@ -1258,6 +1249,19 @@ textarea {
   background: #e2e8f0;
   color: var(--text);
   box-shadow: none;
+}
+
+/* 页面列表的 hover 由整行承载，避免文字按钮和菜单按钮形成不同色块。 */
+.page-nav-item .menu-item:hover,
+.page-nav-item .menu-item.active:hover,
+.page-nav-item .page-menu summary:hover,
+.page-nav-item .page-menu[open] summary {
+  background: transparent;
+}
+
+.page-nav-item.active:hover,
+.page-nav-item.active:focus-within {
+  background: #eef1f5;
 }
 
 .page-menu-popover .ghost-menu.danger:hover,

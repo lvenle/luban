@@ -226,7 +226,6 @@ function packageToPlan(pkg) {
         tempId: field.id,
         name: field.label || field.id,
         type: field.type,
-        required: Boolean(field.required),
         config: field.type === 'select' || field.type === 'multiSelect' ? { options: normalizeOptions(field.options || []) } : {}
       }))
   }));
@@ -256,8 +255,7 @@ function planFieldToPackageField(field) {
   const next = {
     id: normalizeFieldId(field.tempId || field.id || field.name || field.label, 'field'),
     label: field.name || field.label || field.id,
-    type,
-    required: Boolean(field.required)
+    type
   };
   if (type === 'select' || type === 'multiSelect') next.options = normalizeOptions(field.config?.options || field.options || []);
   if (type === 'formula') next.formula = { expression: field.config?.expression || field.expression || '', resultType: field.config?.resultType || field.resultType || 'number' };
@@ -280,14 +278,14 @@ function productManagementPlan() {
         tempId: 'product',
         name: '商品表',
         fields: [
-          { tempId: 'name', name: '商品名称', type: 'text', required: true },
+          { tempId: 'name', name: '商品名称', type: 'text' },
           { tempId: 'sku', name: 'SKU', type: 'text' },
           { tempId: 'price', name: '价格', type: 'number' },
           { tempId: 'status', name: '状态', type: 'select', config: { options: options(['在售', '停售', '缺货']) } }
         ]
       },
-      { tempId: 'category', name: '分类表', fields: [{ tempId: 'name', name: '分类名称', type: 'text', required: true }] },
-      { tempId: 'supplier', name: '供应商表', fields: [{ tempId: 'name', name: '供应商名称', type: 'text', required: true }, { tempId: 'phone', name: '联系电话', type: 'text' }] },
+      { tempId: 'category', name: '分类表', fields: [{ tempId: 'name', name: '分类名称', type: 'text' }] },
+      { tempId: 'supplier', name: '供应商表', fields: [{ tempId: 'name', name: '供应商名称', type: 'text' }, { tempId: 'phone', name: '联系电话', type: 'text' }] },
       {
         tempId: 'inventory_log',
         name: '库存流水表',
