@@ -164,12 +164,9 @@ const isMain = process.argv[1] && (
   import.meta.url.endsWith('/' + process.argv[1].split('/').pop())
 );
 if (isMain) {
-  // On Render (free tier), the filesystem is ephemeral — every redeploy
-  // wipes the SQLite database.  initDb() downloads the .sqlite file from
-  // Supabase Storage (if configured) before the server starts, and sets
-  // up a periodic backup timer so data survives redeploys.
-  //
-  // Required env vars: SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_BUCKET
+  // On server deployments (Render, etc.) with SUPABASE_URL and SUPABASE_SERVICE_KEY
+  // configured, the SQLite database is synced to Supabase Storage so data survives
+  // redeploys.  Locally (no env vars), everything works with the local SQLite file.
   initDb().then(() => {
     const server = createAppServer().listen(PORT, '0.0.0.0', () => {
       console.log(`Software Garden MVP running at http://localhost:${PORT}`);

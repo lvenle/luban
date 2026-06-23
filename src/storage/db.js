@@ -10,11 +10,15 @@ let db;
 let savepointCounter = 0;
 
 /**
- * ─── Supabase Storage backup (Render persistence) ───
+ * ─── Supabase Storage backup (server persistence) ───
  *
- * Render's free tier has an ephemeral filesystem — every redeploy wipes the
- * SQLite database.  This module syncs the .sqlite file to Supabase Storage so
- * your apps, records, and settings survive redeploys.
+ * On Render (free tier) or any server with ephemeral storage, the SQLite
+ * database is lost on every redeploy.  When the environment variables below
+ * are set, this module syncs the .sqlite file to Supabase Storage so apps,
+ * records, and settings survive redeploys.
+ *
+ * Locally (no env vars), everything works with the local SQLite file —
+ * Supabase is never touched.
  *
  * Required env vars (set in Render Dashboard → Environment):
  *   SUPABASE_URL          https://xxxxx.supabase.co
