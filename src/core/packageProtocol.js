@@ -263,7 +263,10 @@ function normalizeActionType(type) {
     generateText: 'ai.generateText',
     query: 'data.queryRecords',
     exportCsv: 'export.csv',
-    exportMarkdown: 'export.markdown'
+    exportMarkdown: 'export.markdown',
+    create_record: 'data.createRecord',
+    export_csv: 'export.csv',
+    run_ai: 'ai.generateText'
   };
   return map[value] || value;
 }

@@ -26,7 +26,7 @@ export default class StreamRenderer {
   }
 
   appendToken(text) {
-    if (!this.currentMessageEl) return;
+    if (!this.currentMessageEl) this.startNewMessage();
     this.accumulatedText += text;
     const bubble = this.currentMessageEl.querySelector('.assistant-bubble');
     if (this.thinkingEl) {
@@ -62,7 +62,11 @@ export default class StreamRenderer {
       this.thinkingEl = null;
     }
     const content = html || this.accumulatedText;
-    if (content) bubble.innerHTML = this.renderMarkdown(content);
+    if (content) {
+      bubble.innerHTML = this.renderMarkdown(content);
+    } else {
+      this.currentMessageEl.remove();
+    }
     this.currentMessageEl = null;
     this.accumulatedText = '';
     this.scrollToBottom();

@@ -28,8 +28,9 @@ register({
     const app = getApp(args.appId);
     if (!app) throw new Error('App not found');
     const pkg = getPackageFromApp(app);
-    if (!pkg.actions) pkg.actions = [];
-    pkg.actions.push({
+    if (!pkg.actions) pkg.actions = { actions: [] };
+    if (!Array.isArray(pkg.actions.actions)) pkg.actions.actions = [];
+    pkg.actions.actions.push({
       id: `act_${args.label.replace(/\s+/g, '_')}`,
       label: args.label,
       type: args.type,

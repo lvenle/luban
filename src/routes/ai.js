@@ -205,6 +205,7 @@ export async function handleAiApi(req, res, method, parts, url) {
         }
 
         messages.push({ role: 'assistant', content: turnContent || null, tool_calls: toolCalls.map((tc) => ({ id: tc.id, type: 'function', function: { name: tc.function.name, arguments: tc.function.arguments } })) });
+	        if (turnContent) addAiMessage(session.id, 'assistant', turnContent);
 
         for (const tc of toolCalls) {
           const tool = getTool(tc.function.name);

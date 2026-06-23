@@ -78,12 +78,11 @@ export function sessionHistoryEntries(messages, logs) {
   const history = [];
   let logIndex = 0;
   for (const message of orderedMessages) {
-    history.push({ kind: 'message', item: message });
-    if (message.role !== 'assistant') continue;
-    while (logIndex < terminalLogs.length && compareCreatedAt(terminalLogs[logIndex], message) <= 0) {
+    while (logIndex < terminalLogs.length && compareCreatedAt(terminalLogs[logIndex], message) < 0) {
       history.push({ kind: 'tool', item: terminalLogs[logIndex] });
       logIndex += 1;
     }
+    history.push({ kind: 'message', item: message });
   }
   while (logIndex < terminalLogs.length) {
     history.push({ kind: 'tool', item: terminalLogs[logIndex] });
@@ -125,6 +124,7 @@ function registerSSEHandlers() {
       streamRenderer.appendToken(data.content);
     })
     .on('tool_use', (data) => {
+      streamRenderer.finishMessage();
       const card = toolDisplay.showToolUse(data);
       if (card) chatView.addElement(card);
     })
@@ -137,7 +137,10 @@ function registerSSEHandlers() {
       if (card) chatView.addElement(card);
     })
     .on('message_end', (data = {}) => {
-      if (data.appId && currentMode === 'modify') currentAppId = data.appId;
+      if (data.appId) {
+        if (currentMode === 'create') currentMode = 'modify';
+        currentAppId = data.appId;
+      }
       streamRenderer.finishMessage();
       chatView.setStreaming(false);
       sessionManager.load(currentAppId);
