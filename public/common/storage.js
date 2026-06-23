@@ -12,7 +12,7 @@ export function writeStorage(key, value) {
 }
 
 export function globalStorageKey(scope) {
-  return `software-garden:${scope}`;
+  return `luban-ai:${scope}`;
 }
 
 export function clampSidebarWidth(value) {

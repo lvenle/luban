@@ -1,5 +1,5 @@
 {
-  "name": "software-garden-mvp",
+  "name": "luban-ai-mvp",
   "version": "0.1.0",
   "private": true,
   "description": "Luban AI System MVP: AI-generated structured personal apps with a SQLite-backed runtime.",

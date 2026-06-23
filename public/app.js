@@ -20,7 +20,7 @@ export const root = document.querySelector('#app');
 export function storageKey(scope, suffix = '') {
   const appId = state.currentApp?.id || 'global';
   const pageId = state.currentPageId || 'home';
-  return `software-garden:${appId}:${pageId}:${scope}${suffix ? `:${suffix}` : ''}`;
+  return `luban-ai:${appId}:${pageId}:${scope}${suffix ? `:${suffix}` : ''}`;
 }
 
 function slugifyLocal(input, fallback = 'page') {

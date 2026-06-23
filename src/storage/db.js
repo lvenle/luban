@@ -38,9 +38,12 @@ function supabaseConfig() {
   const key = process.env.SUPABASE_SERVICE_KEY;
   if (!url || !key) return null;
   const bucket = process.env.SUPABASE_BUCKET || 'luban-data';
+  const baseUrl = url.replace(/\/$/, '');
+  const objectPath = `${baseUrl}/storage/v1/object/${bucket}/db.sqlite`;
+  console.log(`[db] Supabase 已配置 — ${baseUrl}/storage/v1/object/${bucket}/db.sqlite`);
   return {
-    downloadUrl: `${url.replace(/\/$/, '')}/storage/v1/object/${bucket}/db.sqlite`,
-    uploadUrl: `${url.replace(/\/$/, '')}/storage/v1/object/${bucket}/db.sqlite`,
+    downloadUrl: objectPath,
+    uploadUrl: objectPath,
     key
   };
 }
@@ -55,7 +58,8 @@ async function downloadFromSupabase(cfg) {
       return;
     }
     if (!res.ok) {
-      console.error(`[db] 从 Supabase 下载失败：${res.status}`);
+      const body = await res.text().catch(() => '(unable to read body)');
+      console.error(`[db] 从 Supabase 下载失败：${res.status} — ${body}`);
       return;
     }
     const buffer = Buffer.from(await res.arrayBuffer());
@@ -80,7 +84,8 @@ async function uploadToSupabase(cfg) {
       body: buffer
     });
     if (!res.ok) {
-      console.error(`[db] 上传到 Supabase 失败：${res.status}`);
+      const body = await res.text().catch(() => '(unable to read body)');
+      console.error(`[db] 上传到 Supabase 失败：${res.status} — ${body}`);
       return;
     }
     console.log(`[db] 已备份数据库到 Supabase (${(buffer.length / 1024).toFixed(1)} KB)`);
