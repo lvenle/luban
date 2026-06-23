@@ -143,7 +143,22 @@ export function addAiExecutionLog(sessionId, stepName, status, options = {}) {
 
 export function getSetting(key) {
   const row = getDb().prepare('SELECT valueJson FROM settings WHERE key = ?').get(key);
-  return row ? JSON.parse(row.valueJson) : null;
+  const stored = row ? JSON.parse(row.valueJson) : null;
+
+  // AI settings: environment variables override DB-stored values.
+  // This allows Render (or any Docker/CI deployment) to configure the AI provider
+  // without relying on the SQLite database, which is ephemeral on Render.
+  if (key === 'ai') {
+    const envOverrides = {};
+    if (process.env.AI_API_KEY) envOverrides.apiKey = process.env.AI_API_KEY;
+    if (process.env.AI_BASE_URL) envOverrides.baseUrl = process.env.AI_BASE_URL;
+    if (process.env.AI_MODEL) envOverrides.model = process.env.AI_MODEL;
+    if (Object.keys(envOverrides).length) {
+      return { ...(stored || {}), ...envOverrides };
+    }
+  }
+
+  return stored;
 }
 
 export function setSetting(key, value) {
