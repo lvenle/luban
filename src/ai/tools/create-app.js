@@ -23,20 +23,30 @@ register({
   },
   handler: async (args) => {
     const settings = getSetting('ai') || {};
-    const pkg = await generatePackageFromPrompt(args.description, settings);
+    let pkg;
+    try {
+      pkg = await generatePackageFromPrompt(args.description, settings);
+    } catch (error) {
+      throw new Error(`AI 生成失败：${error.message}`);
+    }
     if (!pkg?.schema?.entities?.length || !pkg?.ui?.pages?.length) {
       throw new Error('AI 未能根据描述生成有效的应用结构。请补充更多细节，例如需要管理哪些数据、包含哪些字段、需要什么功能。');
     }
-    const app = createAppFromPackage(pkg);
-    return {
-      appId: app.id,
-      name: app.name,
-      slug: app.slug,
-      entities: app.schema.entities.map((entity) => ({
-        id: entity.id,
-        name: entity.name,
-        fields: entity.fields.map((field) => ({ id: field.id, label: field.label, type: field.type }))
-      }))
-    };
+    try {
+      const app = createAppFromPackage(pkg);
+      return {
+        appId: app.id,
+        name: app.name,
+        slug: app.slug,
+        entities: app.schema.entities.map((entity) => ({
+          id: entity.id,
+          name: entity.name,
+          fields: entity.fields.map((field) => ({ id: field.id, label: field.label, type: field.type }))
+        }))
+      };
+    } catch (error) {
+      // 捕获 preparePackage 校验错误，暴露具体原因
+      throw new Error(`应用结构校验失败：${error.message}`);
+    }
   }
 });

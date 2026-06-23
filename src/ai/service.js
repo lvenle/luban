@@ -1,5 +1,5 @@
 import { normalizeFieldId } from '../core/ids.js';
-import { normalizeOptions, preparePackage, SELECT_COLORS } from '../core/packageProtocol.js';
+import { normalizeFieldType, normalizeOptions, preparePackage, SELECT_COLORS } from '../core/packageProtocol.js';
 import { pickSamplePackage } from './samplePackages.js';
 import { mockPatch } from './mockPatch.js';
 
@@ -10,7 +10,7 @@ export async function generatePackageFromPrompt(prompt, settings = {}) {
       {
         role: 'system',
         content:
-          '你是 Software Garden 的软件设计助手。只输出 JSON，不要 Markdown。顶层必须包含 manifest、schema、ui、actions、prompts。不要生成代码。\n\n严格要求：\n1. manifest.name 和 schema.entities 必须直接基于用户需求生成，不要添加用户没有提到的表或字段。\n2. 仔细理解用户的描述，只创建用户明确需要的表。例如如果用户说"创建作业管理"，就只创建作业/作业提交等相关表，不要创建账目、分类等无关表。\n3. 每个字段必须对应用户需求中的具体信息点，不要凭空添加额外字段。\n4. 如果需求不够明确，在 entity.name 或 field.label 中使用清晰但不过度延伸的名称，避免编造细节。\n5. 做减法：宁可生成一个精准的表，也不要画蛇添足。'
+          '你是 Software Garden 的软件设计助手。只输出 JSON，不要 Markdown。\n\n输出 JSON 结构示例：\n{\n  "manifest": { "name": "应用名称", "description": "简短描述", "icon": "table" },\n  "schema": {\n    "entities": [\n      {\n        "id": "entity_唯一标识",\n        "name": "表名",\n        "fields": [\n          { "id": "field_唯一标识", "label": "字段名", "type": "text" }\n        ]\n      }\n    ]\n  },\n  "ui": {\n    "pages": [\n      { "id": "page_唯一标识", "title": "页面标题", "type": "list", "entity": "entity_唯一标识" }\n    ]\n  },\n  "actions": { "actions": [] },\n  "prompts": {}\n}\n\n要求：\n1. entity.id 和 field.id 使用唯一且有意义的 ID（如 entity_student, field_name），不能重复。\n2. field.type 只支持：text, textarea, number, date, datetime, boolean, select, multiSelect, image, file, formula, richText, relation。不支持 option 类型。\n3. 每张表至少有一个 text 类型字段。\n4. manifest.name 和 entities 必须直接基于用户需求生成，不要添加用户没有提到的表或字段。\n5. 仔细理解用户的描述，只创建用户明确需要的表。例如如果用户说"创建作业管理"，就只创建作业/作业提交等相关表，不要创建账目、分类等无关表。\n6. 每个字段必须对应用户需求中的具体信息点，不要凭空添加额外字段。\n7. 做减法：宁可生成一个精准的表，也不要画蛇添足。\n8. 每张表至少生成一个 list 类型的页面。\n9. 所有 ID 都不能重复。\n10. actions.actions 中的 type 只支持：data.createRecord, data.updateRecord, data.queryRecords, export.csv, export.json, export.markdown, ai.generateText, ai.rewriteText, ai.summarize。如果不确定就用 data.createRecord。\n11. formula 字段的 expression 只支持 IF(条件, 是, 否) 条件判断、CONCAT 拼接、+ 运算符、{字段名} 引用字段。不要使用 & 运算符。可用函数：IF, CONCAT, ROUND, ABS, MIN, MAX, LEN, UPPER, LOWER, TODAY, DATEADD, DATEDIFF。'
       },
       { role: 'user', content: prompt }
     ]);
@@ -60,7 +60,7 @@ export async function generatePlanFromPrompt(prompt, settings = {}, currentPacka
       {
         role: 'system',
         content:
-          '你是 Software Garden V2 的多维表规划助手。只输出 JSON plan。创建应用时 type=app_creation_plan，包含 appName、description、tables、relations、views。views 可以包含多个页面，且允许多个页面引用同一张表；view.type 可用 grid/list、chart、dashboard、editor。字段类型可用 text、textarea、number、date、datetime、boolean、select、multiSelect、relation、formula；formula 必须包含 config.expression 和 config.resultType(number/date/text)，表达式用 {字段名} 引用同表原始字段。select/multiSelect options 必须包含 id、label、color。不要执行，只规划。'
+          '你是 Software Garden V2 的多维表规划助手。只输出 JSON plan。创建应用时 type=app_creation_plan，包含 appName、description、tables、relations、views。views 可以包含多个页面，且允许多个页面引用同一张表；view.type 可用 grid/list、chart、dashboard、editor。字段类型可用 text、textarea、number、date、datetime、boolean、select、multiSelect、relation、formula、image、file、richText；formula 必须包含 config.expression 和 config.resultType(number/date/text)，表达式用 {字段名} 引用同表原始字段。select/multiSelect options 必须包含 id、label、color。不要执行，只规划。'
       },
       { role: 'user', content: prompt }
     ]);
@@ -185,7 +185,7 @@ export function validateAiPlan(plan) {
       for (const field of table.fields || []) {
         if (!String(field.name || field.label || '').trim()) errors.push(`表 ${table.name} 存在未命名字段。`);
         const type = normalizePlanFieldType(field.type);
-        if (!['text', 'textarea', 'number', 'date', 'datetime', 'boolean', 'select', 'multiSelect', 'relation'].includes(type)) {
+        if (!['text', 'textarea', 'number', 'date', 'datetime', 'boolean', 'select', 'multiSelect', 'relation', 'image', 'file', 'formula', 'richText'].includes(type)) {
           errors.push(`字段 ${field.name || field.label} 类型不支持：${field.type}`);
         }
         if (type === 'select' || type === 'multiSelect') {
@@ -263,8 +263,8 @@ function planFieldToPackageField(field) {
 }
 
 function normalizePlanFieldType(type) {
-  const map = { long_text: 'textarea', checkbox: 'boolean', multi_select: 'multiSelect' };
-  return map[type] || type || 'text';
+  const result = normalizeFieldType(type);
+  return result || 'text';
 }
 
 function productManagementPlan() {

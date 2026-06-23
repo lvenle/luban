@@ -16,17 +16,15 @@ export default class SessionManager {
       const body = await res.json();
       this.sessions = body.sessions || [];
       this.renderSelect();
-      if (this.sessions.length && !this.currentSessionId) {
-        this.onSwitch(this.sessions[0].id);
-      }
     } catch { /* ignore */ }
   }
 
   renderSelect() {
     if (!this.selectEl) return null;
     this.selectEl.innerHTML = '';
+    // 顶部始终保留一个空选项，使下拉框可以处于"未选中"状态
+    this.selectEl.append(h('option', { value: '' }));
     if (this.sessions.length === 0) {
-      this.selectEl.append(h('option', { value: '', text: '无历史会话' }));
       return;
     }
     for (const session of this.sessions) {

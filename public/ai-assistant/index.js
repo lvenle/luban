@@ -195,7 +195,12 @@ export function setAssistantMode({ mode = 'create', appId = '', appName = '', co
     currentSessionId = '';
     chatView.clear();
     sessionManager.setCurrent('');
-    sessionManager.load(currentAppId);
+    sessionManager.load(currentAppId).then(() => {
+      // modify 模式自动切换到最新会话，create 模式保持空会话
+      if (nextMode === 'modify' && sessionManager.sessions.length) {
+        sessionManager.onSwitch(sessionManager.sessions[0].id);
+      }
+    });
   }
   updateAssistantModeLabels();
 }

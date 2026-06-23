@@ -88,7 +88,7 @@ export function normalizePackage(pkg) {
         field.config = { ...(field.config || {}), options: field.options };
       }
       if (field.type === 'relation') {
-        normalizeRelationField(field);
+        normalizeRelationField(field, next.schema.entities);
       }
     }
     for (const field of entity.fields) {
@@ -186,7 +186,7 @@ function normalizeUiShape(ui, schema) {
   };
 }
 
-function normalizeFieldType(type) {
+export function normalizeFieldType(type) {
   const value = String(type || '').trim();
   const map = {
     string: 'text',
@@ -202,7 +202,36 @@ function normalizeFieldType(type) {
     markdown: 'richText',
     reference: 'relation',
     link: 'relation',
-    ref: 'relation'
+    ref: 'relation',
+    option: 'select',
+    options: 'select',
+    singleSelect: 'select',
+    single_select: 'select',
+    dateTime: 'datetime',
+    date_time: 'datetime',
+    rich_text: 'richText',
+    phone: 'text',
+    email: 'text',
+    url: 'text',
+    color: 'text',
+    rating: 'number',
+    currency: 'number',
+    percentage: 'number',
+    percent: 'number',
+    password: 'text',
+    time: 'text',
+    tag: 'multiSelect',
+    tags: 'multiSelect',
+    attachment: 'file',
+    lookup: 'relation',
+    createdTime: 'datetime',
+    created_time: 'datetime',
+    modifiedTime: 'datetime',
+    modified_time: 'datetime',
+    created_at: 'datetime',
+    updated_at: 'datetime',
+    richtext: 'richText',
+    RichText: 'richText'
   };
   return map[value] || value;
 }
@@ -213,7 +242,17 @@ function normalizePageType(type) {
     table: 'list',
     kanban: 'list',
     stats: 'dashboard',
-    statistics: 'chart'
+    statistics: 'chart',
+    grid: 'list',
+    cards: 'list',
+    calendar: 'list',
+    timeline: 'list',
+    gallery: 'list',
+    spreadsheet: 'list',
+    board: 'list',
+    report: 'chart',
+    summary: 'dashboard',
+    overview: 'dashboard'
   };
   return map[value] || value;
 }
@@ -266,7 +305,30 @@ function normalizeActionType(type) {
     exportMarkdown: 'export.markdown',
     create_record: 'data.createRecord',
     export_csv: 'export.csv',
-    run_ai: 'ai.generateText'
+    run_ai: 'ai.generateText',
+    create: 'data.createRecord',
+    update: 'data.updateRecord',
+    delete: 'data.deleteRecord',
+    read: 'data.queryRecords',
+    search: 'data.queryRecords',
+    list: 'data.queryRecords',
+    remove: 'data.deleteRecord',
+    destroy: 'data.deleteRecord',
+    edit: 'data.updateRecord',
+    modify: 'data.updateRecord',
+    save: 'data.createRecord',
+    insert: 'data.createRecord',
+    add: 'data.createRecord',
+    export: 'export.csv',
+    export_excel: 'export.csv',
+    export_xlsx: 'export.csv',
+    import: 'data.createRecord',
+    data_create: 'data.createRecord',
+    data_update: 'data.updateRecord',
+    data_delete: 'data.deleteRecord',
+    data_read: 'data.queryRecords',
+    data_list: 'data.queryRecords',
+    summarize: 'ai.summarize'
   };
   return map[value] || value;
 }
@@ -307,14 +369,17 @@ function hashText(text) {
   return hash;
 }
 
-function normalizeRelationField(field) {
+function normalizeRelationField(field, entities) {
   const config = { ...(field.config || {}) };
   field.targetEntity = normalizeFieldId(field.targetEntity || field.targetTableId || config.targetEntity || config.targetTableId || config.targetEntityId, 'entity');
   const rawDisplay = field.displayField || field.displayFieldId || config.displayField || config.displayFieldId;
   if (rawDisplay) {
     field.displayField = normalizeFieldId(rawDisplay, 'field');
   } else {
-    delete field.displayField;
+    // 未指定展示字段时，自动选择目标实体的第一个 text 字段
+    const target = (entities || []).find((e) => e.id === field.targetEntity);
+    const firstTextField = target?.fields?.find((f) => f.type === 'text');
+    field.displayField = firstTextField?.id || normalizeFieldId('name', 'field');
   }
   field.multiple = Boolean(field.multiple ?? config.multiple);
   field.allowCreateTargetRecord = Boolean(field.allowCreateTargetRecord ?? config.allowCreateTargetRecord);

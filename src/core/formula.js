@@ -1,6 +1,7 @@
 const FUNCTIONS = new Set([
   'IF', 'ROUND', 'CONCAT', 'DATEADD', 'DATEDIFF', 'ABS', 'MIN', 'MAX',
-  'LEN', 'UPPER', 'LOWER', 'TODAY'
+  'LEN', 'UPPER', 'LOWER', 'TODAY',
+  'AND', 'OR', 'NOT', 'ISNULL', 'ISBLANK', 'NOW'
 ]);
 
 export class FormulaError extends Error {
@@ -24,7 +25,8 @@ export function normalizeFormulaField(field, entity) {
   const raw = field.formula || {};
   const expression = raw.expression || field.expression || '';
   const resultType = raw.resultType || field.resultType || 'number';
-  if (!['number', 'date', 'text'].includes(resultType)) throw new FormulaError(`公式结果类型不支持：${resultType}`);
+  const normalizedResultType = normalizeResultType(resultType);
+  if (!['number', 'date', 'text'].includes(normalizedResultType)) throw new FormulaError(`公式结果类型不支持：${resultType}`);
   const compiled = compileFormula(expression, entity, raw.bindings || {});
   let displayExpression = compiled.expression;
   const displayBindings = {};
@@ -36,7 +38,7 @@ export function normalizeFormulaField(field, entity) {
   }
   field.formula = {
     expression: displayExpression,
-    resultType,
+    resultType: normalizedResultType,
     bindings: displayBindings,
     dependencies: compiled.dependencies
   };
@@ -138,7 +140,7 @@ function tokenize(source) {
     if (['>=', '<=', '!=', '=='].includes(pair)) {
       tokens.push({ type: 'operator', value: pair }); index += 2; continue;
     }
-    if ('+-*/><='.includes(char)) { tokens.push({ type: 'operator', value: char }); index += 1; continue; }
+    if ('+-*/><=&'.includes(char)) { tokens.push({ type: 'operator', value: char === '&' ? '+' : char }); index += 1; continue; }
     if (char === '(' || char === ')' || char === ',') { tokens.push({ type: char, value: char }); index += 1; continue; }
     throw new FormulaError(`公式包含不支持的字符：${char}`);
   }
@@ -294,6 +296,11 @@ function callFunction(name, args, options) {
   if (name === 'UPPER') return String(args[0] ?? '').toUpperCase();
   if (name === 'LOWER') return String(args[0] ?? '').toLowerCase();
   if (name === 'TODAY') return today(options.timeZone || 'Asia/Shanghai', options.now);
+  if (name === 'NOW') return today(options.timeZone || 'Asia/Shanghai', options.now);
+  if (name === 'AND') return args.every((value) => truthy(value));
+  if (name === 'OR') return args.some((value) => truthy(value));
+  if (name === 'NOT') return !truthy(args[0]);
+  if (name === 'ISNULL' || name === 'ISBLANK') return args[0] === null || args[0] === undefined || args[0] === '';
   throw new FormulaError(`不支持的函数：${name}`);
 }
 
@@ -326,6 +333,10 @@ function today(timeZone, now = new Date()) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 function truthy(value) { return Boolean(value); }
+function normalizeResultType(type) {
+  const map = { string: 'text', boolean: 'text', integer: 'number', float: 'number', double: 'number', datetime: 'text', percentage: 'number' };
+  return map[type] || type || 'number';
+}
 function compare(left, right) {
   if (left === right) return 0;
   const leftNumber = Number(left); const rightNumber = Number(right);
@@ -333,9 +344,10 @@ function compare(left, right) {
   return String(left ?? '').localeCompare(String(right ?? ''), 'zh-CN');
 }
 function coerceResult(value, resultType) {
+  const type = normalizeResultType(resultType);
   if (value === null || value === undefined) return null;
-  if (resultType === 'number') return numberValue(value);
-  if (resultType === 'text') return String(value);
-  if (resultType === 'date') return dateString(parseDate(value));
+  if (type === 'number') return numberValue(value);
+  if (type === 'text') return String(value);
+  if (type === 'date') return dateString(parseDate(value));
   throw new FormulaError(`公式结果类型不支持：${resultType}`);
 }

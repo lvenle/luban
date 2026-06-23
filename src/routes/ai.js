@@ -96,7 +96,9 @@ Guidelines:
 - For high-risk operations (creating/deleting entities, fields, pages, records), the system will ask the user to confirm
 - After executing tools, summarize what was done
 - When the user's request is ambiguous, ask clarifying questions before using tools
-- **CRITICAL — Schema accuracy:** When using create_app, only create tables and fields that directly correspond to what the user described. Do not add any default, sample, or unrelated tables. For example, if the user asks for "作业管理" (homework management), only create tables like 作业/作业提交/学生 related to homework — never add 账目/分类/库存 or any other unrelated tables. If the description is too vague to determine the schema, ask the user to clarify what data they want to manage rather than guessing.`;
+- **CRITICAL — Schema accuracy:** When using create_app, only create tables and fields that directly correspond to what the user described. Do not add any default, sample, or unrelated tables. For example, if the user asks for "作业管理" (homework management), only create tables like 作业/作业提交/学生 related to homework — never add 账目/分类/库存 or any other unrelated tables. If the description is too vague to determine the schema, ask the user to clarify what data they want to manage rather than guessing.
+- **Do NOT retry failed tools:** If a tool returns an error, do NOT call it again with slightly different parameters. The error message explains what went wrong. Instead, explain the issue to the user and ask them to clarify. Continuing to retry will produce the same result.
+- **Formula field syntax:** When creating formula fields, use only: IF(condition, value_if_true, value_if_false) for conditional logic, CONCAT(value1, value2) for concatenation, + for string or number addition, {field_label} to reference other fields. Do NOT use & for concatenation — use + or CONCAT() instead. Available functions: IF, ROUND, CONCAT, DATEADD, DATEDIFF, ABS, MIN, MAX, LEN, UPPER, LOWER, TODAY.`;
 
   if (app) {
     const entityDescs = (app.schema?.entities || []).map((entity) => {

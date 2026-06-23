@@ -2,6 +2,8 @@ import { register } from '../registry.js';
 import { getApp } from '../../models/app.js';
 import { updateFieldInApp } from '../../services/operations.js';
 
+const FIELD_TYPES = ['text', 'number', 'textarea', 'select', 'multiSelect', 'date', 'datetime', 'boolean', 'image', 'file', 'formula', 'richText', 'relation'];
+
 register({
   name: 'update_field',
   description: 'Modify an existing field: rename, change type, or update options.',
@@ -18,7 +20,7 @@ register({
           entityId: { type: 'string', description: 'Entity/table ID' },
           fieldId: { type: 'string', description: 'Field ID' },
           label: { type: 'string', description: 'New field display name' },
-          type: { type: 'string', description: 'New field type' },
+          type: { type: 'string', enum: FIELD_TYPES, description: 'New field type' },
           options: { type: 'array', items: { type: 'string' }, description: 'New options for select/multiSelect' }
         },
         required: ['appId', 'entityId', 'fieldId']
