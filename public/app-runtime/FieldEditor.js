@@ -18,25 +18,27 @@ function selectFromOptions(options, value) {
   return select;
 }
 
-export function fieldTypes() {
-  return [
+export function fieldTypes(includeLegacyBoolean = false) {
+  const types = [
     ['text', '文本'],
     ['textarea', '长文本'],
+    ['url', '链接'],
     ['number', '数字'],
     ['select', '单选'],
     ['multiSelect', '多选'],
     ['relation', '关联记录'],
     ['image', '图片'],
     ['file', '附件'],
-    ['boolean', '复选框'],
     ['date', '日期'],
     ['datetime', '日期时间'],
     ['formula', '公式']
   ];
+  if (includeLegacyBoolean) types.push(['boolean', '复选框（旧类型）']);
+  return types;
 }
 
 export function fieldTypeLabel(type) {
-  return fieldTypes().find(([value]) => value === type)?.[1] || type || '文本';
+  return fieldTypes(type === 'boolean').find(([value]) => value === type)?.[1] || type || '文本';
 }
 
 export function openFieldEditModal(entity, field = null, options = {}) {
@@ -44,7 +46,7 @@ export function openFieldEditModal(entity, field = null, options = {}) {
   const draft = field ? structuredClone(field) : { id: uniqueFieldId(entity, 'new_field'), label: '新字段', type: 'text' };
   if (!draft.options && draft.values) draft.options = draft.values;
   const labelInput = h('input', { value: draft.label || '', placeholder: '请输入字段标题' });
-  const typeSelect = selectFromOptions(fieldTypes(), draft.type || 'text');
+  const typeSelect = selectFromOptions(fieldTypes(draft.type === 'boolean'), draft.type || 'text');
   const advanced = h('div', { class: 'field-advanced field-popover-section' });
   const typeLabel = h('span', { class: 'field-type-current', text: fieldTypeLabel(typeSelect.value) });
   const renderAdvanced = () => {
@@ -501,8 +503,8 @@ export function renderSelectTag(label, color = 'gray') {
 export function optionObject(option) {
   if (typeof option === 'string') return { id: option, label: option, color: 'gray' };
   return {
-    id: option?.id || option?.value || option?.label || '',
-    label: option?.label || option?.name || option?.value || option?.id || '',
+    id: option?.id || option?.optionId || option?.value || option?.label || '',
+    label: option?.label || option?.name || option?.optionId || option?.value || option?.id || '',
     color: option?.color || 'gray'
   };
 }

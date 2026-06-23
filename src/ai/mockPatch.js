@@ -53,7 +53,7 @@ export function mockPatch(prompt, pkg) {
         {
           op: 'addField',
           entity,
-          field: { id: 'travel_budget', label: '是否计入旅游预算', type: 'boolean' }
+          field: { id: 'travel_budget', label: '是否计入旅游预算', type: 'select', options: ['否', '是'] }
         },
         {
           op: 'addPage',
@@ -214,16 +214,18 @@ function translateKnownField(label) {
 }
 
 function inferFieldType(label) {
+  if (/(网址|链接|URL|url)/.test(label)) return 'url';
   if (label.includes('日期')) return 'date';
   if (label.includes('时间')) return 'datetime';
   if (/(金额|价格|数量|评分|分数|时长|预算|进度)/.test(label)) return 'number';
-  if (/(是否|完成|启用)/.test(label)) return 'boolean';
+  if (/(是否|完成|启用)/.test(label)) return 'select';
   if (/(状态|优先级|分类|类型|标签|来源)/.test(label)) return 'select';
   if (/(备注|说明|描述|复盘|步骤)/.test(label)) return 'textarea';
   return 'text';
 }
 
 function inferFieldOptions(label) {
+  if (/(是否|完成|启用)/.test(label)) return ['否', '是'];
   if (label.includes('状态')) return ['未开始', '进行中', '已完成'];
   if (label.includes('优先级')) return ['低', '中', '高'];
   if (label.includes('分类') || label.includes('类型') || label.includes('标签')) return ['默认', '重要', '其他'];

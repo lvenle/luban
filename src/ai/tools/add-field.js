@@ -2,7 +2,7 @@ import { register } from '../registry.js';
 import { getApp } from '../../models/app.js';
 import { createFieldsInApp } from '../../services/operations.js';
 
-const FIELD_TYPES = ['text', 'number', 'textarea', 'select', 'multiSelect', 'date', 'datetime', 'boolean', 'image', 'file', 'formula', 'richText', 'relation'];
+const FIELD_TYPES = ['text', 'url', 'number', 'textarea', 'select', 'multiSelect', 'date', 'datetime', 'image', 'file', 'formula', 'richText', 'relation'];
 const FIELD_SCHEMA = {
   type: 'object',
   properties: {
@@ -62,8 +62,10 @@ register({
 });
 
 function normalizeToolField(field) {
-  const normalized = { id: field.id, label: field.label, type: field.type };
-  if (field.options) normalized.options = field.options.map((option) => typeof option === 'string' ? { id: option, label: option } : option);
+  const legacyBoolean = field.type === 'boolean';
+  const normalized = { id: field.id, label: field.label, type: legacyBoolean ? 'select' : field.type };
+  const options = legacyBoolean ? ['否', '是'] : field.options;
+  if (options) normalized.options = options.map((option) => typeof option === 'string' ? { id: option, label: option } : option);
   if (field.type === 'formula') normalized.formula = field.formula;
   return normalized;
 }

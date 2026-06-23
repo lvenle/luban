@@ -1,0 +1,66 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { normalizeFieldType, preparePackage } from '../src/core/packageProtocol.js';
+import { normalizeAiCreatedPackage, normalizeAiPatch, planToPackage } from '../src/ai/service.js';
+import { numberInputValue, storedNumberValue } from '../public/app-runtime/NumberValues.js';
+
+test('percent fields edit whole percentages while storing fractions', () => {
+  const field = { type: 'number', format: 'percent' };
+  assert.equal(numberInputValue(0.01, field), 1);
+  assert.equal(numberInputValue(0.25, field), 25);
+  assert.equal(storedNumberValue('1', field), 0.01);
+  assert.equal(storedNumberValue('25', field), 0.25);
+  assert.equal(storedNumberValue('', field), null);
+});
+
+test('url is a supported first-class field type', () => {
+  assert.equal(normalizeFieldType('url'), 'url');
+  assert.equal(normalizeFieldType('website'), 'url');
+  const pkg = preparePackage({
+    manifest: { id: 'links', name: '链接' },
+    schema: { entities: [{ id: 'item', name: '项目', fields: [
+      { id: 'name', label: '名称', type: 'text' },
+      { id: 'site', label: '网址', type: 'url' }
+    ] }] },
+    ui: { pages: [{ id: 'items', title: '项目', type: 'list', entity: 'item' }] },
+    actions: { actions: [] }
+  });
+  assert.equal(pkg.schema.entities[0].fields[1].type, 'url');
+});
+
+test('AI-created boolean fields are converted to yes-no selects', () => {
+  const normalized = normalizeAiCreatedPackage({
+    schema: { entities: [{ id: 'task', fields: [{ id: 'done', label: '完成', type: 'boolean' }] }] }
+  });
+  assert.equal(normalized.schema.entities[0].fields[0].type, 'select');
+  assert.deepEqual(normalized.schema.entities[0].fields[0].options.map((option) => option.label), ['否', '是']);
+
+  const patch = normalizeAiPatch({ operations: [{ op: 'addField', field: { label: '启用', type: 'boolean' } }] });
+  assert.equal(patch.operations[0].field.type, 'select');
+
+  const pkg = planToPackage({
+    type: 'app_creation_plan', appName: '任务', relations: [], views: [],
+    tables: [{ tempId: 'task', name: '任务', fields: [
+      { tempId: 'name', name: '名称', type: 'text' },
+      { tempId: 'done', name: '完成', type: 'boolean' }
+    ] }]
+  });
+  assert.equal(pkg.schema.entities[0].fields[1].type, 'select');
+});
+
+test('new field UI and AI tools expose url but do not offer boolean', () => {
+  const fieldEditor = source('../public/app-runtime/FieldEditor.js');
+  const cellEditor = source('../public/app-runtime/CellEditor.js');
+  const addField = source('../src/ai/tools/add-field.js');
+  const updateField = source('../src/ai/tools/update-field.js');
+  assert.match(fieldEditor, /\['url', '链接'\]/);
+  assert.doesNotMatch(fieldEditor, /\['boolean', '复选框'\]/);
+  assert.match(cellEditor, /field\.type === 'url'/);
+  assert.match(cellEditor, /class: 'cell-link url-link'/);
+  assert.match(addField, /'url'/);
+  assert.doesNotMatch(addField.match(/const FIELD_TYPES = \[[^\n]+/)?.[0] || '', /'boolean'/);
+  assert.doesNotMatch(updateField.match(/const FIELD_TYPES = \[[^\n]+/)?.[0] || '', /'boolean'/);
+});
+
+function source(relativePath) { return readFileSync(new URL(relativePath, import.meta.url), 'utf8'); }

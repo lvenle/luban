@@ -288,6 +288,13 @@ function validateFieldValue(field, value) {
     if (Number.isNaN(Date.parse(value))) throw validationError(`字段「${field.label}」必须是有效日期。`);
     return String(value);
   }
+  if (field.type === 'url') {
+    const url = String(value).trim();
+    let parsed;
+    try { parsed = new URL(url); } catch { throw validationError(`字段「${field.label}」必须是有效链接。`); }
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw validationError(`字段「${field.label}」只支持 http 或 https 链接。`);
+    return url;
+  }
   if (field.type === 'select') {
     const id = String(value?.optionId || value?.id || value);
     const option = (field.options || []).find((item) => item.id === id || item.label === id);

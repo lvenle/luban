@@ -8,6 +8,7 @@ import { clearActiveTableSelection } from './CellSelection.js';
 import { dateInputValue, dateInputLocale, formatDateFieldValue, bindDateTimePicker, showDateTimePicker } from './DateFormat.js';
 import { normalizeChoiceInitialValue, relationChoicesFromValue, mergeChoiceOptions, relationValueId } from './ChoiceValues.js';
 import { renderMarkdown } from './Markdown.js';
+import { numberInputValue, storedNumberValue } from './NumberValues.js';
 
 export function startCellEdit(cell, entity, record, field) {
   if (cell.classList.contains('cell-editing')) return;
@@ -116,8 +117,10 @@ export function inputForField(field, value) {
     input.checked = Boolean(value);
     return input;
   }
-  const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : 'text';
-  const inputValue = field.type === 'date' || field.type === 'datetime' ? dateInputValue(value, field.type) : value ?? '';
+  const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : field.type === 'url' ? 'url' : 'text';
+  const inputValue = field.type === 'date' || field.type === 'datetime'
+    ? dateInputValue(value, field.type)
+    : field.type === 'number' ? numberInputValue(value, field) : value ?? '';
   const input = h('input', { type, value: inputValue, lang: dateInputLocale(field.type) || undefined, placeholder: field.placeholder || '' });
   return bindDateTimePicker(input);
 }
@@ -149,7 +152,7 @@ export async function valueFromInput(input, field) {
   if (field.type === 'relation') return input._choiceValue !== undefined ? (Array.isArray(input._choiceValue) ? input._choiceValue : [input._choiceValue]) : [...input.selectedOptions].map((option) => option.value).filter(Boolean);
   if (field.type === 'select') return input._choiceValue !== undefined ? (input._choiceValue || '') : input.value;
   if (field.type === 'image' || field.type === 'file') return uploadValueFromInput(input, field);
-  if (field.type === 'number') return input.value === '' ? null : Number(input.value);
+  if (field.type === 'number') return storedNumberValue(input.value, field);
   return input.value;
 }
 
@@ -172,6 +175,7 @@ export async function uploadValueFromInput(input, field) {
 }
 
 export function renderFieldValue(value, field) {
+  if (field.type === 'url') return renderUrlValue(value);
   if (field.type === 'select') {
     const label = optionLabel(field, value);
     return label ? renderSelectTag(label, optionColor(field, value)) : document.createTextNode('');
@@ -221,6 +225,16 @@ export function createChoiceWidget(field, initialValue, onChange) {
     choices = mergeChoiceOptions(choices, relationChoicesFromValue(currentValue));
   } else {
     choices = (field.options || []).map(optionObject);
+    // 标准化 currentValue：存的值可能是 label，转成 choice ID
+    const toChoiceId = (v) => {
+      if (v === undefined || v === null || v === '') return v;
+      const opt = optionObject(v);
+      const match = choices.find((c) => c.id === opt.id || c.label === opt.id || c.id === opt.label || c.label === opt.label);
+      return match?.id || v;
+    };
+    currentValue = multiple && Array.isArray(currentValue)
+      ? currentValue.map(toChoiceId).filter(Boolean)
+      : toChoiceId(currentValue);
   }
 
   const selectedIds = () => {
@@ -312,7 +326,8 @@ export function createChoiceWidget(field, initialValue, onChange) {
       ]));
     }
     dropdown = h('div', { class: 'cell-choice-dropdown' }, [list]);
-    document.body.append(dropdown);
+    const dropdownHost = editor.closest('.modal-backdrop') || document.body;
+    dropdownHost.append(dropdown);
     const anchor = editor.closest('td') || editor;
     const rect = anchor.getBoundingClientRect();
     const dw = Math.min(320, Math.max(rect.width, 180));
@@ -446,6 +461,19 @@ export function renderFileValue(value) {
   });
 }
 
+export function renderUrlValue(value) {
+  const text = String(value || '').trim();
+  if (!text) return document.createTextNode('');
+  return h('a', {
+    class: 'cell-link url-link',
+    href: text,
+    target: '_blank',
+    rel: 'noreferrer',
+    text,
+    onclick: (event) => event.stopPropagation()
+  });
+}
+
 export function openImagePreview(file) {
   const backdrop = h('div', { class: 'modal-backdrop image-preview-backdrop', onclick: () => backdrop.remove() }, [
     h('div', { class: 'image-preview-modal', onclick: (event) => event.stopPropagation() }, [
@@ -502,6 +530,7 @@ export function sampleFieldValue(field) {
   if (field.type === 'boolean') return '是 / 否';
   if (field.type === 'select' || field.type === 'multiSelect') return optionObject(field.options?.[0] || '选项').label;
   if (field.type === 'relation') return '关联记录';
+  if (field.type === 'url') return 'https://example.com';
   if (field.type === 'textarea' || field.type === 'richText') return '这是一段多行文本示例内容，\n展示长文本在表单中的实际所占高度。\n第三行内容。';
   return '文本';
 }

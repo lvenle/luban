@@ -116,7 +116,10 @@ function rowsToRecords(rows, entity) {
 function normalizeImportValue(value, field) {
   const text = String(value ?? '').trim();
   if (!text && field.type !== 'boolean') return '';
-  if (field.type === 'number') return text === '' ? null : Number(text.replace(/,/g, ''));
+  if (field.type === 'number') {
+    const number = text === '' ? null : Number(text.replace(/[,%]/g, ''));
+    return number === null || field.format !== 'percent' ? number : number / 100;
+  }
   if (field.type === 'boolean') return ['是', 'true', '1', 'yes', 'y'].includes(text.toLowerCase());
   if (field.type === 'multiSelect') return splitMultiValue(text).map((item) => optionId(field, item));
   if (field.type === 'select') return optionId(field, text);

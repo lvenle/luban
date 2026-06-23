@@ -2,7 +2,7 @@ import { register } from '../registry.js';
 import { getApp } from '../../models/app.js';
 import { updateFieldInApp } from '../../services/operations.js';
 
-const FIELD_TYPES = ['text', 'number', 'textarea', 'select', 'multiSelect', 'date', 'datetime', 'boolean', 'image', 'file', 'formula', 'richText', 'relation'];
+const FIELD_TYPES = ['text', 'url', 'number', 'textarea', 'select', 'multiSelect', 'date', 'datetime', 'image', 'file', 'formula', 'richText', 'relation'];
 
 register({
   name: 'update_field',
@@ -32,8 +32,9 @@ register({
     if (!app) throw new Error('App not found');
     const patch = {};
     if (args.label) patch.label = args.label;
-    if (args.type) patch.type = args.type;
-    if (args.options) patch.options = args.options.map((opt) => ({ id: opt, label: opt }));
+    if (args.type) patch.type = args.type === 'boolean' ? 'select' : args.type;
+    const options = args.type === 'boolean' ? ['否', '是'] : args.options;
+    if (options) patch.options = options.map((opt) => ({ id: opt, label: opt }));
     return updateFieldInApp(app, args.entityId, args.fieldId, patch);
   }
 });

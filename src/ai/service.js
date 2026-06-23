@@ -3,8 +3,36 @@ import { normalizeFieldType, normalizeOptions, preparePackage, SELECT_COLORS } f
 import { pickSamplePackage } from './samplePackages.js';
 import { mockPatch } from './mockPatch.js';
 
+const YES_NO_OPTIONS = () => normalizeOptions(['否', '是']);
+
+export function normalizeAiCreatedPackage(pkg) {
+  const next = structuredClone(pkg || {});
+  for (const entity of next.schema?.entities || []) {
+    for (const field of entity.fields || []) {
+      if (normalizeFieldType(field.type) !== 'boolean') continue;
+      field.type = 'select';
+      field.options = YES_NO_OPTIONS();
+      field.config = { ...(field.config || {}), options: field.options };
+    }
+  }
+  return next;
+}
+
+export function normalizeAiPatch(patch) {
+  const next = structuredClone(patch || {});
+  for (const operation of next.operations || []) {
+    const fields = [operation.field, ...(operation.fields || [])].filter(Boolean);
+    for (const field of fields) {
+      if (normalizeFieldType(field.type) !== 'boolean') continue;
+      field.type = 'select';
+      field.options = YES_NO_OPTIONS();
+    }
+  }
+  return next;
+}
+
 export async function generatePackageFromPrompt(prompt, settings = {}) {
-  if (!settings?.apiKey) return pickSamplePackage(prompt);
+  if (!settings?.apiKey) return normalizeAiCreatedPackage(pickSamplePackage(prompt));
   try {
     const body = await requestChatCompletion(settings, [
       {
@@ -12,16 +40,17 @@ export async function generatePackageFromPrompt(prompt, settings = {}) {
         content:
           '你是 Software Garden 的软件设计助手。只输出 JSON，不要 Markdown。\n\n输出 JSON 结构示例：\n{\n  "manifest": { "name": "应用名称", "description": "简短描述", "icon": "table" },\n  "schema": {\n    "entities": [\n      {\n        "id": "entity_唯一标识",\n        "name": "表名",\n        "fields": [\n          { "id": "field_唯一标识", "label": "字段名", "type": "text" }\n        ]\n      }\n    ]\n  },\n  "ui": {\n    "pages": [\n      { "id": "page_唯一标识", "title": "页面标题", "type": "list", "entity": "entity_唯一标识" }\n    ]\n  },\n  "actions": { "actions": [] },\n  "prompts": {}\n}\n\n要求：\n1. entity.id 和 field.id 使用唯一且有意义的 ID（如 entity_student, field_name），不能重复。\n2. field.type 只支持：text, textarea, number, date, datetime, boolean, select, multiSelect, image, file, formula, richText, relation。不支持 option 类型。\n3. 每张表至少有一个 text 类型字段。\n4. manifest.name 和 entities 必须直接基于用户需求生成，不要添加用户没有提到的表或字段。\n5. 仔细理解用户的描述，只创建用户明确需要的表。例如如果用户说"创建作业管理"，就只创建作业/作业提交等相关表，不要创建账目、分类等无关表。\n6. 每个字段必须对应用户需求中的具体信息点，不要凭空添加额外字段。\n7. 做减法：宁可生成一个精准的表，也不要画蛇添足。\n8. 每张表至少生成一个 list 类型的页面。\n9. 所有 ID 都不能重复。\n10. actions.actions 中的 type 只支持：data.createRecord, data.updateRecord, data.queryRecords, export.csv, export.json, export.markdown, ai.generateText, ai.rewriteText, ai.summarize。如果不确定就用 data.createRecord。\n11. formula 字段的 expression 只支持 IF(条件, 是, 否) 条件判断、CONCAT 拼接、+ 运算符、{字段名} 引用字段。不要使用 & 运算符。可用函数：IF, CONCAT, ROUND, ABS, MIN, MAX, LEN, UPPER, LOWER, TODAY, DATEADD, DATEDIFF。公式中引用 select/multiSelect 字段做比较时，用选项的 label（显示值），不要用选项的 id。'
       },
+      { role: 'system', content: '字段类型新增 url。禁止创建 boolean 字段；是/否数据必须使用包含“否、是”两个选项的 select 字段。' },
       { role: 'user', content: prompt }
     ]);
-    return parseJsonContent(body.choices?.[0]?.message?.content || '{}');
+    return normalizeAiCreatedPackage(parseJsonContent(body.choices?.[0]?.message?.content || '{}'));
   } catch (error) {
     throw new Error(`AI 生成失败，未使用 Mock 结果替代：${error.message}`);
   }
 }
 
 export async function generatePatchFromPrompt(prompt, currentPackage, settings = {}) {
-  if (!settings?.apiKey) return mockPatch(prompt, currentPackage);
+  if (!settings?.apiKey) return normalizeAiPatch(mockPatch(prompt, currentPackage));
   try {
     const body = await requestChatCompletion(settings, [
       {
@@ -29,9 +58,10 @@ export async function generatePatchFromPrompt(prompt, currentPackage, settings =
         content:
           '你是 Software Garden 的软件进化助手。只输出 Patch JSON，顶层包含 summary 和 operations。支持操作：addEntity、updateEntity、removeEntity、addField、updateField、removeField、addPage、updatePage、removePage、addAction、updateAction、removeAction。用户要求为已有表创建列表页、统计图表、看板或编辑入口时，使用 addPage；允许多个页面引用同一个 entity。'
       },
+      { role: 'system', content: '新增或修改字段时可以使用 url；禁止使用 boolean，是/否数据改用包含“否、是”的 select。' },
       { role: 'user', content: JSON.stringify({ currentPackage, request: prompt }) }
     ]);
-    return parseJsonContent(body.choices?.[0]?.message?.content || '{}');
+    return normalizeAiPatch(parseJsonContent(body.choices?.[0]?.message?.content || '{}'));
   } catch (error) {
     throw new Error(`AI 修改失败，未使用 Mock Patch 替代：${error.message}`);
   }
@@ -51,7 +81,7 @@ export async function generatePlanFromPrompt(prompt, settings = {}, currentPacka
     return plan;
   }
   if (!settings?.apiKey) {
-    const plan = /商品|库存|供应商|分类|订单/.test(String(prompt || '')) ? productManagementPlan() : packageToPlan(pickSamplePackage(prompt));
+    const plan = /商品|库存|供应商|分类|订单/.test(String(prompt || '')) ? productManagementPlan() : packageToPlan(normalizeAiCreatedPackage(pickSamplePackage(prompt)));
     validateAiPlan(plan);
     return plan;
   }
@@ -62,6 +92,7 @@ export async function generatePlanFromPrompt(prompt, settings = {}, currentPacka
         content:
           '你是 Software Garden V2 的多维表规划助手。只输出 JSON plan。创建应用时 type=app_creation_plan，包含 appName、description、tables、relations、views。views 可以包含多个页面，且允许多个页面引用同一张表；view.type 可用 grid/list、chart、dashboard、editor。字段类型可用 text、textarea、number、date、datetime、boolean、select、multiSelect、relation、formula、image、file、richText；formula 必须包含 config.expression 和 config.resultType(number/date/text)，表达式用 {字段名} 引用同表原始字段。select/multiSelect options 必须包含 id、label、color。不要执行，只规划。'
       },
+      { role: 'system', content: '字段类型新增 url。禁止规划 boolean；是/否数据必须规划为包含“否、是”的 select。' },
       { role: 'user', content: prompt }
     ]);
     const plan = parseJsonContent(body.choices?.[0]?.message?.content || '{}');
@@ -185,7 +216,7 @@ export function validateAiPlan(plan) {
       for (const field of table.fields || []) {
         if (!String(field.name || field.label || '').trim()) errors.push(`表 ${table.name} 存在未命名字段。`);
         const type = normalizePlanFieldType(field.type);
-        if (!['text', 'textarea', 'number', 'date', 'datetime', 'boolean', 'select', 'multiSelect', 'relation', 'image', 'file', 'formula', 'richText'].includes(type)) {
+        if (!['text', 'textarea', 'url', 'number', 'date', 'datetime', 'select', 'multiSelect', 'relation', 'image', 'file', 'formula', 'richText'].includes(type)) {
           errors.push(`字段 ${field.name || field.label} 类型不支持：${field.type}`);
         }
         if (type === 'select' || type === 'multiSelect') {
@@ -251,20 +282,25 @@ function packageToPlan(pkg) {
 }
 
 function planFieldToPackageField(field) {
+  const sourceType = normalizeFieldType(field.type);
   const type = normalizePlanFieldType(field.type);
   const next = {
     id: normalizeFieldId(field.tempId || field.id || field.name || field.label, 'field'),
     label: field.name || field.label || field.id,
     type
   };
-  if (type === 'select' || type === 'multiSelect') next.options = normalizeOptions(field.config?.options || field.options || []);
+  if (type === 'select' || type === 'multiSelect') {
+    next.options = sourceType === 'boolean'
+      ? YES_NO_OPTIONS()
+      : normalizeOptions(field.config?.options || field.options || []);
+  }
   if (type === 'formula') next.formula = { expression: field.config?.expression || field.expression || '', resultType: field.config?.resultType || field.resultType || 'number' };
   return next;
 }
 
 function normalizePlanFieldType(type) {
   const result = normalizeFieldType(type);
-  return result || 'text';
+  return result === 'boolean' ? 'select' : result || 'text';
 }
 
 function productManagementPlan() {

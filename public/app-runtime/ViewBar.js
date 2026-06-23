@@ -8,6 +8,7 @@ import { renderRuntime, saveCurrentPackage } from './index.js';
 import { optionObject, effectiveFieldType } from './FieldEditor.js';
 import { dateInputValue, dateInputLocale } from './DateFormat.js';
 import { reorderItemsById } from './Ordering.js';
+import { numberInputValue, storedNumberValue } from './NumberValues.js';
 
 function defaultView(entity) {
   const legacy = readStorage(storageKey('list', entity.id), null);
@@ -580,12 +581,14 @@ export function filterValueInput(field, filter) {
   if (field.type === 'boolean') return selectFromOptions([['true', '是'], ['false', '否']], String(filter.value ?? 'true'));
   const effectiveType = effectiveFieldType(field);
   const type = effectiveType === 'number' ? 'number' : effectiveType === 'date' ? 'date' : effectiveType === 'datetime' ? 'datetime-local' : 'text';
-  const inputValue = effectiveType === 'date' || effectiveType === 'datetime' ? dateInputValue(filter.value, effectiveType) : filter.value || '';
+  const inputValue = effectiveType === 'date' || effectiveType === 'datetime'
+    ? dateInputValue(filter.value, effectiveType)
+    : effectiveType === 'number' ? numberInputValue(filter.value, field) : filter.value || '';
   return h('input', { type, value: inputValue, lang: dateInputLocale(effectiveType) || undefined });
 }
 
 export function valueFromFilterInput(input, field) {
   if (field.type === 'boolean') return input.value === 'true';
-  if (effectiveFieldType(field) === 'number') return input.value === '' ? '' : Number(input.value);
+  if (effectiveFieldType(field) === 'number') return input.value === '' ? '' : storedNumberValue(input.value, field);
   return input.value;
 }

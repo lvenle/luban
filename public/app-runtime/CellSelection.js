@@ -6,6 +6,7 @@ import { loadCurrentPageRecords, renderRuntime } from './index.js';
 import { fieldTypeLabel } from './FieldEditor.js';
 import { closeContextMenu } from './TableHeader.js';
 import { defaultValueForField, fieldValuesEqual, relationDisplayValue, displayValue, hasDisplayValue } from './CellEditor.js';
+import { storedNumberValue } from './NumberValues.js';
 
 let cellSelectionEventsBound = false;
 
@@ -280,7 +281,7 @@ export function normalizePastedValue(value, field) {
   if (field.type === 'number') {
     const normalized = String(value).replace(/[¥,%\s]/g, '');
     if (normalized === '') return { ok: true, value: null };
-    const number = Number(normalized);
+    const number = storedNumberValue(normalized, field);
     return Number.isFinite(number)
       ? { ok: true, value: number }
       : { ok: false, message: `「${field.label}」需要数字，无法粘贴「${value}」。` };
