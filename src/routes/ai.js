@@ -122,7 +122,8 @@ export async function handleAiApi(req, res, method, parts, url) {
     }
 
     let app = body.appId ? getApp(body.appId) : null;
-    const session = (body.sessionId && getAiSession(body.sessionId)) || createAiSession({ appId: app?.id || null, status: 'idle' });
+    const isCreateSession = !body.appId;
+    const session = (body.sessionId && getAiSession(body.sessionId)) || createAiSession({ appId: app?.id || null, status: 'idle', type: isCreateSession ? 'create' : 'modify' });
     updateAiSession(session.id, { appId: app?.id || session.appId || null });
     addAiMessage(session.id, 'user', body.message || '');
 
@@ -138,6 +139,7 @@ export async function handleAiApi(req, res, method, parts, url) {
     const keepalive = setInterval(() => {
       try { res.write(': keepalive\n\n'); } catch { clearInterval(keepalive); }
     }, 30000);
+    res.on('close', () => clearInterval(keepalive));
 
     try {
       const tools = getToolDefinitions();

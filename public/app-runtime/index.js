@@ -13,8 +13,19 @@ async function registerPageRenderers() {
 }
 
 export async function openApp(appId, options = {}) {
+  // Transient loading overlay while fetching app data
+  const loadingOverlay = h('div', { class: 'modal-backdrop', style: 'background:rgba(255,255,255,0.8);z-index:200' }, [
+    h('div', { class: 'loading-overlay' }, [
+      h('div', { class: 'loading-spinner' }),
+      h('span', { text: '正在打开软件…' })
+    ])
+  ]);
+  document.body.append(loadingOverlay);
+
   await registerPageRenderers();
   const body = await api(`/api/apps/${appId}`);
+  loadingOverlay.remove();
+
   state.currentApp = body.app;
   state.currentPageId = options.pageId && body.app.ui.pages.some((p) => p.id === options.pageId) ? options.pageId : body.app.ui.pages[0]?.id;
   state.currentViewId = options.viewId || '';

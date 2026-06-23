@@ -44,99 +44,139 @@ export function withTransaction(callback) {
   }
 }
 
+const SCHEMA_VERSION = 2;
+
+/*
+ * Migration strategy:
+ * - Each version adds its delta on top of the previous one
+ * - SCHEMA_VERSION tracks the latest version the code knows about
+ * - PRAGMA user_version stores the actual schema version on disk
+ * - When user_version < SCHEMA_VERSION, unapplied migrations run in order
+ * - Rolling back code does NOT revert schema — downgrade migrations are manual
+ */
 function migrate(database) {
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS apps (
-      id TEXT PRIMARY KEY,
-      slug TEXT NOT NULL UNIQUE,
-      name TEXT NOT NULL,
-      description TEXT,
-      icon TEXT,
-      manifestJson TEXT NOT NULL,
-      schemaJson TEXT NOT NULL,
-      uiJson TEXT NOT NULL,
-      actionsJson TEXT NOT NULL,
-      promptsJson TEXT,
-      version TEXT NOT NULL DEFAULT '1.0.0',
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
-    );
+  const currentVersion = Number(database.prepare('PRAGMA user_version').get()?.user_version || 0);
 
-    CREATE TABLE IF NOT EXISTS records (
-      id TEXT PRIMARY KEY,
-      appId TEXT NOT NULL,
-      entityId TEXT NOT NULL,
-      dataJson TEXT NOT NULL,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL,
-      FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE
-    );
+  if (currentVersion < 1) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS apps (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        description TEXT,
+        icon TEXT,
+        manifestJson TEXT NOT NULL,
+        schemaJson TEXT NOT NULL,
+        uiJson TEXT NOT NULL,
+        actionsJson TEXT NOT NULL,
+        promptsJson TEXT,
+        version TEXT NOT NULL DEFAULT '1.0.0',
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
 
-    CREATE TABLE IF NOT EXISTS record_relations (
-      id TEXT PRIMARY KEY,
-      appId TEXT NOT NULL,
-      sourceEntityId TEXT NOT NULL,
-      sourceRecordId TEXT NOT NULL,
-      fieldId TEXT NOT NULL,
-      targetEntityId TEXT NOT NULL,
-      targetRecordId TEXT NOT NULL,
-      sortOrder INTEGER NOT NULL DEFAULT 0,
-      createdAt TEXT NOT NULL,
-      UNIQUE(sourceRecordId, fieldId, targetRecordId),
-      FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE,
-      FOREIGN KEY (sourceRecordId) REFERENCES records(id) ON DELETE CASCADE,
-      FOREIGN KEY (targetRecordId) REFERENCES records(id) ON DELETE CASCADE
-    );
+      CREATE TABLE IF NOT EXISTS records (
+        id TEXT PRIMARY KEY,
+        appId TEXT NOT NULL,
+        entityId TEXT NOT NULL,
+        dataJson TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE
+      );
 
-    CREATE INDEX IF NOT EXISTS idx_records_app_entity_created ON records(appId, entityId, createdAt);
+      CREATE TABLE IF NOT EXISTS record_relations (
+        id TEXT PRIMARY KEY,
+        appId TEXT NOT NULL,
+        sourceEntityId TEXT NOT NULL,
+        sourceRecordId TEXT NOT NULL,
+        fieldId TEXT NOT NULL,
+        targetEntityId TEXT NOT NULL,
+        targetRecordId TEXT NOT NULL,
+        sortOrder INTEGER NOT NULL DEFAULT 0,
+        createdAt TEXT NOT NULL,
+        UNIQUE(sourceRecordId, fieldId, targetRecordId),
+        FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE,
+        FOREIGN KEY (sourceRecordId) REFERENCES records(id) ON DELETE CASCADE,
+        FOREIGN KEY (targetRecordId) REFERENCES records(id) ON DELETE CASCADE
+      );
 
-    CREATE INDEX IF NOT EXISTS idx_record_relations_source ON record_relations(sourceRecordId, fieldId);
-    CREATE INDEX IF NOT EXISTS idx_record_relations_target ON record_relations(targetRecordId);
-    CREATE INDEX IF NOT EXISTS idx_record_relations_app ON record_relations(appId);
+      CREATE INDEX IF NOT EXISTS idx_records_app_entity_created ON records(appId, entityId, createdAt);
 
-    CREATE TABLE IF NOT EXISTS ai_sessions (
-      id TEXT PRIMARY KEY,
-      appId TEXT,
-      status TEXT NOT NULL DEFAULT 'idle',
-      currentPlanJson TEXT,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL,
-      FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE
-    );
+      CREATE INDEX IF NOT EXISTS idx_record_relations_source ON record_relations(sourceRecordId, fieldId);
+      CREATE INDEX IF NOT EXISTS idx_record_relations_target ON record_relations(targetRecordId);
+      CREATE INDEX IF NOT EXISTS idx_record_relations_app ON record_relations(appId);
 
-    CREATE TABLE IF NOT EXISTS ai_messages (
-      id TEXT PRIMARY KEY,
-      sessionId TEXT NOT NULL,
-      role TEXT NOT NULL,
-      content TEXT,
-      structuredContentJson TEXT,
-      createdAt TEXT NOT NULL,
-      FOREIGN KEY (sessionId) REFERENCES ai_sessions(id) ON DELETE CASCADE
-    );
+      CREATE TABLE IF NOT EXISTS ai_sessions (
+        id TEXT PRIMARY KEY,
+        appId TEXT,
+        status TEXT NOT NULL DEFAULT 'idle',
+        currentPlanJson TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE
+      );
 
-    CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(sessionId);
+      CREATE TABLE IF NOT EXISTS ai_messages (
+        id TEXT PRIMARY KEY,
+        sessionId TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT,
+        structuredContentJson TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (sessionId) REFERENCES ai_sessions(id) ON DELETE CASCADE
+      );
 
-    CREATE TABLE IF NOT EXISTS ai_execution_logs (
-      id TEXT PRIMARY KEY,
-      sessionId TEXT NOT NULL,
-      stepName TEXT NOT NULL,
-      toolName TEXT,
-      status TEXT NOT NULL,
-      inputJson TEXT,
-      outputJson TEXT,
-      error TEXT,
-      createdAt TEXT NOT NULL,
-      FOREIGN KEY (sessionId) REFERENCES ai_sessions(id) ON DELETE CASCADE
-    );
+      CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(sessionId);
 
-    CREATE INDEX IF NOT EXISTS idx_ai_logs_session ON ai_execution_logs(sessionId);
+      CREATE TABLE IF NOT EXISTS ai_execution_logs (
+        id TEXT PRIMARY KEY,
+        sessionId TEXT NOT NULL,
+        stepName TEXT NOT NULL,
+        toolName TEXT,
+        status TEXT NOT NULL,
+        inputJson TEXT,
+        outputJson TEXT,
+        error TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (sessionId) REFERENCES ai_sessions(id) ON DELETE CASCADE
+      );
 
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      valueJson TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
-    );
-  `);
+      CREATE INDEX IF NOT EXISTS idx_ai_logs_session ON ai_execution_logs(sessionId);
+
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        valueJson TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
+    `);
+  }
+
+  if (currentVersion < 2) {
+    // Add type column to ai_sessions to distinguish create vs modify sessions
+    try {
+      database.exec(`ALTER TABLE ai_sessions ADD COLUMN type TEXT NOT NULL DEFAULT 'create'`);
+    } catch {
+      // Column may already exist on re-run; ignore
+    }
+  }
+
+  if (currentVersion < SCHEMA_VERSION) {
+    database.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+  }
+
+  // Recover orphaned pending confirmations — after a server restart the SSE
+  // connection that was awaiting user confirmation is gone, so mark them as failed.
+  const pendingStmt = database.prepare(
+    "SELECT id, sessionId, stepName FROM ai_execution_logs WHERE status = 'pending_confirmation'"
+  );
+  const failStmt = database.prepare(
+    "UPDATE ai_execution_logs SET status = 'failed', error = ? WHERE id = ?"
+  );
+  const orphans = pendingStmt.all();
+  for (const row of orphans) {
+    failStmt.run('Server restarted — pending confirmation expired.', row.id);
+  }
 }
 
 function now() {

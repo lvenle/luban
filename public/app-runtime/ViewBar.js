@@ -89,9 +89,12 @@ export function normalizeView(entity, view = {}) {
   next.name = String(next.name || '未命名视图').trim() || '未命名视图';
   next.type = ['list', 'quadrant', 'gantt'].includes(next.type) ? next.type : 'list';
   next.visibleFields = (next.visibleFields || []).filter((id) => fieldSet.has(id));
-  for (const field of entity.fields) {
-    if (!next.visibleFields.includes(field.id)) {
-      next.visibleFields.push(field.id);
+  const inputHadVisibleFields = Array.isArray(view.visibleFields);
+  if (!inputHadVisibleFields || next.visibleFields.length === 0) {
+    for (const field of entity.fields) {
+      if (!next.visibleFields.includes(field.id)) {
+        next.visibleFields.push(field.id);
+      }
     }
   }
   if (next.visibleFields.length === 0) next.visibleFields = fallback.visibleFields;

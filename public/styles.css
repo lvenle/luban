@@ -4227,3 +4227,64 @@ button.assistant-send {
     margin-bottom: 4px;
   }
 }
+
+/* Loading overlay */
+.loading-overlay {
+  position: relative;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--line);
+  border-top-color: var(--brand);
+  border-radius: 999px;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-bar {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--line) 25%, #e8ecf2 50%, var(--line) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+.loading-skeleton {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.loading-skeleton .loading-bar:first-child {
+  width: 45%;
+}
+
+.loading-skeleton .loading-bar:nth-child(2) {
+  width: 72%;
+}
+
+.loading-skeleton .loading-bar:nth-child(3) {
+  width: 58%;
+}
+
+.loading-skeleton .loading-bar:nth-child(4) {
+  width: 64%;
+}
+
+.loading-skeleton .loading-bar:nth-child(5) {
+  width: 38%;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

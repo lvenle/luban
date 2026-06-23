@@ -1,8 +1,8 @@
 import { h, buttonLabel } from '../common/dom.js';
 import { state, formatFieldValue, viewOrderedFields, applyViewFilters, sortRecords } from '../app.js';
-import { renderViewBar, openFilterModal, openSortModal } from './ViewBar.js';
+import { renderViewBar, openFilterModal, openSortModal, getCurrentView, updateCurrentView } from './ViewBar.js';
 import { openRecordModal } from './RecordModal.js';
-import { openListConfigModal } from './TableRow.js';
+import { toast } from '../common/toast.js';
 import { renderFieldValue } from './CellEditor.js';
 import { optionObject } from './FieldEditor.js';
 import { renderRuntime, renderInfiniteLoadSentinel } from './index.js';
@@ -178,7 +178,7 @@ function renderTypedHeader(entity, view, invalid, invalidLabel, meta = '') {
           h('button', { class: `secondary icon-label-button${(view.sorts || []).length ? ' active' : ''}`, onclick: () => openSortModal(entity) }, buttonLabel('sort', '排序'))
         ]),
         h('div', { class: 'toolbar-action-group structure-config-group' }, [
-          h('button', { class: 'secondary icon-label-button', onclick: () => openListConfigModal(entity) }, buttonLabel('fields', '字段设置'))
+          h('button', { class: 'secondary icon-label-button', onclick: () => openTypedViewFieldConfigModal(entity, view) }, buttonLabel('fields', '字段设置'))
         ])
       ]),
       (meta || invalid.length) ? h('div', { class: 'typed-view-meta row' }, [
@@ -250,6 +250,80 @@ function ganttTicks(start, end, type) {
     cursor = type === 'month' ? Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1) : cursor + step;
   }
   return ticks.length ? ticks : [{ value: start, label: formatDate(start) }];
+}
+
+function openTypedViewFieldConfigModal(entity, view) {
+  const config = getCurrentView(entity);
+  const orderedIds = viewOrderedFields(entity, config).map((field) => field.id);
+  const visibleChecks = new Map();
+  const list = h('div', { class: 'field-config-list' });
+
+  const renderRows = () => {
+    list.innerHTML = '';
+    for (const fieldId of orderedIds) {
+      const field = entity.fields.find((item) => item.id === fieldId);
+      if (!field) continue;
+      let chk = visibleChecks.get(field.id);
+      if (!chk) {
+        chk = h('input', { type: 'checkbox' });
+        chk.checked = config.visibleFields.includes(field.id);
+        visibleChecks.set(field.id, chk);
+      }
+      const row = h('div', { class: 'field-config-row', draggable: 'true', 'data-field-id': field.id }, [
+        h('span', { class: 'drag-handle', text: '↕' }),
+        h('strong', { text: field.label }),
+        h('label', { class: 'check-row' }, [chk, h('span', { text: '显示' })])
+      ]);
+      row.addEventListener('dragstart', (event) => event.dataTransfer.setData('text/plain', field.id));
+      row.addEventListener('dragover', (event) => event.preventDefault());
+      row.addEventListener('drop', (event) => {
+        event.preventDefault();
+        const from = event.dataTransfer.getData('text/plain');
+        const fromIndex = orderedIds.indexOf(from);
+        const toIndex = orderedIds.indexOf(field.id);
+        if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+        orderedIds.splice(fromIndex, 1);
+        orderedIds.splice(toIndex, 0, from);
+        renderRows();
+      });
+      list.append(row);
+    }
+  };
+  renderRows();
+
+  const backdrop = h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal' }, [
+      h('div', { class: 'toolbar' }, [
+        h('h3', { text: '字段显示设置' }),
+        h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
+      ]),
+      h('p', { class: 'muted', text: '拖拽调整字段顺序，勾选控制字段在视图中显示或隐藏。' }),
+      list,
+      h('div', { class: 'row', style: 'margin-top:14px' }, [
+        h('button', {
+          text: '保存',
+          onclick: (event) => {
+            const visibleFields = orderedIds.filter((fieldId) => visibleChecks.get(fieldId)?.checked);
+            if (visibleFields.length === 0) return toast('至少保留一个显示字段。');
+            event.currentTarget.disabled = true;
+            updateCurrentView(entity, { ...config, visibleFields, fieldOrder: orderedIds });
+            backdrop.remove();
+            renderRuntime();
+          }
+        }),
+        h('button', {
+          class: 'secondary',
+          text: '全部显示',
+          onclick: () => {
+            updateCurrentView(entity, { ...config, visibleFields: orderedIds });
+            backdrop.remove();
+            renderRuntime();
+          }
+        })
+      ])
+    ])
+  ]);
+  document.body.append(backdrop);
 }
 
 const DAY = 86400000;

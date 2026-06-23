@@ -304,6 +304,7 @@ function normalizeView(entity, view) {
 }
 
 export function renderPage(page) {
+  if (state.loading) return renderLoadingSkeleton();
   if (!page) return h('div', { class: 'panel', text: '这个软件还没有页面。' });
   const rt = globalThis.__rt || {};
   if (page.type === 'blank') return (rt.renderBlankPage || (() => h('div', { class: 'blank-page-canvas' })))(page);
@@ -311,6 +312,18 @@ export function renderPage(page) {
   if (page.type === 'dashboard') return (rt.renderDashboardPage || (() => h('div')))(page);
   if (page.type === 'editor') return (rt.renderEditorPage || (() => h('div')))(page);
   return (rt.renderListPage || (() => h('div', { text: '加载中...' })))(page);
+}
+
+function renderLoadingSkeleton() {
+  return h('div', { class: 'loading-overlay' }, [
+    h('div', { class: 'loading-skeleton' }, [
+      h('div', { class: 'loading-bar' }),
+      h('div', { class: 'loading-bar' }),
+      h('div', { class: 'loading-bar' }),
+      h('div', { class: 'loading-bar' }),
+      h('div', { class: 'loading-bar' })
+    ])
+  ]);
 }
 
 // Global event listeners

@@ -7,6 +7,15 @@ const UPLOAD_DIR = join(process.cwd(), 'data', 'uploads');
 const JSON_LIMIT = 2 * 1024 * 1024;
 export const FILE_LIMIT = 20 * 1024 * 1024;
 
+export class HttpError extends Error {
+  constructor(status, message, details = undefined) {
+    super(message);
+    this.name = 'HttpError';
+    this.status = status;
+    this.details = details;
+  }
+}
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -76,15 +85,11 @@ function payloadTooLarge(maxBytes) {
 }
 
 export function notFound(message) {
-  const error = new Error(message);
-  error.status = 404;
-  return error;
+  return new HttpError(404, message);
 }
 
 export function badRequest(message) {
-  const error = new Error(message);
-  error.status = 400;
-  return error;
+  return new HttpError(400, message);
 }
 
 export function statusForError(error) {
