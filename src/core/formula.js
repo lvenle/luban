@@ -57,6 +57,19 @@ export function evaluateFormulaField(field, entity, data, options = {}) {
 export function calculateFormulaFields(entity, data, options = {}) {
   const next = { ...(data || {}) };
   const errors = {};
+  // Resolve select/multiSelect option IDs to labels so formulas compare by display value
+  for (const field of entity?.fields || []) {
+    if (field.type === 'select' && next[field.id] != null) {
+      const option = (field.options || []).find((opt) => opt.id === next[field.id]);
+      if (option) next[field.id] = option.label;
+    }
+    if (field.type === 'multiSelect' && Array.isArray(next[field.id])) {
+      next[field.id] = next[field.id].map((id) => {
+        const option = (field.options || []).find((opt) => opt.id === id);
+        return option ? option.label : id;
+      });
+    }
+  }
   for (const field of entity?.fields || []) {
     if (field.type !== 'formula') continue;
     try {

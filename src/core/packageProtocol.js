@@ -76,9 +76,12 @@ export function normalizePackage(pkg) {
     entity.name = entity.displayName || entity.label || entity.name || entity.id;
     entity.fields ||= [];
     const fieldIds = new Set();
+    const idMapping = {};
     for (const [index, field] of entity.fields.entries()) {
+      const oldId = field.id;
       field.id = normalizeFieldId(field.id || field.name || field.label || field.displayName, `field_${index + 1}`);
       if (fieldIds.has(field.id)) field.id = `${field.id}_${index + 1}`;
+      if (oldId && oldId.trim() && oldId !== field.id) idMapping[oldId] = field.id;
       fieldIds.add(field.id);
       field.label = field.label || field.displayName || field.name || field.id;
       field.type = normalizeFieldType(field.type || 'text');
@@ -89,6 +92,26 @@ export function normalizePackage(pkg) {
       }
       if (field.type === 'relation') {
         normalizeRelationField(field, next.schema.entities);
+      }
+    }
+    for (const field of entity.fields) {
+      if (field.type === 'formula' && field.formula?.expression && Object.keys(idMapping).length) {
+        for (const [oldId, newId] of Object.entries(idMapping)) {
+          field.formula.expression = field.formula.expression.replaceAll(`{${oldId}}`, `{${newId}}`);
+        }
+      }
+    }
+    // Replace auto-generated option IDs (opt_xxx) with their labels in formula expressions
+    for (const field of entity.fields) {
+      if (field.type !== 'formula' || !field.formula?.expression) continue;
+      for (const refField of entity.fields) {
+        if (refField.type !== 'select' && refField.type !== 'multiSelect') continue;
+        for (const option of refField.options || []) {
+          if (!option.id || !option.id.startsWith('opt_')) continue;
+          field.formula.expression = field.formula.expression
+            .replaceAll(`"${option.id}"`, `"${option.label}"`)
+            .replaceAll(`'${option.id}'`, `'${option.label}'`);
+        }
       }
     }
     for (const field of entity.fields) {
