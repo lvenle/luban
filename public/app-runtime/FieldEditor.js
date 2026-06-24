@@ -209,6 +209,12 @@ export function fieldPatchFromEditor(label, type, advanced) {
       expression: advanced.querySelector('[data-field-editor="formulaExpression"]')?.value.trim() || '',
       resultType: advanced.querySelector('[data-field-editor="formulaResultType"]')?.value || 'number'
     };
+    // Warn when formula returns string values but resultType isn't 'text'
+    const expr = patch.formula.expression;
+    const rt = patch.formula.resultType;
+    if (rt !== 'text' && /["']/.test(expr)) {
+      toast(`公式中包含文本字符串，但结果类型为「${rt === 'number' ? '数字' : '日期'}」。如公式返回的是文本值，请将结果类型改为「文本」。`);
+    }
   }
   if (type !== 'select' && type !== 'multiSelect') patch.options = [];
   return patch;

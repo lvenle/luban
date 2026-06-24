@@ -3,6 +3,7 @@ import { state, formatFieldValue, viewOrderedFields, applyViewFilters, sortRecor
 import { renderViewBar, openFilterModal, openSortModal, getCurrentView, updateCurrentView } from './ViewBar.js';
 import { openRecordModal } from './RecordModal.js';
 import { toast } from '../common/toast.js';
+import { openConfirmDialog } from '../common/modal.js';
 import { renderFieldValue } from './CellEditor.js';
 import { optionObject } from './FieldEditor.js';
 import { renderRuntime, renderInfiniteLoadSentinel } from './index.js';
@@ -214,9 +215,19 @@ function renderCompactTable(entity, records, fields, view) {
           return h('td', {
             class: error ? 'formula-error-cell' : '',
             title: error || '',
-            onclick: markdown
-              ? (event) => scheduleMarkdownPreview(event.currentTarget, entity, record, field)
-              : () => openRecordModal(entity, record),
+            style: error ? 'cursor:pointer' : '',
+            onclick: error
+              ? (event) => {
+                  event.stopPropagation();
+                  openConfirmDialog({
+                    title: '公式计算错误',
+                    message: error,
+                    confirmText: '知道了'
+                  });
+                }
+              : markdown
+                ? (event) => scheduleMarkdownPreview(event.currentTarget, entity, record, field)
+                : () => openRecordModal(entity, record),
             ondblclick: markdown ? (event) => {
               cancelMarkdownPreview(event.currentTarget);
               openMarkdownRecordEditor(entity, record, field);

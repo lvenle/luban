@@ -1,5 +1,6 @@
 import { h } from '../common/dom.js';
 import { toast } from '../common/toast.js';
+import { openConfirmDialog } from '../common/modal.js';
 import { state, currentPage, viewOrderedFields, orderedFields, getFormLayout, setFormLayout, getFormDesign, setFormDesign } from '../app.js';
 import { renderRuntime, saveCurrentPackage, loadCurrentPageRecords } from './index.js';
 import { columnWidthStyle, actionColumnStyle, frozenFieldClass, frozenFieldStyle, frozenUtilityClass, frozenUtilityStyle } from './TableHeader.js';
@@ -55,7 +56,16 @@ export function renderRecordRow(entity, visibleFields, record, listConfig, rowNu
       if (formulaError) {
         cell.classList.add('formula-error-cell');
         cell.title = formulaError;
+        cell.style.cursor = 'pointer';
         cell.append(h('span', { class: 'formula-error-value', text: '计算错误' }));
+        cell.onclick = (event) => {
+          event.stopPropagation();
+          openConfirmDialog({
+            title: '公式计算错误',
+            message: formulaError,
+            confirmText: '知道了'
+          });
+        };
       } else cell.append(renderFieldValue(record.data[field.id], field));
       return cell;
     }),

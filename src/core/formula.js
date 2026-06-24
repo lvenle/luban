@@ -374,8 +374,13 @@ function compare(left, right) {
 function coerceResult(value, resultType) {
   const type = normalizeResultType(resultType);
   if (value === null || value === undefined) return null;
-  if (type === 'number') return numberValue(value);
+  if (type === 'number') {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : value;
+  }
   if (type === 'text') return String(value);
-  if (type === 'date') return dateString(parseDate(value));
+  if (type === 'date') {
+    try { return dateString(parseDate(value)); } catch { return value; }
+  }
   throw new FormulaError(`公式结果类型不支持：${resultType}`);
 }
