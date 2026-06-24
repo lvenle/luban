@@ -290,10 +290,15 @@ export function normalizeTableView(view = {}, entity, index = 0) {
   next.id = normalizeFieldId(next.id || `view_${index + 1}`, `view_${index + 1}`);
   next.name = String(next.name || (index === 0 ? '全部记录' : '未命名视图')).trim() || '未命名视图';
   next.type = TABLE_VIEW_TYPES.has(next.type) ? next.type : 'list';
+  const inputHadVisibleFields = Array.isArray(view.visibleFields);
   next.visibleFields = (next.visibleFields || fieldIds).filter((id) => fieldSet.has(id));
   next.fieldOrder = (next.fieldOrder || fieldIds).filter((id) => fieldSet.has(id));
+  if (!inputHadVisibleFields || next.visibleFields.length === 0) {
+    for (const id of fieldIds) {
+      if (!next.visibleFields.includes(id)) next.visibleFields.push(id);
+    }
+  }
   for (const id of fieldIds) {
-    if (!next.visibleFields.includes(id)) next.visibleFields.push(id);
     if (!next.fieldOrder.includes(id)) next.fieldOrder.push(id);
   }
   next.searchFields = (next.searchFields || []).filter((id) => fieldSet.has(id));

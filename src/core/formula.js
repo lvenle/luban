@@ -346,10 +346,12 @@ function round(value, digits) {
 }
 
 function parseDate(value) {
-  const raw = String(value || '').trim();
-  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) throw new FormulaError(`无法转换为日期：${value}`);
-  return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const raw = String(value || '').trim().replaceAll('/', '-');
+  const match = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (match) return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const parsed = Date.parse(raw);
+  if (Number.isFinite(parsed)) return parsed;
+  throw new FormulaError(`无法转换为日期：${value}`);
 }
 
 function dateString(timestamp) { return new Date(timestamp).toISOString().slice(0, 10); }
