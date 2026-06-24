@@ -1,4 +1,5 @@
 import { register } from '../registry.js';
+import { getApp } from '../../models/app.js';
 import { updateTableInApp } from '../../services/operations.js';
 
 register({
@@ -22,7 +23,9 @@ register({
       }
     }
   },
-  handler: async (args, { app }) => {
+  handler: async (args) => {
+    const app = getApp(args.appId);
+    if (!app) throw new Error('App not found');
     return updateTableInApp(app, args.entityId, { name: args.name, description: args.description });
   }
 });

@@ -5,19 +5,7 @@ import { normalizeFieldId } from '../core/ids.js';
 import { preparePackage } from '../core/packageProtocol.js';
 import { importRowsFromFile } from '../utils/importData.js';
 import { formulaDependents, renameFormulaBinding } from '../core/formula.js';
-import { readBuffer } from '../routes/_helpers.js';
-
-function notFound(message) {
-  const error = new Error(message);
-  error.status = 404;
-  return error;
-}
-
-function badRequest(message) {
-  const error = new Error(message);
-  error.status = 400;
-  return error;
-}
+import { notFound, badRequest, readBuffer } from '../routes/_helpers.js';
 
 export function createTableInApp(app, body = {}) {
   const pkg = getPackageFromApp(app);

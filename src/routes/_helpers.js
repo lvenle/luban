@@ -66,11 +66,11 @@ function collect(req, maxBytes) {
     let size = 0;
     let failed = false;
     const declared = Number(req.headers['content-length'] || 0);
-    if (declared > maxBytes) { req.resume?.(); reject(payloadTooLarge(maxBytes)); return; }
+    if (declared > maxBytes) { req.destroy(); reject(payloadTooLarge(maxBytes)); return; }
     req.on('data', (chunk) => {
       if (failed) return;
       size += chunk.length;
-      if (size > maxBytes) { failed = true; reject(payloadTooLarge(maxBytes)); return; }
+      if (size > maxBytes) { failed = true; req.destroy(); reject(payloadTooLarge(maxBytes)); return; }
       chunks.push(chunk);
     });
     req.on('end', () => resolve(chunks));

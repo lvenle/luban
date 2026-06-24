@@ -6,7 +6,9 @@ const FUNCTIONS = new Set([
 
 // 公式 AST 缓存：key = expression + entity field 指纹。
 // 同一表达式的 tokenize/parse 结果不变，缓存避免批量记录加载时重复编译。
+// 限制最大 500 条避免长时间运行后内存泄漏。
 const formulaCache = new Map();
+const FORMULA_CACHE_MAX = 500;
 
 function getFormulaCacheKey(expression, entity) {
   // 缓存的指纹包含表达式本身 + 当前 entity 的 field 列表（表达式引用的字段变化时需失效）
@@ -20,6 +22,10 @@ function cachedCompile(expression, entity, existingBindings = {}) {
   let cached = formulaCache.get(key);
   if (cached) return cached;
   cached = rawCompile(expression, entity, existingBindings);
+  if (formulaCache.size >= FORMULA_CACHE_MAX) {
+    const firstKey = formulaCache.keys().next().value;
+    formulaCache.delete(firstKey);
+  }
   formulaCache.set(key, cached);
   return cached;
 }
@@ -74,13 +80,16 @@ export function evaluateFormulaField(field, entity, data, options = {}) {
 export function calculateFormulaFields(entity, data, options = {}) {
   const next = { ...(data || {}) };
   const errors = {};
-  // Resolve select/multiSelect option IDs to labels so formulas compare by display value
+  // Resolve select/multiSelect option IDs to labels so formulas compare by display value.
+  // 暂存原始值并在公式计算后恢复，避免污染业务数据。
+  const selectOriginals = {};
   for (const field of entity?.fields || []) {
     if (field.type === 'select' && next[field.id] != null) {
       const option = (field.options || []).find((opt) => opt.id === next[field.id]);
-      if (option) next[field.id] = option.label;
+      if (option) { selectOriginals[field.id] = next[field.id]; next[field.id] = option.label; }
     }
     if (field.type === 'multiSelect' && Array.isArray(next[field.id])) {
+      selectOriginals[field.id] = next[field.id];
       next[field.id] = next[field.id].map((id) => {
         const option = (field.options || []).find((opt) => opt.id === id);
         return option ? option.label : id;
@@ -95,6 +104,10 @@ export function calculateFormulaFields(entity, data, options = {}) {
       next[field.id] = null;
       errors[field.id] = error instanceof Error ? error.message : String(error);
     }
+  }
+  // Restore original select/multiSelect values
+  for (const [fieldId, original] of Object.entries(selectOriginals)) {
+    next[fieldId] = original;
   }
   return { data: next, formulaErrors: errors };
 }

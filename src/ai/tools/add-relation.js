@@ -18,7 +18,8 @@ register({
           sourceEntityId: { type: 'string', description: 'Source table ID (the table that will have the relation field)' },
           targetEntityId: { type: 'string', description: 'Target table ID (the table being referenced)' },
           label: { type: 'string', description: 'Field display name for the relation' },
-          multiple: { type: 'boolean', description: 'Whether multiple records can be selected' }
+          multiple: { type: 'boolean', description: 'Whether multiple records can be selected' },
+          bidirectional: { type: 'boolean', description: 'If true, also creates an inverse relation field on the target table' }
         },
         required: ['appId', 'sourceEntityId', 'targetEntityId', 'label']
       }
@@ -33,15 +34,28 @@ register({
     const targetEntity = pkg.schema.entities.find((e) => e.id === args.targetEntityId);
     if (!targetEntity) throw new Error('Target entity not found');
     const displayField = targetEntity.fields.find((f) => f.type === 'text' || f.type === 'textarea' || f.type === 'email' || f.type === 'phone') || targetEntity.fields[0];
+    const sourceEntityDisplayField = entity.fields.find((f) => f.type === 'text' || f.type === 'textarea' || f.type === 'email' || f.type === 'phone') || entity.fields[0];
     const id = `rel_${args.targetEntityId}`;
+    const reciprocal = args.bidirectional;
     entity.fields.push({
       id,
       label: args.label,
       type: 'relation',
       targetEntity: args.targetEntityId,
       multiple: args.multiple || false,
-      displayField: displayField?.id || null
+      displayField: displayField?.id || null,
+      ...(reciprocal ? { reciprocalFieldId: `rel_${entity.id}` } : {})
     });
+    if (reciprocal) {
+      targetEntity.fields.push({
+        id: `rel_${entity.id}`,
+        label: `${entity.name || args.sourceEntityId}记录`,
+        type: 'relation',
+        targetEntity: entity.id,
+        multiple: true,
+        displayField: sourceEntityDisplayField?.id || null
+      });
+    }
     return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
   }
 });

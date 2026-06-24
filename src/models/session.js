@@ -1,14 +1,9 @@
 import { getDb } from '../storage/db.js';
 import { createId } from '../core/ids.js';
+import { notFound } from '../routes/_helpers.js';
 
 function now() {
   return new Date().toISOString();
-}
-
-function notFoundError(message) {
-  const error = new Error(message);
-  error.status = 404;
-  return error;
 }
 
 export function createAiSession({ appId = null, status = 'idle', currentPlan = null, type = 'create' } = {}) {
@@ -89,7 +84,7 @@ export function listAiSessions({ appId = null, limit = 20 } = {}) {
 
 export function updateAiSession(id, patch = {}) {
   const existing = getAiSession(id);
-  if (!existing) throw notFoundError('找不到 AI 会话。');
+  if (!existing) throw notFound('找不到 AI 会话。');
   const status = patch.status || existing.status;
   const appId = patch.appId === undefined ? existing.appId : patch.appId;
   const currentPlan = patch.currentPlan === undefined ? existing.currentPlan : patch.currentPlan;

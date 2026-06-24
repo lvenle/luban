@@ -2,7 +2,7 @@ import { getApp } from '../models/app.js';
 import { getSetting, getAiSession, createAiSession, listAiSessions, updateAiSession, addAiMessage, addAiExecutionLog } from '../models/session.js';
 import { chatCompletionsUrl, generateOptions } from '../ai/service.js';
 import { getToolDefinitions, getTool, discoverTools } from '../ai/registry.js';
-import { readJson } from './_helpers.js';
+import { readJson, sendJson } from './_helpers.js';
 
 discoverTools();
 
@@ -30,6 +30,8 @@ function rateLimitConfirm(ip) {
 // 跟踪当前活跃的 SSE 连接，按 sessionId 隔离。
 // 当同一 session 发起新连接时，自动断开旧连接。
 const activeSSEConnections = new Map();
+// 跟踪活跃的流式响应 reader，用于 SSE 断开时立即取消底层 HTTP 流
+const activeStreamReaders = new Map();
 
 function sseEvent(res, event, data) {
   // 客户端已断开连接时跳过写入，避免 ERR_STREAM_WRITE_AFTER_END
@@ -47,10 +49,11 @@ function sseEvent(res, event, data) {
  * This prevents the AI assistant from hanging silently when the AI provider stalls mid-stream.
  */
 function readWithTimeout(reader, timeoutMs = 120_000) {
-  const read = reader.read();
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('AI 响应超时：长时间未收到数据')), timeoutMs)
-  );
+  let timer;
+  const read = reader.read().finally(() => clearTimeout(timer));
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('AI 响应超时：长时间未收到数据')), timeoutMs);
+  });
   // 当 timeout 在 read() 之前完成时，read() 的 Promise 会被遗弃。
   // 静默捕获以防止 UnhandledPromiseRejection 导致进程崩溃。
   read.catch(() => {});
@@ -62,16 +65,18 @@ function readWithTimeout(reader, timeoutMs = 120_000) {
  * rejects with the given error message. Used to prevent tool handlers from hanging.
  */
 function withTimeout(promise, timeoutMs, errorMessage) {
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
-  );
+  let timer;
+  const tracked = promise.finally(() => clearTimeout(timer));
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+  });
   // 当 promise 在 timeout 之前完成时，timeout 的 reject 被遗弃。
   // 静默捕获以防止 UnhandledPromiseRejection 导致进程崩溃。
-  promise.catch(() => {});
-  return Promise.race([promise, timeout]);
+  tracked.catch(() => {});
+  return Promise.race([tracked, timeout]);
 }
 
-async function* streamOpenAI(settings, messages, tools) {
+async function* streamOpenAI(settings, messages, tools, signal = null) {
   const payload = {
     model: settings.model || 'gpt-4.1-mini',
     messages,
@@ -85,7 +90,8 @@ async function* streamOpenAI(settings, messages, tools) {
       'content-type': 'application/json',
       authorization: `Bearer ${settings.apiKey}`
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal
   });
   if (!response.ok) {
     const text = await response.text().catch(() => '');
@@ -95,22 +101,27 @@ async function* streamOpenAI(settings, messages, tools) {
   const decoder = new TextDecoder();
   let buffer = '';
 
-  while (true) {
-    const { done, value } = await readWithTimeout(reader);
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed === 'data: [DONE]') continue;
-      if (trimmed.startsWith('data: ')) {
-        try {
-          const parsed = JSON.parse(trimmed.slice(6));
-          yield parsed;
-        } catch { /* skip malformed chunks */ }
+  try {
+    while (true) {
+      if (signal?.aborted) break;
+      const { done, value } = await readWithTimeout(reader);
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') continue;
+        if (trimmed.startsWith('data: ')) {
+          try {
+            const parsed = JSON.parse(trimmed.slice(6));
+            yield parsed;
+          } catch { /* skip malformed chunks */ }
+        }
       }
     }
+  } finally {
+    try { await reader.cancel(); } catch { /* 忽略取消时的错误 */ }
   }
 }
 
@@ -225,6 +236,11 @@ export async function handleAiApi(req, res, method, parts, url) {
     res.on('close', () => {
       clearInterval(keepalive);
       sseClosed = true;
+      // 取消活跃的流式 AI 请求
+      if (activeStreamReaders.get(session.id)) {
+        activeStreamReaders.get(session.id).abort();
+        activeStreamReaders.delete(session.id);
+      }
       // 从活跃连接映射中移除
       if (activeSSEConnections.get(session.id)?.res === res) {
         activeSSEConnections.delete(session.id);
@@ -244,12 +260,14 @@ export async function handleAiApi(req, res, method, parts, url) {
       const tools = getToolDefinitions();
       let messages = buildMessages(getAiSession(session.id), body.message, body.context, app);
       let turnContent = '';
+      const streamAbort = new AbortController();
+      activeStreamReaders.set(session.id, streamAbort);
 
       for (let iteration = 0; iteration < 20; iteration++) {
         const deltaCollector = [];
         let toolCalls = [];
 
-        for await (const chunk of streamOpenAI(settings, messages, tools)) {
+        for await (const chunk of streamOpenAI(settings, messages, tools, streamAbort.signal)) {
           if (sseClosed) break;
           const delta = chunk.choices?.[0]?.delta;
           if (!delta) continue;
@@ -387,6 +405,7 @@ export async function handleAiApi(req, res, method, parts, url) {
 
     clearInterval(keepalive);
     try { res.end(); } catch {}
+    activeStreamReaders.delete(session.id);
     return;
   }
 
@@ -471,11 +490,6 @@ export function buildToolDisplayInfo(toolName, args = {}, app = null, result = n
   if (fieldLabels.length) details.push(fieldLabels.join('、'));
   else if (args.title || args.name) details.push(args.title || args.name);
   return { title: labels[toolName] || toolName, detail: details.join(' · ') };
-}
-
-function sendJson(res, status, payload) {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(payload));
 }
 
 function waitForConfirm(confirmId) {

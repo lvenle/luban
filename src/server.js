@@ -6,6 +6,7 @@ import { handleRuntimeApi } from './routes/runtime.js';
 import { handleSettingsApi } from './routes/settings.js';
 import { initDb, closeDb } from './storage/db.js';
 
+const APP_VERSION = '2026.06.23';
 const PORT = Number(process.env.PORT || 5173);
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 100);
 const RATE_LIMIT_WINDOW = 60_000;

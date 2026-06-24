@@ -1,6 +1,7 @@
 import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
+import { clearUndoStack } from '../common/UndoStack.js';
 import { state, root, topbar, writeRoute, entityFor, currentPage, pageEntityForRecordLoad, recordsFor, entityById, formatFieldValue, dateKey, renderPage, setPageRenderers } from '../app.js';
 import { renderAssistantDrawer, removeAssistantDrawer, setAssistantMode } from '../ai-assistant/index.js';
 import { loadSidebarLayout, startSidebarResize, toggleSidebarCollapsed } from './RuntimeFrame.js';
@@ -13,6 +14,7 @@ async function registerPageRenderers() {
 }
 
 export async function openApp(appId, options = {}) {
+  clearUndoStack();
   // Transient loading overlay while fetching app data
   const loadingOverlay = h('div', { class: 'modal-backdrop', style: 'background:rgba(255,255,255,0.8);z-index:200' }, [
     h('div', { class: 'loading-overlay' }, [
@@ -49,15 +51,24 @@ export function renderRuntime() {
   state.currentPageId = page?.id || state.currentPageId;
   setAssistantMode({ mode: 'modify', appId: app.id, appName: app.name, context: buildAssistantContext() });
   loadSidebarLayout();
-  root.innerHTML = '';
-  root.append(h('div', { class: 'shell' }, [
-    topbar(),
-    h('main', { class: `runtime ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`, style: `--sidebar-width:${state.sidebarWidth}px` }, [
-      h('aside', { class: 'sidebar' }, renderSidebarContent(app, page)),
-      h('div', { class: 'sidebar-resizer', title: state.sidebarCollapsed ? '展开页面列表' : '拖动调整页面列表宽度', onpointerdown: startSidebarResize, ondblclick: toggleSidebarCollapsed }),
-      h('section', { class: 'workspace' }, [renderPage(page)])
-    ])
-  ]));
+  try {
+    root.innerHTML = '';
+    root.append(h('div', { class: 'shell' }, [
+      topbar(),
+      h('main', { class: `runtime ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`, style: `--sidebar-width:${state.sidebarWidth}px` }, [
+        h('aside', { class: 'sidebar' }, renderSidebarContent(app, page)),
+        h('div', { class: 'sidebar-resizer', title: state.sidebarCollapsed ? '展开页面列表' : '拖动调整页面列表宽度', onpointerdown: startSidebarResize, ondblclick: toggleSidebarCollapsed }),
+        h('section', { class: 'workspace' }, [renderPage(page)])
+      ])
+    ]));
+  } catch (err) {
+    console.error('[Runtime] render error:', err);
+    root.innerHTML = '';
+    root.append(h('div', { class: 'panel', style: 'padding:40px;text-align:center' }, [
+      h('p', { text: '渲染出错，请刷新重试。' }),
+      h('p', { class: 'muted', style: 'font-size:13px', text: err.message })
+    ]));
+  }
   if (state.assistantOpen) {
     renderAssistantDrawer(() => { state.assistantOpen = false; const btn = document.querySelector('.assistant-topbar-button'); if (btn) btn.classList.remove('active'); });
   } else {

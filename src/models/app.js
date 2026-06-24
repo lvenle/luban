@@ -2,21 +2,10 @@ import { getDb, rowToApp, getPackageFromApp, withTransaction, triggerBackup } fr
 import { preparePackage } from '../core/packageProtocol.js';
 import { createId, slugify } from '../core/ids.js';
 import { formulaDependents } from '../core/formula.js';
+import { notFound } from '../routes/_helpers.js';
 
 function now() {
   return new Date().toISOString();
-}
-
-function notFoundError(message) {
-  const error = new Error(message);
-  error.status = 404;
-  return error;
-}
-
-function validationError(message) {
-  const error = new Error(message);
-  error.status = 400;
-  return error;
 }
 
 export function uniqueSlug(baseSlug) {
@@ -64,7 +53,7 @@ export function createAppFromPackage(pkg, options = {}) {
 export function updateAppPackage(appId, pkg, options = {}) {
   const database = getDb();
   const existing = getApp(appId);
-  if (!existing) throw notFoundError('找不到应用。');
+  if (!existing) throw notFound('找不到应用。');
   if (options.expectedUpdatedAt && existing.updatedAt !== options.expectedUpdatedAt) {
     const error = new Error('软件已在其他页面发生变化，请刷新后重试。');
     error.status = 409;

@@ -2,21 +2,10 @@ import { getDb, rowToApp, withTransaction } from '../storage/db.js';
 import { getApp } from './app.js';
 import { createId } from '../core/ids.js';
 import { calculateFormulaFields } from '../core/formula.js';
+import { notFound, badRequest } from '../routes/_helpers.js';
 
 function now() {
   return new Date().toISOString();
-}
-
-function notFoundError(message) {
-  const error = new Error(message);
-  error.status = 404;
-  return error;
-}
-
-function validationError(message) {
-  const error = new Error(message);
-  error.status = 400;
-  return error;
 }
 
 export function listRecords(appId, options = {}) {
@@ -84,8 +73,8 @@ export function clampPageLimit(value, fallback = 100) {
 
 export function createRecord(appId, entityId, data, customCreatedAt) {
   const app = getApp(appId);
-  if (!app) throw notFoundError('找不到应用。');
-  if (!app.schema.entities.some((entity) => entity.id === entityId)) throw validationError(`实体不存在：${entityId}`);
+  if (!app) throw notFound('找不到应用。');
+  if (!app.schema.entities.some((entity) => entity.id === entityId)) throw badRequest(`实体不存在：${entityId}`);
   const entity = app.schema.entities.find((item) => item.id === entityId);
   const validated = validateRecordData(entity, data, { mode: 'create' });
   const { data: cleanData, relations } = splitRelationData(app, entityId, validated);
@@ -137,7 +126,7 @@ export function updateRecord(recordId, data) {
 }
 
 export function updateRecordForApp(appId, recordId, data) {
-  if (!getRecordForApp(appId, recordId)) throw notFoundError('找不到记录。');
+  if (!getRecordForApp(appId, recordId)) throw notFound('找不到记录。');
   return updateRecord(recordId, data);
 }
 
@@ -167,16 +156,16 @@ export function deleteRecord(recordId, options = {}) {
 }
 
 export function deleteRecordForApp(appId, recordId, options = {}) {
-  if (!getRecordForApp(appId, recordId)) throw notFoundError('找不到记录。');
+  if (!getRecordForApp(appId, recordId)) throw notFound('找不到记录。');
   return deleteRecord(recordId, options);
 }
 
 export function deleteRecordsForApp(appId, recordIds = [], options = {}) {
   const ids = [...new Set(recordIds.map(String))];
   if (!ids.length) return 0;
-  if (ids.length > 1000) throw validationError('单次最多删除 1000 条记录。');
+  if (ids.length > 1000) throw badRequest('单次最多删除 1000 条记录。');
   return withTransaction(() => {
-    for (const id of ids) if (!getRecordForApp(appId, id)) throw notFoundError(`找不到记录：${id}`);
+    for (const id of ids) if (!getRecordForApp(appId, id)) throw notFound(`找不到记录：${id}`);
     for (const id of ids) deleteRecord(id, options);
     return ids.length;
   });
@@ -204,7 +193,7 @@ export function listRelationOptions(appId, sourceEntityId, fieldId, keyword = ''
 
 export function getRecordRelations(recordId, fieldId, appId = '') {
   const record = appId ? getRecordForApp(appId, recordId) : getRecord(recordId);
-  if (!record) throw notFoundError('找不到记录。');
+  if (!record) throw notFound('找不到记录。');
   const app = getApp(record.appId);
   const field = relationField(app, record.entityId, fieldId);
   return relationRowsFor(record.appId, [recordId], fieldId).map((row) => ({
@@ -215,7 +204,7 @@ export function getRecordRelations(recordId, fieldId, appId = '') {
 
 export function updateRecordRelations(recordId, fieldId, targetRecordIds = [], appId = '') {
   const record = appId ? getRecordForApp(appId, recordId) : getRecord(recordId);
-  if (!record) throw notFoundError('找不到记录。');
+  if (!record) throw notFound('找不到记录。');
   const app = getApp(record.appId);
   const field = relationField(app, record.entityId, fieldId);
   withTransaction(() => setSingleRecordRelation(record.appId, record.entityId, recordId, field, normalizeTargetIds(targetRecordIds, field)));
@@ -223,8 +212,8 @@ export function updateRecordRelations(recordId, fieldId, targetRecordIds = [], a
 }
 
 export function validateRecordData(entity, data = {}, options = {}) {
-  if (!entity) throw validationError('找不到记录对应的表。');
-  if (!data || typeof data !== 'object' || Array.isArray(data)) throw validationError('记录数据必须是对象。');
+  if (!entity) throw badRequest('找不到记录对应的表。');
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw badRequest('记录数据必须是对象。');
   data = normalizeRecordDataKeys(entity, data);
   const fields = new Map((entity.fields || []).map((field) => [field.id, field]));
   const normalized = {};
@@ -264,15 +253,15 @@ export function normalizeRecordDataKeys(entity, data = {}) {
       unknown.push(rawKey);
       continue;
     }
-    if (matches.length > 1) throw validationError(`字段名称「${rawKey}」不唯一，请使用字段 ID。`);
+    if (matches.length > 1) throw badRequest(`字段名称「${rawKey}」不唯一，请使用字段 ID。`);
     const fieldId = matches[0].id;
     if (Object.prototype.hasOwnProperty.call(normalized, fieldId)
       && JSON.stringify(normalized[fieldId]) !== JSON.stringify(value)) {
-      throw validationError(`字段「${matches[0].label || fieldId}」被重复赋值。`);
+      throw badRequest(`字段「${matches[0].label || fieldId}」被重复赋值。`);
     }
     normalized[fieldId] = value;
   }
-  if (unknown.length) throw validationError(`记录包含不存在的字段：${unknown.join('、')}`);
+  if (unknown.length) throw badRequest(`记录包含不存在的字段：${unknown.join('、')}`);
   return normalized;
 }
 
@@ -280,40 +269,40 @@ function validateFieldValue(field, value) {
   if (isEmptyValue(value)) return value;
   if (field.type === 'number') {
     const number = Number(value);
-    if (!Number.isFinite(number)) throw validationError(`字段「${field.label}」必须是数值。`);
+    if (!Number.isFinite(number)) throw badRequest(`字段「${field.label}」必须是数值。`);
     return number;
   }
   if (field.type === 'boolean') {
-    if (typeof value !== 'boolean') throw validationError(`字段「${field.label}」必须是布尔值。`);
+    if (typeof value !== 'boolean') throw badRequest(`字段「${field.label}」必须是布尔值。`);
     return value;
   }
   if (field.type === 'date' || field.type === 'datetime') {
-    if (Number.isNaN(Date.parse(value))) throw validationError(`字段「${field.label}」必须是有效日期。`);
+    if (Number.isNaN(Date.parse(value))) throw badRequest(`字段「${field.label}」必须是有效日期。`);
     return String(value);
   }
   if (field.type === 'url') {
     const url = String(value).trim();
     let parsed;
-    try { parsed = new URL(url); } catch { throw validationError(`字段「${field.label}」必须是有效链接。`); }
-    if (!['http:', 'https:'].includes(parsed.protocol)) throw validationError(`字段「${field.label}」只支持 http 或 https 链接。`);
+    try { parsed = new URL(url); } catch { throw badRequest(`字段「${field.label}」必须是有效链接。`); }
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw badRequest(`字段「${field.label}」只支持 http 或 https 链接。`);
     return url;
   }
   if (field.type === 'select') {
     const id = String(value?.optionId || value?.id || value);
     const option = (field.options || []).find((item) => item.id === id || item.label === id);
-    if (!option) throw validationError(`字段「${field.label}」包含无效选项。`);
+    if (!option) throw badRequest(`字段「${field.label}」包含无效选项。`);
     return option.id;
   }
   if (field.type === 'multiSelect') {
-    if (!Array.isArray(value)) throw validationError(`字段「${field.label}」必须是选项数组。`);
+    if (!Array.isArray(value)) throw badRequest(`字段「${field.label}」必须是选项数组。`);
     const ids = value.map((item) => String(item?.optionId || item?.id || item));
     const normalized = ids.map((id) => (field.options || []).find((option) => option.id === id || option.label === id)?.id);
-    if (normalized.some((id) => !id)) throw validationError(`字段「${field.label}」包含无效选项。`);
+    if (normalized.some((id) => !id)) throw badRequest(`字段「${field.label}」包含无效选项。`);
     return [...new Set(normalized)];
   }
   if (field.type === 'relation') return value;
   if (field.type === 'image' || field.type === 'file') {
-    if (typeof value !== 'object' || Array.isArray(value) || !value.url) throw validationError(`字段「${field.label}」必须是有效文件。`);
+    if (typeof value !== 'object' || Array.isArray(value) || !value.url) throw badRequest(`字段「${field.label}」必须是有效文件。`);
     return value;
   }
   return String(value);
@@ -389,7 +378,7 @@ function setSingleRecordRelation(appId, sourceEntityId, sourceRecordId, field, t
   const targets = targetRecordIds.map((targetRecordId) => {
     const target = getRecord(targetRecordId);
     if (!target || target.appId !== appId || target.entityId !== field.targetEntity) {
-      throw validationError(`关联字段 ${field.label || field.id} 选择了无效记录。`);
+      throw badRequest(`关联字段 ${field.label || field.id} 选择了无效记录。`);
     }
     return target;
   });
@@ -569,6 +558,6 @@ function entityFields(app, entityId) {
 
 function relationField(app, entityId, fieldId) {
   const field = entityFields(app, entityId).find((item) => item.id === fieldId && item.type === 'relation');
-  if (!field) throw notFoundError('找不到关联字段。');
+  if (!field) throw notFound('找不到关联字段。');
   return field;
 }

@@ -47,11 +47,11 @@ export function openRecordModal(entity, record = null) {
               if (record) {
                 pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
                 record.data = data;
-                import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch(() => {});
+                import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch((err) => console.error('[AI Trigger]', err));
               } else {
                 const created = body.record;
                 pushUndo({ type: 'create', recordId: created.id, entityId: entity.id, data: created.data, entityLabel: entity.name });
-                import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, created, null)).catch(() => {});
+                import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, created, null)).catch((err) => console.error('[AI Trigger]', err));
               }
               await loadCurrentPageRecords();
               renderRuntime();
@@ -111,7 +111,7 @@ export async function quickAddRecord(entity) {
 
     const created = body.record;
     pushUndo({ type: 'create', recordId: created.id, entityId: entity.id, data: created.data, entityLabel: entity.name });
-    import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, created, null)).catch(() => {});
+    import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, created, null)).catch((err) => console.error('[AI Trigger]', err));
 
     const currentView = getCurrentView(entity);
     const hasFilters = currentView.filters && currentView.filters.length > 0;

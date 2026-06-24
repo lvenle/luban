@@ -15,7 +15,7 @@ export function startCellEdit(cell, entity, record, field) {
   if (cell.classList.contains('cell-editing')) return;
   if (field.type === 'formula') return toast('公式字段由系统实时计算，不能直接编辑。');
   if (field.type === 'ai') {
-    import('./MarkdownEditor.js').then((m) => m.openMarkdownRecordEditor(entity, record, field)).catch(() => {});
+    import('./MarkdownEditor.js').then((m) => m.openMarkdownRecordEditor(entity, record, field)).catch((err) => console.error('[AI Trigger]', err));
     return;
   }
   if (field.type === 'select' || field.type === 'multiSelect' || field.type === 'relation') {
@@ -30,7 +30,7 @@ export function startCellEdit(cell, entity, record, field) {
         await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
         pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
         record.data = data; // update local ref for AI trigger
-        import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch(() => {});
+        import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch((err) => console.error('[AI Trigger]', err));
         await loadCurrentPageRecords();
         renderRuntime();
       } catch (error) {
@@ -76,7 +76,7 @@ export function startCellEdit(cell, entity, record, field) {
       await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
       pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
       record.data = data;
-      import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch(() => {});
+      import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch((err) => console.error('[AI Trigger]', err));
       await loadCurrentPageRecords();
       renderRuntime();
     } catch (error) {
@@ -400,7 +400,7 @@ export function loadRelationChoiceOptions(field, onLoaded) {
   if (!sourceEntity) return;
   api(`/api/apps/${state.currentApp.id}/fields/${sourceEntity.id}/${field.id}/relation-options`)
     .then((body) => onLoaded((body.options || []).map((option) => ({ id: option.recordId, label: option.displayValue, color: 'gray' }))))
-    .catch(() => {});
+    .catch((err) => console.error('[AI Trigger]', err));
 }
 
 export function fieldValuesEqual(currentValue, nextValue) {

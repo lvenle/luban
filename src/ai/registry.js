@@ -30,7 +30,7 @@ export function discoverTools() {
   for (const file of files) {
     const path = join(dir, file);
     if (statSync(path).isFile()) {
-      import(`file://${path}`);
+      import(`file://${path}`).catch((err) => console.error(`[registry] 加载工具失败：${file}`, err.message));
     }
   }
 }
