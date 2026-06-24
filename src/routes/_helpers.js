@@ -108,9 +108,16 @@ export async function saveUploadedFile(req, appId, url) {
   const originalName = safeOriginalName(url.searchParams.get('name') || req.headers['x-file-name'] || 'upload.bin');
   const mimeType = String(req.headers['content-type'] || 'application/octet-stream').split(';')[0];
   const bytes = await readBuffer(req);
+  const extension = safeExtension(originalName, mimeType);
+  // 验证文件内容（magic bytes）是否与扩展名一致，防止恶意文件伪装
+  const contentType = detectContentType(extension, bytes);
+  if (!contentType.valid) {
+    const error = new Error(`文件内容与扩展名不匹配，请上传正确格式的文件。`);
+    error.status = 400;
+    throw error;
+  }
   const appUploadDir = join(UPLOAD_DIR, appId);
   mkdirSync(appUploadDir, { recursive: true });
-  const extension = safeExtension(originalName, mimeType);
   const storedName = `${randomUUID()}${extension}`;
   const filePath = join(appUploadDir, storedName);
   writeFileSync(filePath, bytes);
@@ -120,6 +127,31 @@ export async function saveUploadedFile(req, appId, url) {
     mimeType,
     size: bytes.length
   };
+}
+
+const MAGIC_BYTES = {
+  '.png': [[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]],
+  '.jpg': [[0xFF, 0xD8, 0xFF]],
+  '.jpeg': [[0xFF, 0xD8, 0xFF]],
+  '.gif': [[0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]],
+  '.webp': [[0x52, 0x49, 0x46, 0x46], [0x57, 0x45, 0x42, 0x50]], // RIFF + WEBP at offset 0 and 8
+  '.pdf': [[0x25, 0x50, 0x44, 0x46]]
+};
+
+function detectContentType(extension, bytes) {
+  const signatures = MAGIC_BYTES[extension];
+  if (!signatures) return { valid: true, detectedType: extension }; // 未知类型不做校验
+  // 对于 WebP 需要检查 RIFF 头 + WEBP 标识（offset 8）
+  if (extension === '.webp') {
+    if (bytes.length < 12) return { valid: false, detectedType: 'unknown' };
+    const riff = bytes.slice(0, 4).every((b, i) => b === signatures[0][i]);
+    const webp = bytes.slice(8, 12).every((b, i) => b === signatures[1][i]);
+    return { valid: riff && webp, detectedType: riff && webp ? 'image/webp' : 'unknown' };
+  }
+  const match = signatures.some((sig) =>
+    bytes.length >= sig.length && sig.every((b, i) => bytes[i] === b)
+  );
+  return { valid: match, detectedType: match ? extension : 'unknown' };
 }
 
 function safeOriginalName(name) {

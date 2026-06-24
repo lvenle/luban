@@ -79,8 +79,25 @@ async function downloadFromSupabase(cfg) {
 
 async function uploadToSupabase(cfg) {
   try {
-    // Flush WAL to the main DB file so the snapshot is consistent
-    getDb().exec('PRAGMA wal_checkpoint(TRUNCATE)');
+    // Flush WAL to the main DB file so the snapshot is consistent。
+    // 使用 RESTART 模式等待活跃读者完成，最多重试 3 次。
+    // 避免 TRUNCATE 在有并发读取时静默失败，导致备份遗漏 WAL 中的最新数据。
+    let checkpointOk = false;
+    const db = getDb();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const row = db.prepare('PRAGMA wal_checkpoint(RESTART)').get();
+      // 返回格式：{ busy, pagecount, checkpoint }，checkpoint 为 0 表示成功
+      if (row && (row.checkpoint === 0 || row.checkpoint === 1)) {
+        checkpointOk = true;
+        break;
+      }
+      // 等待活跃读者完成后再试
+      await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
+    }
+    if (!checkpointOk) {
+      // 最终保底：PASSIVE 模式至少部分刷新
+      db.prepare('PRAGMA wal_checkpoint(PASSIVE)').get();
+    }
     const buffer = readFileSync(DB_PATH);
     const res = await fetch(cfg.uploadUrl, {
       method: 'PUT',

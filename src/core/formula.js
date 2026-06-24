@@ -4,14 +4,27 @@ const FUNCTIONS = new Set([
   'AND', 'OR', 'NOT', 'ISNULL', 'ISBLANK', 'NOW'
 ]);
 
-export class FormulaError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'FormulaError';
-  }
+// 公式 AST 缓存：key = expression + entity field 指纹。
+// 同一表达式的 tokenize/parse 结果不变，缓存避免批量记录加载时重复编译。
+const formulaCache = new Map();
+
+function getFormulaCacheKey(expression, entity) {
+  // 缓存的指纹包含表达式本身 + 当前 entity 的 field 列表（表达式引用的字段变化时需失效）
+  const fieldFingerprint = (entity?.fields || [])
+    .map((f) => `${f.id}:${f.type}`).join(',');
+  return `${expression}|${fieldFingerprint}`;
 }
 
-export function compileFormula(expression, entity, existingBindings = {}) {
+function cachedCompile(expression, entity, existingBindings = {}) {
+  const key = getFormulaCacheKey(expression, entity);
+  let cached = formulaCache.get(key);
+  if (cached) return cached;
+  cached = rawCompile(expression, entity, existingBindings);
+  formulaCache.set(key, cached);
+  return cached;
+}
+
+function rawCompile(expression, entity, existingBindings = {}) {
   const source = String(expression || '').trim().replaceAll('&amp;&amp;', '&&').replaceAll('&amp;', '&');
   if (!source) throw new FormulaError('公式不能为空。');
   const ast = new Parser(tokenize(source)).parse();
@@ -19,6 +32,10 @@ export function compileFormula(expression, entity, existingBindings = {}) {
   const dependencies = [];
   bindFields(ast, entity, existingBindings, bindings, dependencies);
   return { expression: source, ast, bindings, dependencies: [...new Set(dependencies)] };
+}
+
+export function compileFormula(expression, entity, existingBindings = {}) {
+  return cachedCompile(expression, entity, existingBindings);
 }
 
 export function normalizeFormulaField(field, entity) {

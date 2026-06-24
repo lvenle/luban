@@ -1,10 +1,6 @@
-import { getPackageFromApp } from '../storage/db.js';
-import { getApp, createAppFromPackage } from '../models/app.js';
-import { getRecord } from '../models/record.js';
+import { getApp } from '../models/app.js';
 import { getSetting, getAiSession, createAiSession, listAiSessions, updateAiSession, addAiMessage, addAiExecutionLog } from '../models/session.js';
-import { chatCompletionsUrl, generatePlanFromPrompt, planToPackage, generateOptions } from '../ai/service.js';
-import { buildPlanningPrompt, describePlan, understandAgentRequest } from '../ai/agent.js';
-import { applyPatch, preparePackage } from '../core/packageProtocol.js';
+import { chatCompletionsUrl, generateOptions } from '../ai/service.js';
 import { getToolDefinitions, getTool, discoverTools } from '../ai/registry.js';
 import { readJson } from './_helpers.js';
 
@@ -12,8 +8,37 @@ discoverTools();
 
 const PENDING_CONFIRMS = new Map();
 
+// Confirm 端点的独立限流（10 次/分钟/IP，比全局 100 次/分钟更严格）
+const CONFIRM_RATE_BUCKETS = new Map();
+const CONFIRM_RATE_LIMIT = 10;
+const CONFIRM_RATE_WINDOW = 60_000;
+
+function rateLimitConfirm(ip) {
+  const now = Date.now();
+  const cutoff = now - CONFIRM_RATE_WINDOW;
+  let entries = CONFIRM_RATE_BUCKETS.get(ip);
+  if (!entries) {
+    entries = [];
+    CONFIRM_RATE_BUCKETS.set(ip, entries);
+  }
+  while (entries.length && entries[0] <= cutoff) entries.shift();
+  if (entries.length >= CONFIRM_RATE_LIMIT) return false;
+  entries.push(now);
+  return true;
+}
+
+// 跟踪当前活跃的 SSE 连接，按 sessionId 隔离。
+// 当同一 session 发起新连接时，自动断开旧连接。
+const activeSSEConnections = new Map();
+
 function sseEvent(res, event, data) {
-  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  // 客户端已断开连接时跳过写入，避免 ERR_STREAM_WRITE_AFTER_END
+  if (res.writableEnded || res.destroyed) return;
+  try {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  } catch {
+    // 写入已销毁的流时静默忽略
+  }
 }
 
 /**
@@ -26,6 +51,9 @@ function readWithTimeout(reader, timeoutMs = 120_000) {
   const timeout = new Promise((_, reject) =>
     setTimeout(() => reject(new Error('AI 响应超时：长时间未收到数据')), timeoutMs)
   );
+  // 当 timeout 在 read() 之前完成时，read() 的 Promise 会被遗弃。
+  // 静默捕获以防止 UnhandledPromiseRejection 导致进程崩溃。
+  read.catch(() => {});
   return Promise.race([read, timeout]);
 }
 
@@ -37,6 +65,9 @@ function withTimeout(promise, timeoutMs, errorMessage) {
   const timeout = new Promise((_, reject) =>
     setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
   );
+  // 当 promise 在 timeout 之前完成时，timeout 的 reject 被遗弃。
+  // 静默捕获以防止 UnhandledPromiseRejection 导致进程崩溃。
+  promise.catch(() => {});
   return Promise.race([promise, timeout]);
 }
 
@@ -180,10 +211,34 @@ export async function handleAiApi(req, res, method, parts, url) {
 
     sseEvent(res, 'session_id', { sessionId: session.id });
 
+    // SSE 隔离：若该 session 已有活跃 SSE 连接，关闭旧连接
+    const existingSSE = activeSSEConnections.get(session.id);
+    if (existingSSE) {
+      try { existingSSE.res.end(); } catch {}
+    }
+    activeSSEConnections.set(session.id, { res, sessionId: session.id });
+
     const keepalive = setInterval(() => {
       try { res.write(': keepalive\n\n'); } catch { clearInterval(keepalive); }
     }, 30000);
-    res.on('close', () => clearInterval(keepalive));
+    let sseClosed = false;
+    res.on('close', () => {
+      clearInterval(keepalive);
+      sseClosed = true;
+      // 从活跃连接映射中移除
+      if (activeSSEConnections.get(session.id)?.res === res) {
+        activeSSEConnections.delete(session.id);
+      }
+      // SSE 断开时清除该 session 所有待确认项。避免：
+      // 1) PENDING_CONFIRMS Map 内存泄漏（否则要等 60s 超时）
+      // 2) waitForConfirm 的 Promise 悬挂导致 AI 循环停滞
+      for (const [key, entry] of PENDING_CONFIRMS) {
+        if (key.startsWith(`${session.id}:`)) {
+          entry.resolve?.(false);
+          PENDING_CONFIRMS.delete(key);
+        }
+      }
+    });
 
     try {
       const tools = getToolDefinitions();
@@ -195,6 +250,7 @@ export async function handleAiApi(req, res, method, parts, url) {
         let toolCalls = [];
 
         for await (const chunk of streamOpenAI(settings, messages, tools)) {
+          if (sseClosed) break;
           const delta = chunk.choices?.[0]?.delta;
           if (!delta) continue;
           if (delta.content) {
@@ -213,6 +269,7 @@ export async function handleAiApi(req, res, method, parts, url) {
           }
         }
 
+        if (sseClosed) break;
         toolCalls = mergeBatchableToolCalls(deltaCollector.filter(Boolean));
 
         if (!toolCalls.length) {
@@ -334,6 +391,13 @@ export async function handleAiApi(req, res, method, parts, url) {
   }
 
   if (method === 'POST' && parts[2] === 'chat' && parts[3] === 'confirm') {
+    // Confirm 端点独立限流：10 次/分钟/IP
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+    if (!rateLimitConfirm(clientIp)) {
+      res.writeHead(429, { 'content-type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: '确认请求过于频繁，请稍后再试。' }));
+      return;
+    }
     const body = await readJson(req);
     const confirmId = body.confirmId;
     if (!confirmId || !PENDING_CONFIRMS.has(confirmId)) {
@@ -344,72 +408,6 @@ export async function handleAiApi(req, res, method, parts, url) {
     PENDING_CONFIRMS.get(confirmId).resolve?.(body.confirmed !== false);
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ ok: true }));
-    return;
-  }
-
-  if (method === 'POST' && parts.length === 3 && parts[2] === 'plan') {
-    res.setHeader('x-deprecated', 'true');
-    const body = await readJson(req);
-    const app = body.appId ? getApp(body.appId) : null;
-    const session = body.sessionId ? getAiSession(body.sessionId) : createAiSession({ appId: app?.id || null, status: 'understanding' });
-    if (!session) { res.writeHead(404); res.end('{}'); return; }
-    updateAiSession(session.id, { appId: app?.id || session.appId || null, status: 'understanding' });
-    addAiMessage(session.id, 'user', body.prompt || '');
-    const freshSession = getAiSession(session.id);
-    const agentTurn = understandAgentRequest(body.prompt || '', { app, session: freshSession });
-    addAiExecutionLog(session.id, '理解用户意图', 'success', { output: { intent: agentTurn.intent, state: agentTurn.state } });
-    addAiExecutionLog(session.id, '读取上下文', 'success', { output: agentTurn.context });
-    if (agentTurn.clarification.required) {
-      addAiMessage(session.id, 'assistant', agentTurn.clarification.questions.join('\n'), { type: 'clarification', intent: agentTurn.intent, questions: agentTurn.clarification.questions });
-      const nextSession = updateAiSession(session.id, { status: 'clarifying', currentPlan: null });
-      sendJson(res, 200, { session: nextSession, state: 'CLARIFY', intent: agentTurn.intent, clarification: agentTurn.clarification, context: agentTurn.context });
-      return;
-    }
-    updateAiSession(session.id, { status: 'planning' });
-    addAiExecutionLog(session.id, '生成执行方案', 'running', { input: { intent: agentTurn.intent } });
-    const settings = getSetting('ai') || {};
-    const planningPrompt = buildPlanningPrompt(body.prompt || '', { app, session: getAiSession(session.id), intent: agentTurn.intent, context: agentTurn.context });
-    const plan = await generatePlanFromPrompt(planningPrompt, settings, app ? getPackageFromApp(app) : null);
-    addAiExecutionLog(session.id, '生成执行方案', 'success', { output: { summary: describePlan(plan) } });
-    addAiMessage(session.id, 'assistant', describePlan(plan), plan);
-    const nextSession = updateAiSession(session.id, { status: 'waiting_confirmation', currentPlan: plan });
-    sendJson(res, 200, { session: nextSession, state: 'CONFIRM', intent: agentTurn.intent, plan, context: agentTurn.context });
-    return;
-  }
-
-  if (method === 'POST' && parts[2] === 'sessions' && parts[3] && parts[4] === 'revise') {
-    res.setHeader('x-deprecated', 'true');
-    const body = await readJson(req);
-    const session = getAiSession(parts[3]);
-    if (!session) { res.writeHead(404); res.end('{}'); return; }
-    const app = session.appId ? getApp(session.appId) : null;
-    addAiMessage(session.id, 'user', body.prompt || '');
-    updateAiSession(session.id, { status: 'planning' });
-    addAiExecutionLog(session.id, '按用户修改意见重新规划', 'running', { input: { previousPlan: session.currentPlan, revision: body.prompt || '' } });
-    const prompt = buildPlanningPrompt(JSON.stringify({ previousPlan: session.currentPlan, revision: body.prompt || '' }), { app, session: getAiSession(session.id), intent: 'ModifySchema' });
-    const plan = await generatePlanFromPrompt(prompt, getSetting('ai') || {}, app ? getPackageFromApp(app) : null);
-    addAiExecutionLog(session.id, '按用户修改意见重新规划', 'success', { output: { summary: describePlan(plan) } });
-    addAiMessage(session.id, 'assistant', describePlan(plan), plan);
-    sendJson(res, 200, { session: updateAiSession(session.id, { status: 'waiting_confirmation', currentPlan: plan }), plan });
-    return;
-  }
-
-  if (method === 'POST' && parts[2] === 'sessions' && parts[3] && parts[4] === 'execute') {
-    res.setHeader('x-deprecated', 'true');
-    const session = getAiSession(parts[3]);
-    if (!session) { res.writeHead(404); res.end('{}'); return; }
-    if (session.status !== 'waiting_confirmation') { res.writeHead(409); res.end(JSON.stringify({ error: 'AI 会话尚未等待确认。' })); return; }
-    const result = executeLegacyPlan(session);
-    sendJson(res, 200, result);
-    return;
-  }
-
-  if (method === 'POST' && parts[2] === 'sessions' && parts[3] && parts[4] === 'cancel') {
-    res.setHeader('x-deprecated', 'true');
-    const session = getAiSession(parts[3]);
-    if (!session) { res.writeHead(404); res.end('{}'); return; }
-    addAiExecutionLog(session.id, '用户取消执行', 'cancelled');
-    sendJson(res, 200, { session: updateAiSession(session.id, { status: 'cancelled' }) });
     return;
   }
 
@@ -473,40 +471,6 @@ export function buildToolDisplayInfo(toolName, args = {}, app = null, result = n
   if (fieldLabels.length) details.push(fieldLabels.join('、'));
   else if (args.title || args.name) details.push(args.title || args.name);
   return { title: labels[toolName] || toolName, detail: details.join(' · ') };
-}
-
-function executeLegacyPlan(session) {
-  updateAiSession(session.id, { status: 'executing' });
-  addAiExecutionLog(session.id, '开始执行方案', 'running', { input: session.currentPlan });
-  try {
-    let app;
-    if (session.currentPlan.type === 'app_creation_plan') {
-      addAiExecutionLog(session.id, '创建应用软件包', 'running', { toolName: 'create_app' });
-      const pkg = planToPackage(session.currentPlan);
-      app = createAppFromPackage_legacy(pkg);
-      addAiExecutionLog(session.id, '创建应用软件包', 'success', { output: { appId: app.id } });
-    } else if (session.currentPlan.type === 'app_modification_plan') {
-      app = getApp(session.appId);
-      if (!app) throw new Error('找不到要修改的应用。');
-      addAiExecutionLog(session.id, '应用 Patch', 'running', { toolName: 'apply_patch', input: session.currentPlan.patch });
-      const nextPackage = applyPatch(getPackageFromApp(app), session.currentPlan.patch);
-      app = updateAppPackage(app.id, nextPackage);
-      addAiExecutionLog(session.id, '应用 Patch', 'success', { output: { appId: app.id } });
-    } else {
-      throw new Error(`不支持的 AI 方案类型：${session.currentPlan.type}`);
-    }
-    addAiExecutionLog(session.id, '执行完成', 'success');
-    const nextSession = updateAiSession(session.id, { status: 'completed', appId: app.id });
-    return { session: nextSession, appId: app.id, app, logs: nextSession.logs };
-  } catch (error) {
-    addAiExecutionLog(session.id, '执行失败', 'failed', { error: error.message });
-    const failed = updateAiSession(session.id, { status: 'failed' });
-    return { session: failed, error: error.message, logs: failed.logs };
-  }
-}
-
-function createAppFromPackage_legacy(pkg) {
-  return createAppFromPackage(pkg);
 }
 
 function sendJson(res, status, payload) {

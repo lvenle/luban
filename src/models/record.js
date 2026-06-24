@@ -245,6 +245,9 @@ export function normalizeRecordDataKeys(entity, data = {}) {
     for (const alias of [field.label, field.name, field.displayName]) {
       const key = String(alias || '').trim();
       if (!key || key === field.id) continue;
+      // 跳过与另一字段 ID 冲突的别名——ID 匹配优先级更高，
+      // 避免字段 label 恰好等于另一字段 id 时导致数据写入错误字段
+      if (fields.has(key)) continue;
       const matches = aliases.get(key) || [];
       matches.push(field);
       aliases.set(key, matches);

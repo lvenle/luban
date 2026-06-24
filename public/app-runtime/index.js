@@ -1,7 +1,7 @@
 import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
-import { state, root, topbar, writeRoute, entityFor, currentPage, pageEntityForRecordLoad, recordsFor, entityById, formatFieldValue, dateKey, renderPage } from '../app.js';
+import { state, root, topbar, writeRoute, entityFor, currentPage, pageEntityForRecordLoad, recordsFor, entityById, formatFieldValue, dateKey, renderPage, setPageRenderers } from '../app.js';
 import { renderAssistantDrawer, removeAssistantDrawer, setAssistantMode } from '../ai-assistant/index.js';
 import { loadSidebarLayout, startSidebarResize, toggleSidebarCollapsed } from './RuntimeFrame.js';
 import { renderSidebarContent } from './Sidebar.js';
@@ -9,7 +9,7 @@ import { renderSidebarContent } from './Sidebar.js';
 async function registerPageRenderers() {
   const dt = await import('./DataTable.js').catch(() => ({}));
   const pt = await import('./PageTypes.js').catch(() => ({}));
-  globalThis.__rt = Object.assign({}, dt, pt);
+  setPageRenderers(Object.assign({}, dt, pt));
 }
 
 export async function openApp(appId, options = {}) {

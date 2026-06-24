@@ -42,18 +42,6 @@ async function boot() {
   setupModalAccessibility();
   state.apps = (await api('/api/apps')).apps;
   const route = currentRoute();
-  document.body.addEventListener('ai-message-end', async () => {
-    if (!state.currentApp) {
-      await loadApps();
-      return;
-    }
-    try {
-      state.currentApp = (await api(`/api/apps/${state.currentApp.id}`)).app;
-      const rt = await import('./app-runtime/index.js');
-      if (state.currentPageId && state.currentApp.ui.pages.some((p) => p.id === state.currentPageId)) await rt.loadCurrentPageRecords();
-      rt.renderRuntime();
-    } catch {}
-  });
   if (route.appId) {
     try { await (await import('./app-runtime/index.js')).openApp(route.appId, { pageId: route.pageId, viewId: route.viewId, replace: true }); return; }
     catch (error) { history.replaceState(null, '', '/'); toast(error.message); }
@@ -312,15 +300,20 @@ function normalizeView(entity, view) {
   return next;
 }
 
+// 页面渲染器注册表，替代 globalThis.__rt 全局变量
+const pageRenderers = {};
+export function setPageRenderers(renderers) {
+  Object.assign(pageRenderers, renderers);
+}
+
 export function renderPage(page) {
   if (state.loading) return renderLoadingSkeleton();
   if (!page) return h('div', { class: 'panel', text: '这个软件还没有页面。' });
-  const rt = globalThis.__rt || {};
-  if (page.type === 'blank') return (rt.renderBlankPage || (() => h('div', { class: 'blank-page-canvas' })))(page);
-  if (page.type === 'chart') return (rt.renderChartPage || (() => h('div')))(page);
-  if (page.type === 'dashboard') return (rt.renderDashboardPage || (() => h('div')))(page);
-  if (page.type === 'editor') return (rt.renderEditorPage || (() => h('div')))(page);
-  return (rt.renderListPage || (() => h('div', { text: '加载中...' })))(page);
+  if (page.type === 'blank') return (pageRenderers.renderBlankPage || (() => h('div', { class: 'blank-page-canvas' })))(page);
+  if (page.type === 'chart') return (pageRenderers.renderChartPage || (() => h('div')))(page);
+  if (page.type === 'dashboard') return (pageRenderers.renderDashboardPage || (() => h('div')))(page);
+  if (page.type === 'editor') return (pageRenderers.renderEditorPage || (() => h('div')))(page);
+  return (pageRenderers.renderListPage || (() => h('div', { text: '加载中...' })))(page);
 }
 
 // Initialize undo/redo keyboard shortcuts once on load
@@ -339,6 +332,19 @@ function renderLoadingSkeleton() {
 }
 
 // Global event listeners
+// ai-message-end 绑定在模块顶层而非 boot() 内，防止每次 popstate 时重复绑定
+document.body.addEventListener('ai-message-end', async () => {
+  if (!state.currentApp) {
+    await loadApps();
+    return;
+  }
+  try {
+    state.currentApp = (await api(`/api/apps/${state.currentApp.id}`)).app;
+    const rt = await import('./app-runtime/index.js');
+    if (state.currentPageId && state.currentApp.ui.pages.some((p) => p.id === state.currentPageId)) await rt.loadCurrentPageRecords();
+    rt.renderRuntime();
+  } catch {}
+});
 window.addEventListener('popstate', () => boot().catch((e) => { root.textContent = e.message; }));
 document.addEventListener('click', (e) => { if (!e.target.closest?.('details.card-menu, details.view-menu, details.export-menu, details.page-menu')) closeFloatingMenus(); });
 document.addEventListener('pointerdown', (e) => { if (e.target instanceof HTMLElement && e.target.classList.contains('modal-backdrop')) e.target.remove(); }, true);
