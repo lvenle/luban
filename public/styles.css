@@ -3878,6 +3878,26 @@ button.assistant-send {
   padding: 24px;
 }
 
+.ai-field-generating {
+  color: var(--muted, #8b8fa3);
+  font-style: italic;
+}
+
+.ai-field-generating .ai-field-spinner {
+  display: inline-block;
+  animation: ai-spin 1s linear infinite;
+  font-size: 14px;
+}
+
+@keyframes ai-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.ai-field-failed {
+  color: #e53e3e;
+}
+
 .view-type-config {
   display: grid;
   gap: 10px;

@@ -62,12 +62,29 @@ export function checkAiTriggers(entity, record, oldData = null) {
   const timer = setTimeout(async () => {
     pendingTimers.delete(record.id);
     for (const aiField of toTrigger) {
+      // Write "生成中…" placeholder immediately
+      const generatingText = '生成中…';
+      const placeholderData = { ...record.data, [aiField.id]: generatingText };
+      try {
+        await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data: placeholderData }) });
+        record.data[aiField.id] = generatingText;
+        await loadCurrentPageRecords();
+        renderRuntime();
+      } catch { /* skip — will retry on next save */ }
+
       try {
         const prompt = resolveAiPrompt(aiField.aiConfig.prompt, entity, record);
-        if (!prompt.trim()) continue;
+        if (!prompt.trim()) {
+          // Clear placeholder if prompt is empty
+          const clearData = { ...record.data, [aiField.id]: '' };
+          await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data: clearData }) });
+          record.data[aiField.id] = '';
+          continue;
+        }
         const body = await api(`/api/apps/${state.currentApp.id}/ai-field`, {
           method: 'POST',
-          body: JSON.stringify({ recordId: record.id, fieldId: aiField.id, prompt })
+          body: JSON.stringify({ recordId: record.id, fieldId: aiField.id, prompt }),
+          signal: AbortSignal.timeout(30000)
         });
         if (body.result) {
           const data = { ...record.data, [aiField.id]: body.result };
@@ -76,6 +93,13 @@ export function checkAiTriggers(entity, record, oldData = null) {
         }
       } catch (error) {
         console.error(`[AI Trigger] ${aiField.label} 生成失败:`, error.message);
+        // Write failure placeholder
+        const failedText = error.name === 'TimeoutError' ? '生成超时' : '生成失败';
+        const failData = { ...record.data, [aiField.id]: failedText };
+        try {
+          await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data: failData }) });
+          record.data[aiField.id] = failedText;
+        } catch { /* best-effort */ }
       }
     }
     await loadCurrentPageRecords();

@@ -213,9 +213,20 @@ export function renderFieldValue(value, field) {
   if (field.type === 'image') return renderImageValue(value);
   if (field.type === 'file') return renderFileValue(value);
   if (field.type === 'ai') {
-    const wrap = h('span', { class: 'ai-field-value', style: 'display:inline-flex;align-items:center;gap:4px;max-width:100%' }, [
-      h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap', text: value || '' })
+    const text = String(value || '');
+    const isGenerating = text === '生成中…';
+    const isFailed = text === '生成失败' || text === '生成超时';
+    const cls = isGenerating ? 'ai-field-generating' : isFailed ? 'ai-field-failed' : '';
+    const wrap = h('span', { class: `ai-field-value ${cls}`.trim(), style: 'display:inline-flex;align-items:center;gap:4px;max-width:100%' }, [
+      h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap', text: text || '' })
     ]);
+    if (isGenerating) {
+      const spinner = h('span', { class: 'ai-field-spinner', text: '⟳' });
+      wrap.prepend(spinner);
+    }
+    if (isFailed) {
+      wrap.title = '双击单元格可重新生成';
+    }
     return wrap;
   }
   if (field.type === 'textarea' || field.type === 'richText') {
