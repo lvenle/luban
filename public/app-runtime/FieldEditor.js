@@ -31,7 +31,8 @@ export function fieldTypes(includeLegacyBoolean = false) {
     ['file', '附件'],
     ['date', '日期'],
     ['datetime', '日期时间'],
-    ['formula', '公式']
+    ['formula', '公式'],
+    ['ai', 'AI 字段']
   ];
   if (includeLegacyBoolean) types.push(['boolean', '复选框（旧类型）']);
   return types;
@@ -54,7 +55,7 @@ export function openFieldEditModal(entity, field = null, options = {}) {
     const type = typeSelect.value;
     typeLabel.textContent = fieldTypeLabel(type);
     if (type === 'select' || type === 'multiSelect') {
-      advanced.append(renderOptionEditor(draft.options || []));
+      advanced.append(renderOptionEditor(draft.options || [], () => labelInput.value));
       return;
     }
     if (type === 'relation') {
@@ -113,6 +114,35 @@ export function openFieldEditModal(entity, field = null, options = {}) {
       );
       return;
     }
+    if (type === 'ai') {
+      const promptInput = h('textarea', { 'data-field-editor': 'aiPrompt', placeholder: '例如：根据{任务描述}生成一段工作进展汇报' });
+      promptInput.value = draft.aiConfig?.prompt || '';
+      const triggerContainer = h('div', { class: 'field-setting-list', 'data-field-editor': 'aiTriggers' });
+      const triggerIds = new Set(draft.aiConfig?.triggerFieldIds || []);
+      for (const f of entity.fields) {
+        if (f.id === draft.id || f.type === 'ai' || f.type === 'relation') continue;
+        const cb = h('input', { type: 'checkbox', 'data-trigger-id': f.id });
+        cb.checked = triggerIds.has(f.id);
+        triggerContainer.append(h('label', { class: 'field-setting-check' }, [cb, h('span', { text: f.label || f.id })]));
+      }
+      if (!entity.fields.some((f) => f.id !== draft.id && f.type !== 'ai' && f.type !== 'relation')) {
+        triggerContainer.append(h('p', { class: 'muted field-hint', text: '当前没有可选字段作为触发条件。' }));
+      }
+      advanced.append(
+        h('div', { class: 'field-popover-subtitle', text: 'AI 生成设置' }),
+        h('div', { class: 'field-setting-list' }, [
+          h('label', { class: 'field formula-expression-field' }, [
+            h('span', { text: '生成提示词' }),
+            promptInput,
+            h('p', { class: 'field-help', text: '用 {字段名} 引用其他字段的值，当引用的字段从空变为有值时自动触发 AI 生成。' })
+          ])
+        ]),
+        h('div', { class: 'field-popover-subtitle', text: '触发字段（从空→有值时触发）' }),
+        triggerContainer
+      );
+      return;
+    }
+
     if (type === 'date' || type === 'datetime') {
       const format = selectFromOptions(type === 'date'
         ? [['yyyy-mm-dd', '2026-06-12']]
@@ -216,6 +246,14 @@ export function fieldPatchFromEditor(label, type, advanced) {
       toast(`公式中包含文本字符串，但结果类型为「${rt === 'number' ? '数字' : '日期'}」。如公式返回的是文本值，请将结果类型改为「文本」。`);
     }
   }
+  if (type === 'ai') {
+    const promptEl = advanced.querySelector('[data-field-editor="aiPrompt"]');
+    const triggerIds = [...advanced.querySelectorAll('[data-trigger-id]:checked')].map((cb) => cb.dataset.triggerId);
+    patch.aiConfig = {
+      prompt: promptEl?.value.trim() || '',
+      triggerFieldIds: triggerIds
+    };
+  }
   if (type !== 'select' && type !== 'multiSelect') patch.options = [];
   return patch;
 }
@@ -233,12 +271,14 @@ export function insertFormulaToken(input, label) {
   input.setSelectionRange(start + token.length, start + token.length);
 }
 
-export function renderOptionEditor(options = []) {
+export function renderOptionEditor(options = [], labelGetter = () => '') {
   const list = h('div', { class: 'option-editor-list', 'data-field-editor': 'options-list' });
   const addRow = (option = {}) => {
     const normalized = optionObject(option);
-    list.append(optionEditorRow(normalized));
+    const row = optionEditorRow(normalized);
+    list.append(row);
   };
+  const clearAll = () => { list.innerHTML = ''; };
   const source = options.length ? options : ['选项 1', '选项 2'];
   source.forEach(addRow);
   const addButton = h('button', {
@@ -247,6 +287,29 @@ export function renderOptionEditor(options = []) {
     text: '+ 添加选项',
     onclick: () => addRow({ label: `选项 ${list.children.length + 1}` })
   });
+  const aiButton = h('button', { class: 'ghost option-ai-button', type: 'button', text: 'AI 生成选项' });
+  aiButton.onclick = async () => {
+    aiButton.disabled = true;
+    aiButton.textContent = 'AI 生成中…';
+    try {
+      const body = await api('/api/ai/generate-options', {
+        method: 'POST',
+        body: JSON.stringify({ label: labelGetter(), context: state.currentApp?.name || '' })
+      });
+      if (body.options && body.options.length) {
+        clearAll();
+        body.options.forEach((opt) => addRow(opt));
+        toast(`AI 生成了 ${body.options.length} 个选项`);
+      } else {
+        toast('AI 未返回有效选项，请重试。');
+      }
+    } catch (error) {
+      toast(`生成失败：${error.message}`);
+    } finally {
+      aiButton.disabled = false;
+      aiButton.textContent = 'AI 生成选项';
+    }
+  };
   return h('div', { class: 'option-editor' }, [
     h('div', { class: 'option-editor-head' }, [
       h('span', { text: '下拉选项内容' }),
@@ -254,7 +317,7 @@ export function renderOptionEditor(options = []) {
     ]),
     h('div', { class: 'option-editor-toolbar' }, [
       addButton,
-      h('button', { class: 'ghost option-ai-button', type: 'button', text: 'AI 生成选项', onclick: () => toast('AI 生成选项稍后开放。') })
+      aiButton
     ]),
     list
   ]);

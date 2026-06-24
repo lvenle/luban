@@ -5,6 +5,7 @@ import { state } from '../app.js';
 import { loadCurrentPageRecords, renderRuntime } from './index.js';
 import { renderMarkdown, stripLegacyMarkdownStyles } from './Markdown.js';
 import { wrapMarkdownSelection, applyMarkdownHeading } from './MarkdownFormatting.js';
+import { resolveAiPrompt } from './CellEditor.js';
 
 export { renderMarkdown } from './Markdown.js';
 
@@ -102,12 +103,43 @@ export function openMarkdownRecordEditor(entity, record, field) {
       syncUndoButton();
     }
   });
+  const aiButton = field.type === 'ai' ? h('button', {
+    type: 'button',
+    class: 'secondary markdown-tool-button',
+    text: '⟳ AI',
+    title: 'AI 重新生成',
+    onclick: async (event) => {
+      event.currentTarget.disabled = true;
+      const orig = event.currentTarget.textContent;
+      event.currentTarget.textContent = '⟳ …';
+      try {
+        const prompt = resolveAiPrompt(field.aiConfig?.prompt || '', entity, record);
+        if (!prompt.trim()) return toast('AI 字段未设置提示词或触发字段为空。');
+        const body = await api(`/api/apps/${state.currentApp.id}/ai-field`, {
+          method: 'POST', body: JSON.stringify({ recordId: record.id, fieldId: field.id, prompt })
+        });
+        if (body.result) {
+          rememberUndo(textarea.value);
+          textarea.value = body.result;
+          previousValue = body.result;
+          refreshPreview();
+        }
+      } catch (error) {
+        toast(`AI 生成失败：${error.message}`);
+      } finally {
+        event.currentTarget.disabled = false;
+        event.currentTarget.textContent = orig;
+      }
+    }
+  }) : null;
+
   const tools = h('div', { class: 'markdown-toolbar' }, [
     undoButton,
     heading,
     h('button', { type: 'button', class: 'secondary markdown-tool-button', text: 'B', title: '加粗', onclick: () => wrapSelection('**', '**', '加粗文本') }),
     h('button', { type: 'button', class: 'secondary markdown-tool-button italic', text: 'I', title: '斜体', onclick: () => wrapSelection('*', '*', '斜体文本') }),
-    h('button', { type: 'button', class: 'secondary markdown-tool-button strike', text: 'S', title: '删除线', onclick: () => wrapSelection('~~', '~~', '删除线文本') })
+    h('button', { type: 'button', class: 'secondary markdown-tool-button strike', text: 'S', title: '删除线', onclick: () => wrapSelection('~~', '~~', '删除线文本') }),
+    ...(aiButton ? [aiButton] : [])
   ]);
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal wide-modal markdown-modal' }, [

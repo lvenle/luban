@@ -323,6 +323,9 @@ export function renderPage(page) {
   return (rt.renderListPage || (() => h('div', { text: '加载中...' })))(page);
 }
 
+// Initialize undo/redo keyboard shortcuts once on load
+import('./app-runtime/UndoRedo.js').then(({ setupUndoShortcuts }) => setupUndoShortcuts()).catch(() => {});
+
 function renderLoadingSkeleton() {
   return h('div', { class: 'loading-overlay' }, [
     h('div', { class: 'loading-skeleton' }, [

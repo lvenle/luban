@@ -2,7 +2,7 @@ import { getPackageFromApp } from '../storage/db.js';
 import { getApp, updateAppMetadata, updateAppPackage, exportAppPayload } from '../models/app.js';
 import { clampPageLimit, countRecords, createRecord, deleteRecordForApp, deleteRecordsForApp, getRecordRelations, listRecords, listRelationOptions, updateRecordForApp, updateRecordRelations } from '../models/record.js';
 import { getSetting } from '../models/session.js';
-import { generatePatchFromPrompt } from '../ai/service.js';
+import { generatePatchFromPrompt, generateFieldContent } from '../ai/service.js';
 import { applyPatch } from '../core/packageProtocol.js';
 import { runAction } from '../services/actions.js';
 import { toCsv } from '../utils/export.js';
@@ -47,6 +47,24 @@ export async function handleRuntimeApi(req, res, method, url) {
     const body = await readJson(req);
     const nextApp = updateAppPackage(appId, body.package, { expectedUpdatedAt: body.expectedUpdatedAt });
     sendJson(res, 200, { app: nextApp });
+    return;
+  }
+
+  if (method === 'POST' && parts[3] === 'ai-field') {
+    const body = await readJson(req);
+    requireFields(body, ['recordId', 'fieldId', 'prompt']);
+    const settings = getSetting('ai') || {};
+    if (!settings.apiKey) {
+      sendJson(res, 200, { result: `(mock) AI 结果` });
+      return;
+    }
+    const result = await generateFieldContent(body.prompt, settings);
+    if (body.fieldId) {
+      const record = { appId, id: body.recordId };
+      const data = { [body.fieldId]: result };
+      updateRecordForApp(appId, body.recordId, data);
+    }
+    sendJson(res, 200, { result });
     return;
   }
 

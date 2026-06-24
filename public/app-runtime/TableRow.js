@@ -41,11 +41,15 @@ export function renderRecordRow(entity, visibleFields, record, listConfig, rowNu
         onpointerdown: (event) => startCellRangeSelection(event, event.currentTarget),
         onpointerenter: (event) => extendCellRangeSelection(event.currentTarget),
         onpointerup: finishCellRangeSelection,
-        onclick: ['textarea', 'richText'].includes(field.type)
-          ? (event) => scheduleMarkdownPreview(event.currentTarget, entity, record, field)
+        onclick: ['textarea', 'richText', 'ai'].includes(field.type)
+          ? (event) => {
+              // For ai fields, only preview if there's content
+              if (field.type === 'ai' && !record.data[field.id]) return;
+              scheduleMarkdownPreview(event.currentTarget, entity, record, field);
+            }
           : null,
         ondblclick: (event) => {
-          if (['textarea', 'richText'].includes(field.type)) {
+          if (['textarea', 'richText', 'ai'].includes(field.type)) {
             cancelMarkdownPreview(event.currentTarget);
             openMarkdownRecordEditor(entity, record, field);
           } else startCellEdit(event.currentTarget, entity, record, field);

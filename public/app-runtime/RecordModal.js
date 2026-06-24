@@ -7,6 +7,7 @@ import { writeStorage } from '../common/storage.js';
 import { inputForField, valueFromInput, renderFormFieldBlock, defaultValueForField } from './CellEditor.js';
 import { getCurrentView, getListConfig, updateCurrentView } from './ViewBar.js';
 import { loadCurrentPageRecords, renderRuntime } from './index.js';
+import { pushUndo } from '../common/UndoStack.js';
 
 export function openRecordModal(entity, record = null) {
   const layout = getFormLayout(entity);
@@ -36,12 +37,22 @@ export function openRecordModal(entity, record = null) {
             const button = event.currentTarget;
             button.disabled = true;
             try {
+              const oldData = record ? { ...record.data } : null;
               const data = record ? { ...record.data } : {};
               for (const field of formFields) data[field.id] = await valueFromInput(inputs[field.id], field);
               const path = record ? `/api/apps/${state.currentApp.id}/records/${record.id}` : `/api/apps/${state.currentApp.id}/records`;
               const method = record ? 'PUT' : 'POST';
-              await api(path, { method, body: JSON.stringify({ entityId: entity.id, data }) });
+              const body = await api(path, { method, body: JSON.stringify({ entityId: entity.id, data }) });
               backdrop.remove();
+              if (record) {
+                pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
+                record.data = data;
+                import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch(() => {});
+              } else {
+                const created = body.record;
+                pushUndo({ type: 'create', recordId: created.id, entityId: entity.id, data: created.data, entityLabel: entity.name });
+                import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, created, null)).catch(() => {});
+              }
               await loadCurrentPageRecords();
               renderRuntime();
             } catch (error) {
@@ -57,6 +68,9 @@ export function openRecordModal(entity, record = null) {
 }
 
 export async function removeRecord(recordId, entityId) {
+  const record = state.records.find((r) => r.id === recordId);
+  const entityName = state.currentApp?.schema?.entities?.find((e) => e.id === entityId)?.name || entityId;
+  const oldData = record?.data ? { ...record.data } : null;
   openConfirmDialog({
     title: '删除记录',
     message: '确定删除这条记录吗？',
@@ -65,6 +79,7 @@ export async function removeRecord(recordId, entityId) {
     onConfirm: async () => {
       try {
         await api(`/api/apps/${state.currentApp.id}/records/${recordId}`, { method: 'DELETE' });
+        if (oldData) pushUndo({ type: 'delete', recordId, entityId, data: oldData, entityLabel: entityName });
         await loadCurrentPageRecords();
         renderRuntime();
         toast('记录已删除');
@@ -77,6 +92,7 @@ export async function removeRecord(recordId, entityId) {
           danger: true,
           onConfirm: async () => {
             await api(`/api/apps/${state.currentApp.id}/records/${recordId}?force=true`, { method: 'DELETE' });
+            if (oldData) pushUndo({ type: 'delete', recordId, entityId, data: oldData, entityLabel: entityName });
             await loadCurrentPageRecords();
             renderRuntime();
             toast('记录和相关关联已删除');
@@ -92,19 +108,23 @@ export async function quickAddRecord(entity) {
     const data = {};
     for (const field of entity.fields) data[field.id] = defaultValueForField(field);
     const body = await api(`/api/apps/${state.currentApp.id}/records`, { method: 'POST', body: JSON.stringify({ entityId: entity.id, data }) });
-    
+
+    const created = body.record;
+    pushUndo({ type: 'create', recordId: created.id, entityId: entity.id, data: created.data, entityLabel: entity.name });
+    import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, created, null)).catch(() => {});
+
     const currentView = getCurrentView(entity);
     const hasFilters = currentView.filters && currentView.filters.length > 0;
-    
+
     await loadCurrentPageRecords();
     renderRuntime();
-    
+
     if (hasFilters) {
       toast(`已新增 1 行。注意：当前视图有筛选条件，新记录可能不在此视图中显示。`);
     } else {
       toast(`已新增 1 行，可直接双击单元格编辑。`);
     }
-    
+
     return body.record;
   } catch (error) {
     toast(`新增行失败：${error.message}`);

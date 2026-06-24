@@ -2,7 +2,7 @@ import { getPackageFromApp } from '../storage/db.js';
 import { getApp, createAppFromPackage } from '../models/app.js';
 import { getRecord } from '../models/record.js';
 import { getSetting, getAiSession, createAiSession, listAiSessions, updateAiSession, addAiMessage, addAiExecutionLog } from '../models/session.js';
-import { chatCompletionsUrl, generatePlanFromPrompt, planToPackage } from '../ai/service.js';
+import { chatCompletionsUrl, generatePlanFromPrompt, planToPackage, generateOptions } from '../ai/service.js';
 import { buildPlanningPrompt, describePlan, understandAgentRequest } from '../ai/agent.js';
 import { applyPatch, preparePackage } from '../core/packageProtocol.js';
 import { getToolDefinitions, getTool, discoverTools } from '../ai/registry.js';
@@ -136,6 +136,23 @@ export async function handleAiApi(req, res, method, parts, url) {
     if (!session) { res.writeHead(404); res.end('{}'); return; }
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ session }));
+    return;
+  }
+
+  if (method === 'POST' && parts[2] === 'generate-options') {
+    const body = await readJson(req);
+    const settings = getSetting('ai') || {};
+    const prompt = [String(body.label || '').trim(), String(body.context || '').trim()].filter(Boolean).join('·');
+    if (!prompt) {
+      sendJson(res, 400, { error: '请提供字段名称。' });
+      return;
+    }
+    try {
+      const options = await generateOptions(prompt, settings);
+      sendJson(res, 200, { options });
+    } catch (error) {
+      sendJson(res, 500, { error: error.message });
+    }
     return;
   }
 

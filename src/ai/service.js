@@ -346,6 +346,76 @@ function productManagementPlan() {
   };
 }
 
+export async function generateOptions(prompt, settings = {}) {
+  if (!settings?.apiKey) {
+    const commonOptions = mockOptions(prompt);
+    return commonOptions;
+  }
+  try {
+    const body = await requestChatCompletion(settings, [
+      {
+        role: 'system',
+        content:
+          '你是一个下拉选项生成助手。根据用户提供的字段名和上下文，生成 2-8 个选项。' +
+          '只输出 JSON 数组，每个对象格式：{ "label": "选项名称", "color": "blue" }。' +
+          '可用颜色：gray, blue, green, yellow, orange, red, purple, teal, pink, indigo, cyan, lime。' +
+          '选项名称要简洁、全面、不重复。输出示例：[{"label":"低","color":"green"},{"label":"中","color":"yellow"},{"label":"高","color":"red"}]'
+      },
+      { role: 'user', content: prompt }
+    ]);
+    const raw = body.choices?.[0]?.message?.content || '[]';
+    return parseJsonContent(raw);
+  } catch (error) {
+    throw new Error(`AI 生成选项失败：${error.message}`);
+  }
+}
+
+function mockOptions(prompt) {
+  const lower = String(prompt || '').toLowerCase();
+  if (/性别|gender/.test(lower)) return [{ label: '男', color: 'blue' }, { label: '女', color: 'pink' }];
+  if (/优先级|priority|重要|紧急|urgent/.test(lower)) return [
+    { label: '低', color: 'green' }, { label: '中', color: 'yellow' }, { label: '高', color: 'orange' }, { label: '紧急', color: 'red' }
+  ];
+  if (/状态|status/.test(lower)) return [
+    { label: '待开始', color: 'gray' }, { label: '进行中', color: 'blue' }, { label: '已完成', color: 'green' }, { label: '已暂停', color: 'yellow' }
+  ];
+  if (/部门|depart/.test(lower)) return [
+    { label: '技术部', color: 'blue' }, { label: '市场部', color: 'green' }, { label: '财务部', color: 'yellow' }, { label: '人事部', color: 'orange' }, { label: '运营部', color: 'purple' }
+  ];
+  if (/分类|类别|category|type|类型/.test(lower)) return [
+    { label: '类别 A', color: 'blue' }, { label: '类别 B', color: 'green' }, { label: '类别 C', color: 'yellow' }, { label: '类别 D', color: 'orange' }
+  ];
+  if (/等级|level|grade/.test(lower)) return [
+    { label: '初级', color: 'green' }, { label: '中级', color: 'yellow' }, { label: '高级', color: 'orange' }, { label: '专家', color: 'red' }
+  ];
+  if (/周|week|day|天/.test(lower)) return [
+    { label: '周一', color: 'blue' }, { label: '周二', color: 'green' }, { label: '周三', color: 'yellow' }, { label: '周四', color: 'orange' }, { label: '周五', color: 'red' }, { label: '周六', color: 'purple' }, { label: '周日', color: 'teal' }
+  ];
+  return [
+    { label: '选项 1', color: 'blue' }, { label: '选项 2', color: 'green' }, { label: '选项 3', color: 'yellow' }
+  ];
+}
+
+export async function generateFieldContent(prompt, settings = {}) {
+  if (!settings?.apiKey) {
+    return `(mock) AI 结果：${String(prompt).slice(0, 60)}`;
+  }
+  try {
+    const body = await requestChatCompletion(settings, [
+      {
+        role: 'system',
+        content:
+          '你是一个 AI 字段生成助手。根据用户的提示词和提供的字段值，生成一段文本内容。' +
+          '直接输出结果文本，不要加引号、不要加 Markdown 标记。字数控制在 500 字以内。'
+      },
+      { role: 'user', content: prompt }
+    ]);
+    return String(body.choices?.[0]?.message?.content || '').trim();
+  } catch (error) {
+    throw new Error(`AI 生成失败：${error.message}`);
+  }
+}
+
 export function chatCompletionsUrl(baseUrl = 'https://api.openai.com/v1') {
   const clean = String(baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
   if (clean.endsWith('/chat')) return `${clean}/completions`;

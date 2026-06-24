@@ -15,7 +15,8 @@ export const FIELD_TYPES = new Set([
   'image',
   'file',
   'richText',
-  'formula'
+  'formula',
+  'ai'
 ]);
 
 export const TABLE_VIEW_TYPES = new Set(['list', 'quadrant', 'gantt']);
@@ -467,6 +468,15 @@ export function validatePackage(pkg) {
           if (compiled.dependencies.some((id) => !(field.formula?.dependencies || []).includes(id))) errors.push(`公式字段 ${field.id} 的依赖配置无效。`);
         } catch (error) {
           errors.push(`公式字段 ${field.id} 无效：${error.message}`);
+        }
+      }
+      if (field.type === 'ai') {
+        if (!field.aiConfig?.prompt) errors.push(`AI 字段 ${field.id} 缺少提示词。`);
+        if (!Array.isArray(field.aiConfig?.triggerFieldIds) || field.aiConfig.triggerFieldIds.length === 0) {
+          errors.push(`AI 字段 ${field.id} 需要至少一个触发字段。`);
+        }
+        if (field.aiConfig?.triggerFieldIds?.some((id) => !fieldIds.has(id))) {
+          errors.push(`AI 字段 ${field.id} 引用了不存在的触发字段。`);
         }
       }
     }

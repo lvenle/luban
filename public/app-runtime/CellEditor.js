@@ -9,19 +9,28 @@ import { dateInputValue, dateInputLocale, formatDateFieldValue, bindDateTimePick
 import { normalizeChoiceInitialValue, relationChoicesFromValue, mergeChoiceOptions, relationValueId } from './ChoiceValues.js';
 import { renderMarkdown } from './Markdown.js';
 import { numberInputValue, storedNumberValue } from './NumberValues.js';
+import { pushUndo } from '../common/UndoStack.js';
 
 export function startCellEdit(cell, entity, record, field) {
   if (cell.classList.contains('cell-editing')) return;
   if (field.type === 'formula') return toast('公式字段由系统实时计算，不能直接编辑。');
+  if (field.type === 'ai') {
+    import('./MarkdownEditor.js').then((m) => m.openMarkdownRecordEditor(entity, record, field)).catch(() => {});
+    return;
+  }
   if (field.type === 'select' || field.type === 'multiSelect' || field.type === 'relation') {
     const widget = createChoiceWidget(field, record.data[field.id], async (newValue) => {
       if (fieldValuesEqual(record.data[field.id], newValue)) {
         renderRuntime();
         return;
       }
+      const oldData = { ...record.data };
       const data = { ...record.data, [field.id]: newValue };
       try {
         await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
+        pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
+        record.data = data; // update local ref for AI trigger
+        import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch(() => {});
         await loadCurrentPageRecords();
         renderRuntime();
       } catch (error) {
@@ -60,10 +69,14 @@ export function startCellEdit(cell, entity, record, field) {
       cell.replaceChildren(renderFieldValue(record.data[field.id], field));
       return;
     }
+    const oldData = { ...record.data };
     const data = { ...record.data, [field.id]: nextValue };
     cell.classList.add('saving-cell');
     try {
       await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
+      pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
+      record.data = data;
+      import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch(() => {});
       await loadCurrentPageRecords();
       renderRuntime();
     } catch (error) {
@@ -117,6 +130,7 @@ export function inputForField(field, value) {
     input.checked = Boolean(value);
     return input;
   }
+  if (field.type === 'ai') return h('textarea', { value: value ?? '', readonly: 'readonly', placeholder: 'AI 字段由系统自动生成', title: '双击单元格可重新生成' });
   const type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : field.type === 'url' ? 'url' : 'text';
   const inputValue = field.type === 'date' || field.type === 'datetime'
     ? dateInputValue(value, field.type)
@@ -198,6 +212,12 @@ export function renderFieldValue(value, field) {
   }
   if (field.type === 'image') return renderImageValue(value);
   if (field.type === 'file') return renderFileValue(value);
+  if (field.type === 'ai') {
+    const wrap = h('span', { class: 'ai-field-value', style: 'display:inline-flex;align-items:center;gap:4px;max-width:100%' }, [
+      h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap', text: value || '' })
+    ]);
+    return wrap;
+  }
   if (field.type === 'textarea' || field.type === 'richText') {
     const content = h('div', { class: 'markdown-cell-content' });
     content.innerHTML = renderMarkdown(value);
@@ -390,6 +410,24 @@ export function renderFormFieldBlock(field, input, design = {}, options = {}) {
     input,
     description ? h('small', { class: 'field-hint', text: description }) : null
   ]);
+}
+
+export function resolveAiPrompt(template, entity, record) {
+  return template.replace(/\{([^}]+)\}/g, (_, name) => {
+    const field = entity.fields.find((f) => f.label === name || f.id === name);
+    if (!field) return `{${name}}`;
+    const raw = record.data[field.id];
+    if (raw === undefined || raw === null || raw === '') return '';
+    if (field.type === 'select' || field.type === 'multiSelect') {
+      const labels = (Array.isArray(raw) ? raw : [raw]).map((v) => optionLabel(field, v)).filter(Boolean);
+      return labels.join('、');
+    }
+    if (field.type === 'relation') {
+      const labels = (Array.isArray(raw) ? raw : [raw]).map(relationFieldDisplayText).filter(Boolean);
+      return labels.join('、');
+    }
+    return String(raw);
+  });
 }
 
 export function displayValue(value) {
