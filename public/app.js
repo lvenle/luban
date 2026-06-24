@@ -58,6 +58,11 @@ async function boot() {
     try { await (await import('./app-runtime/index.js')).openApp(route.appId, { pageId: route.pageId, viewId: route.viewId, replace: true }); return; }
     catch (error) { history.replaceState(null, '', '/'); toast(error.message); }
   }
+  state.currentApp = null;
+  state.currentPageId = null;
+  state.currentViewId = '';
+  state.records = [];
+  state.inlineEditId = null;
   renderHome();
 }
 

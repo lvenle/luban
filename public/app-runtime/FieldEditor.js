@@ -461,7 +461,9 @@ export function deleteField(entity, field) {
     danger: true,
     onConfirm: async () => {
       try {
-        await api(`/api/apps/${state.currentApp.id}/fields/${entity.id}/${field.id}`, { method: 'DELETE' });
+        const body = await api(`/api/apps/${state.currentApp.id}/fields/${entity.id}/${field.id}`, { method: 'DELETE' });
+        state.currentApp = body.app;
+        state.apps = state.apps.map((a) => a.id === body.app.id ? body.app : a);
         const config = getListConfig(entity);
         const visibleFields = (config.visibleFields || []).filter((id) => id !== field.id);
         setListConfig(entity, { ...config, visibleFields });
