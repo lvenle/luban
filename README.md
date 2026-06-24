@@ -3,6 +3,7 @@
 > AI 原生软件自定义平台
 
 ![鲁班AI原生系统](public/images/introduce.png)
+[demo地址：](https://luban-byp6.onrender.com/)https://luban-byp6.onrender.com/
 
 鲁班AI系统是一个面向个人、团队和业务场景的 AI 原生软件创造平台。它希望把“做软件”从传统的代码工程，推进到“用自然语言表达需求、由 AI 生成结构化软件、再由运行时即时运行”的新模式。
 
