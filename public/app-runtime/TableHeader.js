@@ -1,4 +1,5 @@
 import { h } from '../common/dom.js';
+import { fieldIcon } from './FieldIcons.js';
 import { toast } from '../common/toast.js';
 import { renderRuntime } from './index.js';
 import { updateField, duplicateField, deleteField, insertField, openFieldEditModal } from './FieldEditor.js';
@@ -12,7 +13,8 @@ export function renderResizableHeader(entity, field, nextField, listConfig, visi
   const sortIndex = (listConfig.sorts || []).findIndex((sort) => sort.field === field.id);
   const sort = sortIndex >= 0 ? listConfig.sorts[sortIndex] : null;
   const label = `${field.label}${sort ? `${sort.direction === 'desc' ? ' ↓' : ' ↑'}${listConfig.sorts.length > 1 ? sortIndex + 1 : ''}` : ''}`;
-  const children = [h('span', { text: label }), h('span', { class: 'resize-edge', title: '拖动表头边框调整列宽' })];
+  const icon = fieldIcon(field.type);
+  const children = [h('span', { class: 'header-label-with-icon' }, [icon, h('span', { text: label })]), h('span', { class: 'resize-edge', title: '拖动表头边框调整列宽' })];
   const header = h(
     'th',
     {
@@ -111,12 +113,13 @@ export function startColumnResize(event, entity, field, nextField, listConfig, h
 }
 
 export function startHeaderLabelEdit(header, entity, field) {
-  const span = header.querySelector('span');
-  if (!span) return;
-  const currentLabel = span.textContent || field.label;
+  const labelWrap = header.querySelector('.header-label-with-icon');
+  const textSpan = labelWrap ? labelWrap.querySelector('span:last-child') : header.querySelector('span');
+  if (!textSpan) return;
+  const currentLabel = textSpan.textContent || field.label;
   header.classList.add('header-editing');
   const input = h('input', { class: 'header-edit-input', value: field.label });
-  span.replaceWith(input);
+  textSpan.replaceWith(input);
   input.focus();
   input.select();
   let done = false;
@@ -124,8 +127,9 @@ export function startHeaderLabelEdit(header, entity, field) {
     if (done) return;
     done = true;
     const label = input.value.trim();
-    if (save && label && label !== field.label) await updateField(entity.id, field.id, { label });
-    else {
+    if (save && label && label !== field.label) {
+      await updateField(entity.id, field.id, { label });
+    } else {
       header.classList.remove('header-editing');
       input.replaceWith(h('span', { text: currentLabel }));
     }
