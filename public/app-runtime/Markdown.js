@@ -17,7 +17,15 @@ export function renderMarkdown(text) {
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
-  return html.replace(/\n/g, '<br>');
+  // 保护 <pre><code> 块内的换行不被后续 <br> 替换破坏
+  const preBlocks = [];
+  html = html.replace(/<pre><code>[\s\S]*?<\/code><\/pre>/g, (match) => {
+    preBlocks.push(match);
+    return `\x00PREBLOCK${preBlocks.length - 1}\x00`;
+  });
+  html = html.replace(/\n/g, '<br>');
+  html = html.replace(/\x00PREBLOCK(\d+)\x00/g, (_, i) => preBlocks[Number(i)]);
+  return html;
 }
 
 export function stripLegacyMarkdownStyles(text) {

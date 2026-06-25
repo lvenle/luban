@@ -17,6 +17,13 @@ export function listRecords(appId, options = {}) {
   }
   const limit = options.limit === undefined ? null : clampPageLimit(options.limit);
   const offset = Math.max(0, Number.parseInt(options.offset, 10) || 0);
+  if (options.q) {
+    // SQL LIKE 预过滤：对 dataJson 做全文模糊匹配，大幅减少从 SQLite 加载的行数。
+    // 纯 text 字段的值在 JSON 中可直接匹配；select 存储的是 ID 而非 label，
+    // 所以 JS 层的标签解析后处理仍然保留作为精确匹配。
+    conditions.push('dataJson LIKE ?');
+    params.push(`%${options.q}%`);
+  }
   const pagination = limit === null ? '' : ' LIMIT ? OFFSET ?';
   if (limit !== null) params.push(limit, offset);
   const rows = getDb()
