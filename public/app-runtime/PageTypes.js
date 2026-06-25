@@ -9,7 +9,21 @@ import { saveCurrentPackage, renderRuntime } from './index.js';
 
 export function renderBlankPage(page) {
   const cards = Array.isArray(page.cards) ? page.cards : [];
-  if (!cards.length) return h('div', { class: 'blank-page-canvas', 'data-page-id': page.id });
+  if (!cards.length) {
+    return h('div', { class: 'blank-page-canvas', 'data-page-id': page.id }, [
+      h('div', { class: 'blank-page-welcome' }, [
+        h('p', { class: 'blank-page-hint', text: '这个页面还没有内容。' }),
+        h('button', {
+          class: 'primary',
+          text: '开始生成页面',
+          onclick: () => {
+            state.assistantOpen = true;
+            renderRuntime();
+          }
+        })
+      ])
+    ]);
+  }
   return h('div', { class: 'blank-page-canvas page-card-canvas', 'data-page-id': page.id }, cards.map((card, index) =>
     renderPageCard(page, card, index)
   ));

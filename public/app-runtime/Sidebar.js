@@ -54,6 +54,42 @@ export function pageTypeLabel(page, navKind = 'page') {
   return '页面';
 }
 
+export function renderMobileSidebar(app, page) {
+  const drawerHead = h('div', { class: 'mobile-drawer-head' }, [
+    h('span', { class: 'mobile-drawer-title', text: '表格与页面' }),
+    h('button', { class: 'ghost', text: '✕', onclick: () => { state.mobileDrawerOpen = false; renderRuntime(); } })
+  ]);
+  const pageList = h('div', { class: 'mobile-drawer-list' }, app.ui.pages.map((item) => {
+    const navKind = pageNavKind(app, item);
+    return h('button', {
+      class: `mobile-drawer-item ${item.id === page?.id ? 'active' : ''}`,
+      onclick: async () => {
+        if (navKind === 'link' && item.url) { window.open(item.url, '_blank', 'noopener'); return; }
+        state.currentPageId = item.id;
+        await loadCurrentPageRecords();
+        const nextEntity = entityFor(item);
+        const views = getViews(nextEntity);
+        state.currentViewId = views[0]?.id || '';
+        writeRoute(app.id, item.id, false, state.currentViewId);
+        state.mobileDrawerOpen = false;
+        renderRuntime();
+      }
+    }, [
+      h('span', { class: 'mobile-drawer-item-icon' }, [pageTypeIcon(navKind)]),
+      h('span', { text: item.title })
+    ]);
+  }));
+  return [
+    drawerHead,
+    pageList,
+    h('div', { class: 'mobile-drawer-actions' }, [
+      h('button', { class: 'secondary', text: '+ 新建页面', onclick: () => { state.mobileDrawerOpen = false; openCreatePageModal(page); } }),
+      h('button', { class: 'secondary', text: '+ 新建表', onclick: () => { state.mobileDrawerOpen = false; openCreateTableModal(); } }),
+      h('button', { class: 'secondary', text: '+ 新增链接', onclick: () => { state.mobileDrawerOpen = false; openCreateLinkModal(); } })
+    ])
+  ];
+}
+
 export function renderSidebarContent(app, page) {
   const toggle = h('button', {
     class: 'sidebar-toggle ghost',
@@ -331,7 +367,11 @@ export function buildPageForEntity({ entity, title, type = 'list', navKind = 'pa
 
 export function openCreatePageModal(sourcePage = null) {
   const nameInput = h('input', { placeholder: '例如：经营看板' });
-  const hint = h('p', { class: 'muted field-hint', text: '新页面默认不关联表，也不显示任何内容。创建后可打开 AI Builder 描述你想要的表格、统计图、透视图等卡片。' });
+  const entities = state.currentApp?.schema?.entities || [];
+  const entitySelect = h('select', {}, [
+    h('option', { value: '', text: '（不选择，创建空白页面）' }),
+    ...entities.map((e) => h('option', { value: e.id, text: e.name }))
+  ]);
 
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal compact-modal' }, [
@@ -339,14 +379,21 @@ export function openCreatePageModal(sourcePage = null) {
         h('h3', { text: '新建页面' }),
         h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
       ]),
-      hint,
       h('div', { class: 'field' }, [h('label', { text: '页面名称' }), nameInput]),
+      h('div', { class: 'field' }, [h('label', { text: '数据表（可选）' }), entitySelect]),
       h('div', { class: 'row', style: 'margin-top:14px' }, [
         h('button', {
           text: '创建',
           onclick: async () => {
             const title = nameInput.value.trim() || '空白页面';
-            const page = buildBlankPage(title);
+            const entityId = entitySelect.value;
+            let page;
+            if (entityId) {
+              const entity = entities.find((e) => e.id === entityId);
+              page = buildPageForEntity({ entity, title, type: 'list', navKind: 'table' });
+            } else {
+              page = buildBlankPage(title);
+            }
             try {
               await saveCurrentPackage((pkg) => {
                 pkg.ui.pages.push(page);

@@ -15,6 +15,7 @@ import { searchInputForField, renderFieldValue, formatFieldValue } from './CellE
 import { openRecordModal, quickAddRecord, bulkDeleteRecords } from './RecordModal.js';
 import { renderTypedTableView } from './TypedViews.js';
 import { summaryMode } from './SummaryValues.js';
+import { renderMobileRecordList } from './MobileRecordList.js';
 
 export function renderExportMenu(entity, exportSelectedLink) {
   return bindFloatingMenu(h('details', { class: 'export-menu', onclick: (event) => event.stopPropagation() }, [
@@ -102,6 +103,7 @@ export function renderListPage(page) {
   const records = recordsFor(entity.id);
   const listConfig = getListConfig(entity);
   if (listConfig.type !== 'list') return renderTypedTableView(page, entity, records, listConfig);
+  if (state.isMobile) return renderMobileRecordList(page);
   const visibleFields = viewOrderedFields(entity, listConfig).filter((field) => listConfig.visibleFields.includes(field.id));
   const globalSearch = h('input', { placeholder: '搜索全部记录' });
   const searchInputs = new Map();

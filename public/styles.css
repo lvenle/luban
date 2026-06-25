@@ -1717,6 +1717,21 @@ tbody tr:hover {
   min-height: calc(100vh - 96px);
   background: #fff;
 }
+.blank-page-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: calc(100vh - 180px);
+  padding: 40px 20px;
+  text-align: center;
+}
+.blank-page-hint {
+  color: #94a3b8;
+  font-size: 15px;
+  margin: 0;
+}
 
 .page-card-canvas {
   display: grid;
@@ -4036,11 +4051,170 @@ button.assistant-send {
     grid-template-columns: 1fr;
   }
 
-  .quadrant-cell {
+  .quadrant-cell,
+  .quadrant-cell:nth-child(n) {
     min-height: 220px;
     grid-column: 1;
     grid-row: auto;
   }
+
+.mobile-runtime .workspace {
+  overflow: visible;
+}
+.mobile-runtime .typed-view-body {
+  max-width: 100%;
+  overflow: auto;
+}
+/* Mobile view bar: horizontal scroll tabs - unified across all view types */
+.mobile-runtime .table-panel .view-bar,
+.mobile-runtime .view-bar {
+  margin: 0;
+  padding: 6px 10px;
+  border-bottom: 0;
+  gap: 4px;
+}
+.mobile-runtime .table-panel .view-tabs,
+.mobile-runtime .view-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  gap: 4px;
+  scrollbar-width: none;
+}
+.mobile-runtime .view-tabs::-webkit-scrollbar {
+  display: none;
+}
+.mobile-runtime .table-panel .view-tab,
+.mobile-runtime .view-tab {
+  float: none;
+  white-space: nowrap;
+  font-size: 13px;
+  padding: 5px 10px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: none;
+  background: #fff;
+  color: var(--text);
+  margin: 0;
+}
+.mobile-runtime .table-panel .view-tab.active,
+.mobile-runtime .view-tab.active {
+  background: #eef4ff;
+  border-color: #b7cdf6;
+  color: #2563eb;
+}
+.mobile-runtime .view-tab + .view-tab::after,
+.mobile-runtime .table-panel .view-tab + .view-tab::after {
+  display: none;
+}
+.mobile-runtime .view-tab-shell .view-menu-trigger {
+  display: none;
+}
+.mobile-runtime .view-bar > .row .icon-label-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: #2563eb;
+  width: auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+.mobile-runtime .view-bar > .row .button-label-icon {
+  display: none;
+}
+.mobile-runtime .view-bar > .row .icon-label-button:active {
+  background: #eef4ff;
+}
+
+/* Make all view containers consistent on mobile */
+.mobile-runtime .panel.table-panel {
+  display: block;
+  min-height: 0;
+  border: 0;
+  padding-bottom: 4px;
+}
+.mobile-runtime .table-panel.typed-view-panel {
+  padding: 0;
+  border: 0;
+}
+.mobile-runtime .table-panel.typed-view-panel > .typed-view-body {
+  padding: 0 10px 8px;
+}
+.mobile-runtime .table-panel.typed-view-panel .table-command-row {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 6px 10px;
+}
+.mobile-runtime .table-panel .table-command-row .action-row {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mobile-runtime .table-panel .table-command-row .action-row .icon-label-button,
+.mobile-runtime .table-panel .table-command-row .action-row .table-add-button {
+  border: 1px solid var(--line) !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+  color: #475569 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  justify-content: center !important;
+  box-shadow: none !important;
+}
+.mobile-runtime .table-panel .table-command-row .action-row .button-label-text {
+  display: inline;
+  font-size: 12px;
+}
+.mobile-runtime .table-panel .table-command-row .action-row .button-label-icon {
+  display: none;
+}
+.mobile-runtime .table-panel .table-command-row .action-row .icon-label-button.active {
+  background: #eef4ff !important;
+  color: #2563eb !important;
+  border-color: #b7cdf6 !important;
+}
+.mobile-runtime .table-panel .table-command-row .action-row .toolbar-action-group {
+  display: inline-flex;
+  gap: 6px;
+}
+.mobile-runtime .table-panel .table-command-row .typed-view-meta {
+  margin: 0;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+/* Unify typed view body padding with mobile card list */
+.mobile-runtime .typed-view-body {
+  padding: 0 10px 8px;
+}
+.mobile-runtime .quadrant-grid {
+  margin: 0;
+}
+.mobile-runtime .quadrant-cell {
+  border-bottom: 1px solid var(--line);
+}
+
+.mobile-runtime .compact-record-table {
+  min-width: 0;
+}
+.mobile-runtime .quadrant-cell,
+.mobile-runtime .quadrant-cell:nth-child(n) {
+  min-width: 0;
+  overflow: auto;
+  grid-column: 1;
+  grid-row: auto;
+}
+.mobile-runtime .gantt-scroll {
+  -webkit-overflow-scrolling: touch;
+}
 
   .gantt-chart {
     width: calc(140px + var(--timeline-width));
@@ -4358,6 +4532,321 @@ button.assistant-send {
   .toolbar-action-group {
     margin-bottom: 4px;
   }
+}
+
+/* === Mobile layout === */
+.mobile-topbar {
+  padding: 6px 8px;
+  gap: 4px;
+}
+.mobile-topbar .brand-title-group {
+  display: none;
+}
+.mobile-topbar .topbar-app-name {
+  max-width: min(120px, 30vw);
+  font-size: 13px;
+}
+.mobile-topbar .topbar-separator,
+.mobile-topbar .topbar-app-desc,
+.mobile-topbar .category-pill {
+  display: none;
+}
+.mobile-topbar .top-actions .button-label-text {
+  display: none;
+}
+.mobile-topbar .top-actions .icon-label-button {
+  width: 34px;
+  min-width: 34px;
+  padding: 6px;
+}
+
+.hamburger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  flex-shrink: 0;
+}
+.hamburger-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.mobile-runtime {
+  display: block !important;
+  grid-template-columns: none !important;
+  padding-bottom: 48px;
+}
+
+.mobile-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  z-index: 50;
+}
+.mobile-nav-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 4px 12px;
+  min-height: 44px;
+  min-width: 44px;
+}
+.mobile-nav-tab.active,
+.mobile-nav-tab:active {
+  color: #2563eb;
+}
+.mobile-nav-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.mobile-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.3);
+  z-index: 90;
+}
+
+.mobile-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 80vw;
+  max-width: 320px;
+  background: #fff;
+  z-index: 91;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 12px rgba(15, 23, 42, 0.1);
+  overflow: hidden;
+}
+.mobile-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 14px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.mobile-drawer-title {
+  font-weight: 700;
+  font-size: 15px;
+}
+.mobile-drawer-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.mobile-drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 10px 14px;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  color: #334155;
+}
+.mobile-drawer-item.active {
+  background: #eef4ff;
+  color: #2563eb;
+  font-weight: 600;
+}
+.mobile-drawer-item:active {
+  background: #e2e8f0;
+}
+.mobile-drawer-item-icon {
+  display: flex;
+  flex-shrink: 0;
+}
+.mobile-drawer-actions {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+}
+.mobile-drawer-actions .secondary {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 4px;
+  text-align: center;
+}
+
+/* === Mobile card list === */
+.mobile-runtime .mobile-record-panel {
+  padding: 0 0 4px;
+}
+.mobile-runtime .mobile-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  gap: 6px;
+}
+.mobile-runtime .mobile-toolbar-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.mobile-runtime .mobile-toolbar-chips .chip {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mobile-runtime .mobile-toolbar-chips .chip.active {
+  background: #eef4ff;
+  color: #2563eb;
+  border-color: #b7cdf6;
+}
+.mobile-runtime .mobile-toolbar-chips .chip:active {
+  background: #e2e8f0;
+}
+.mobile-runtime .mobile-batch-btn {
+  font-size: 12px;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+.mobile-runtime .mobile-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 8px;
+}
+.mobile-runtime .mobile-search-input {
+  flex: 1;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  background: #f8fafc;
+}
+.mobile-runtime .mobile-search-clear {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+.mobile-runtime .mobile-card-list {
+  padding: 0 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mobile-runtime .mobile-record-card {
+  display: flex;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.mobile-runtime .mobile-record-card.selected {
+  border-color: #2563eb;
+  background: #fafcff;
+}
+.mobile-runtime .mobile-card-main {
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  padding: 12px 10px;
+  cursor: pointer;
+  min-width: 0;
+}
+.mobile-runtime .mobile-card-main input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+.mobile-runtime .mobile-card-body {
+  flex: 1;
+  min-width: 0;
+}
+.mobile-runtime .mobile-card-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+.mobile-runtime .mobile-card-detail {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  min-width: 0;
+}
+.mobile-runtime .mobile-card-label {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+.mobile-runtime .mobile-card-value {
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.mobile-runtime .mobile-card-tail {
+  display: flex;
+  align-items: flex-start;
+  padding: 8px 6px;
+}
+.mobile-runtime .mobile-card-menu-btn {
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+.mobile-runtime .mobile-card-menu-btn:active {
+  background: #f1f5f9;
+}
+.mobile-runtime .mobile-empty {
+  text-align: center;
+  padding: 40px 16px;
+  font-size: 14px;
 }
 
 /* Loading overlay */

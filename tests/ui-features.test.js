@@ -71,6 +71,7 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /resize-edge/);
   assert.match(dataTableJs, /sticky-action-cell/);
   assert.match(appJs, /作为搜索条件/);
+  assert.match(appJs, /表格设置/);
   assert.match(appJs, /renderAssistantDrawer/);
   assert.match(appJs, /AI 助理/);
   assert.match(appJs, /classList\.contains\('modal-backdrop'\)/);
@@ -96,7 +97,7 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /saveAppMetadata/);
   assert.match(appJs, /topbar-app-info/);
   assert.match(appJs, /inlineEditableText/);
-  assert.match(dataTableJs, /字段设置/);
+  assert.match(dataTableJs, /表格设置/);
   assert.match(tableRowJs, /表单视图/);
   assert.match(appJs, /ondblclick/);
   assert.match(appJs, /editable-cell/);

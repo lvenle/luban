@@ -185,7 +185,7 @@ export function serveStatic(res, pathname) {
   }
   res.writeHead(200, {
     'content-type': MIME_TYPES[extname(filePath)] || 'application/octet-stream',
-    'cache-control': 'no-cache'
+    'cache-control': 'no-cache, no-store, must-revalidate'
   });
   res.end(readFileSync(filePath));
 }

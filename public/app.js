@@ -1,5 +1,5 @@
 import { renderAssistantDrawer } from './ai-assistant/index.js';
-import { h, uiIcon, buttonLabel } from './common/dom.js';
+import { h, uiIcon, buttonLabel, svgIcon, svgPath, svgLine } from './common/dom.js';
 import { api } from './common/api.js';
 import { toast } from './common/toast.js';
 import { openConfirmDialog, openTextModal, floatingMenus, closeFloatingMenus, bindFloatingMenu, setupModalAccessibility } from './common/modal.js';
@@ -12,11 +12,30 @@ export const state = {
   apps: [], currentApp: null, currentPageId: null, records: [],
   inlineEditId: null, loading: false, appCategory: '全部', currentViewId: '',
   assistantOpen: false, pageDragId: '', cellSelection: null, cellClipboard: null,
-  sidebarCollapsed: false, sidebarWidth: 168, recordPagination: {}, loadingRecordPages: {}
+  sidebarCollapsed: false, sidebarWidth: 168, recordPagination: {}, loadingRecordPages: {},
+  isMobile: window.innerWidth < 768, mobileDrawerOpen: false
 };
 
 export const root = document.querySelector('#app');
 export const APP_VERSION = '2026.06.25';
+
+// Reactive mobile detection
+const mobileMq = window.matchMedia('(max-width: 767px)');
+mobileMq.addEventListener('change', (e) => {
+  state.isMobile = e.matches;
+  if (!state.isMobile) state.mobileDrawerOpen = false;
+  // Re-render if in runtime
+  if (state.currentApp) {
+    import('./app-runtime/index.js').then((rt) => rt.renderRuntime());
+  }
+});
+
+export function toggleMobileDrawer() {
+  state.mobileDrawerOpen = !state.mobileDrawerOpen;
+  if (state.currentApp) {
+    import('./app-runtime/index.js').then((rt) => rt.renderRuntime());
+  }
+}
 
 export function storageKey(scope, suffix = '') {
   const appId = state.currentApp?.id || 'global';
@@ -70,8 +89,17 @@ export function writeRoute(appId, pageId, replace = false, viewId = state.curren
 
 export function topbar() {
   const inRuntime = Boolean(state.currentApp);
-  return h('header', { class: 'topbar' }, [
+  return h('header', { class: `topbar ${state.isMobile ? 'mobile-topbar' : ''}` }, [
     h('div', { class: 'topbar-left' }, [
+      state.isMobile && inRuntime
+        ? h('button', { class: 'hamburger ghost', title: '页面列表', onclick: toggleMobileDrawer }, [
+            svgIcon('0 0 20 20', [
+              svgLine(3, 5, 17, 5),
+              svgLine(3, 10, 17, 10),
+              svgLine(3, 15, 17, 15)
+            ], 'hamburger-icon')
+          ])
+        : null,
       h('button', { class: 'brand brand-button', onclick: goHome, title: '返回首页' }, [
         h('img', { class: 'brand-logo', src: '/images/logo.png', alt: '鲁班AI系统' }),
         h('div', { class: 'brand-title-group' }, [

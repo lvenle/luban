@@ -1,11 +1,11 @@
-import { h } from '../common/dom.js';
+import { h, svgIcon, svgPath, svgLine } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { clearUndoStack } from '../common/UndoStack.js';
-import { state, root, topbar, writeRoute, entityFor, currentPage, pageEntityForRecordLoad, recordsFor, entityById, formatFieldValue, dateKey, renderPage, setPageRenderers } from '../app.js';
+import { state, root, topbar, writeRoute, entityFor, currentPage, pageEntityForRecordLoad, recordsFor, entityById, formatFieldValue, dateKey, renderPage, setPageRenderers, toggleMobileDrawer } from '../app.js';
 import { renderAssistantDrawer, removeAssistantDrawer, setAssistantMode } from '../ai-assistant/index.js';
 import { loadSidebarLayout, startSidebarResize, toggleSidebarCollapsed } from './RuntimeFrame.js';
-import { renderSidebarContent } from './Sidebar.js';
+import { renderSidebarContent, renderMobileSidebar } from './Sidebar.js';
 
 async function registerPageRenderers() {
   const dt = await import('./DataTable.js').catch(() => ({}));
@@ -42,6 +42,34 @@ export async function openApp(appId, options = {}) {
   renderRuntime();
 }
 
+function renderMobileBottomNav() {
+  return h('nav', { class: 'mobile-nav' }, [
+    h('button', { class: `mobile-nav-tab ${state.mobileDrawerOpen ? 'active' : ''}`, onclick: toggleMobileDrawer }, [
+      svgIcon('0 0 20 20', [svgLine(3, 5, 17, 5), svgLine(3, 10, 17, 10), svgLine(3, 15, 17, 15)], 'mobile-nav-icon'),
+      h('span', { text: '页面' })
+    ]),
+    h('button', { class: 'mobile-nav-tab', onclick: () => { const s = document.querySelector('.global-search input'); if (s) s.focus(); } }, [
+      svgIcon('0 0 20 20', [svgPath('M8.5 3a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z'), svgLine(12.5, 12.5, 17, 17)], 'mobile-nav-icon'),
+      h('span', { text: '搜索' })
+    ]),
+    h('button', { class: 'mobile-nav-tab', onclick: async () => {
+      const page = currentPage();
+      const entity = pageEntityForRecordLoad(page);
+      if (entity) { const { openRecordModal } = await import('./RecordModal.js'); openRecordModal(entity); }
+    } }, [
+      svgIcon('0 0 20 20', [svgLine(10, 4, 10, 16), svgLine(4, 10, 16, 10)], 'mobile-nav-icon'),
+      h('span', { text: '新增' })
+    ]),
+    h('button', { class: 'mobile-nav-tab', onclick: () => { state.assistantOpen = !state.assistantOpen; renderRuntime(); } }, [
+      svgIcon('0 0 20 20', [
+        svgPath('M12 3.5l1.15 3.35L16.5 8l-3.35 1.15L12 12.5l-1.15-3.35L7.5 8l3.35-1.15L12 3.5Z'),
+        svgPath('M6.5 11.5 7.2 13.3 9 14l-1.8.7-.7 1.8-.7-1.8L4 14l1.8-.7.7-1.8Z')
+      ], 'mobile-nav-icon'),
+      h('span', { text: 'AI 助理' })
+    ])
+  ]);
+}
+
 export function renderRuntime() {
   const tableWrap = document.querySelector('.table-wrap');
   const savedTop = tableWrap?.scrollTop || 0;
@@ -53,14 +81,31 @@ export function renderRuntime() {
   loadSidebarLayout();
   try {
     root.innerHTML = '';
-    root.append(h('div', { class: 'shell' }, [
-      topbar(),
-      h('main', { class: `runtime ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`, style: `--sidebar-width:${state.sidebarWidth}px` }, [
-        h('aside', { class: 'sidebar' }, renderSidebarContent(app, page)),
-        h('div', { class: 'sidebar-resizer', title: state.sidebarCollapsed ? '展开页面列表' : '拖动调整页面列表宽度', onpointerdown: startSidebarResize, ondblclick: toggleSidebarCollapsed }),
-        h('section', { class: 'workspace' }, [renderPage(page)])
-      ])
-    ]));
+    if (state.isMobile) {
+      const shell = h('div', { class: 'shell' }, [
+        topbar(),
+        h('main', { class: 'runtime mobile-runtime' }, [
+          h('section', { class: 'workspace' }, [renderPage(page)])
+        ]),
+        renderMobileBottomNav()
+      ]);
+      if (state.mobileDrawerOpen) {
+        shell.append(
+          h('div', { class: 'mobile-drawer-backdrop', onclick: () => { state.mobileDrawerOpen = false; renderRuntime(); } }),
+          h('aside', { class: 'mobile-drawer' }, renderMobileSidebar(app, page))
+        );
+      }
+      root.append(shell);
+    } else {
+      root.append(h('div', { class: 'shell' }, [
+        topbar(),
+        h('main', { class: `runtime ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`, style: `--sidebar-width:${state.sidebarWidth}px` }, [
+          h('aside', { class: 'sidebar' }, renderSidebarContent(app, page)),
+          h('div', { class: 'sidebar-resizer', title: state.sidebarCollapsed ? '展开页面列表' : '拖动调整页面列表宽度', onpointerdown: startSidebarResize, ondblclick: toggleSidebarCollapsed }),
+          h('section', { class: 'workspace' }, [renderPage(page)])
+        ])
+      ]));
+    }
   } catch (err) {
     console.error('[Runtime] render error:', err);
     root.innerHTML = '';

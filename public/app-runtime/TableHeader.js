@@ -1,12 +1,14 @@
 import { h } from '../common/dom.js';
 import { fieldIcon } from './FieldIcons.js';
 import { toast } from '../common/toast.js';
-import { renderRuntime } from './index.js';
+import { api } from '../common/api.js';
+import { renderRuntime, loadCurrentPageRecords } from './index.js';
 import { updateField, duplicateField, deleteField, insertField, openFieldEditModal } from './FieldEditor.js';
 import { removeRecord } from './RecordModal.js';
 import { filterOperators, openFilterModal, setListConfig, getListConfig } from './ViewBar.js';
 import { selectColumnHeader, insertRowAround } from './CellSelection.js';
 import { reorderIds, frozenColumnMeta } from './Ordering.js';
+import { state } from '../app.js';
 
 export function renderResizableHeader(entity, field, nextField, listConfig, visibleFields = [], fieldIndex = 0) {
   const width = Number(listConfig.columnWidths?.[field.id] || 160);
@@ -312,8 +314,23 @@ export function openCellContextMenu(event, entity, record) {
     h('button', { class: 'ghost-menu', text: '向上插入行', onclick: () => { insertRowAround(entity, record, 'above'); closeContextMenu(); } }),
     h('button', { class: 'ghost-menu', text: '向下插入行', onclick: () => { insertRowAround(entity, record, 'below'); closeContextMenu(); } }),
     h('div', { class: 'context-menu-sep' }),
+    h('button', { class: 'ghost-menu', text: '复制行', onclick: () => { closeContextMenu(); duplicateRecordRow(entity, record); } }),
+    h('div', { class: 'context-menu-sep' }),
     h('button', { class: 'danger ghost-menu', text: '删除行', onclick: () => { closeContextMenu(); removeRecord(record.id, entity.id); } })
   ]);
   document.body.append(menu);
   setTimeout(() => document.addEventListener('click', closeContextMenu, { once: true }), 0);
+}
+
+async function duplicateRecordRow(entity, record) {
+  try {
+    const body = await api(`/api/apps/${state.currentApp.id}/records`, {
+      method: 'POST', body: JSON.stringify({ entityId: entity.id, data: record.data })
+    });
+    await loadCurrentPageRecords();
+    renderRuntime();
+    toast('行已复制');
+  } catch (err) {
+    toast(err.message);
+  }
 }
