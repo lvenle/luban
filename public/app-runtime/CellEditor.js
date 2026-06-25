@@ -1,4 +1,4 @@
-import { h } from '../common/dom.js';
+import { h, svgIcon, svgPath } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { state, recordsFor, dateKey } from '../app.js';
@@ -277,7 +277,12 @@ export function createChoiceWidget(field, initialValue, onChange) {
   };
 
   const tags = h('div', { class: 'cell-choice-editor-tags' });
-  const arrow = h('span', { class: 'cell-choice-editor-arrow', text: '⌄' });
+  const arrowSvg = svgIcon('0 0 16 16', [svgPath('M4 6l4 4 4-4')]);
+  arrowSvg.setAttribute('fill', 'none');
+  arrowSvg.setAttribute('stroke', 'currentColor');
+  arrowSvg.setAttribute('stroke-width', '2');
+  arrowSvg.style.display = 'block';
+  const arrow = h('span', { class: 'cell-choice-editor-arrow' }, [arrowSvg]);
   const editor = h('div', { class: 'cell-choice-editor' }, [tags, arrow]);
 
   const renderTags = () => {

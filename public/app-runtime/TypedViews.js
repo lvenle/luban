@@ -8,7 +8,7 @@ import { renderFieldValue, startCellEdit } from './CellEditor.js';
 import { optionObject } from './FieldEditor.js';
 import { renderRuntime, renderInfiniteLoadSentinel } from './index.js';
 import { optionDisplayValue, orderSelectedOptions } from './Ordering.js';
-import { scheduleMarkdownPreview, cancelMarkdownPreview, openMarkdownRecordEditor } from './MarkdownEditor.js';
+import { openMarkdownRecordEditor } from './MarkdownEditor.js';
 
 const invalidMode = new Set();
 const TYPED_PANEL_CLASS = 'panel table-panel typed-view-panel';
@@ -215,7 +215,7 @@ function renderCompactTable(entity, records, fields, view) {
       h('tbody', {}, records.length ? records.map((record) =>
         h('tr', { title: '点击查看，双击编辑长文本' }, fields.map((field) => {
           const error = record.formulaErrors?.[field.id];
-          const preview = ['textarea', 'richText', 'ai'].includes(field.type);
+          const isLongText = ['textarea', 'richText', 'ai'].includes(field.type);
           return h('td', {
             class: error ? 'formula-error-cell' : '',
             title: error || '',
@@ -229,14 +229,9 @@ function renderCompactTable(entity, records, fields, view) {
                     confirmText: '知道了'
                   });
                 }
-              : preview
-                ? (event) => {
-                    if (field.type === 'ai' && !record.data[field.id]) return;
-                    scheduleMarkdownPreview(event.currentTarget, entity, record, field);
-                  }
-                : () => openRecordModal(entity, record),
-            ondblclick: preview ? (event) => {
-              cancelMarkdownPreview(event.currentTarget);
+              : () => openRecordModal(entity, record),
+            ondblclick: isLongText ? (event) => {
+              event.stopPropagation();
               openMarkdownRecordEditor(entity, record, field);
             } : null
           }, [error ? h('span', { text: '计算错误' }) : renderFieldValue(record.data[field.id], field)]);

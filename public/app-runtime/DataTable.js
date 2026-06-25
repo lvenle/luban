@@ -265,8 +265,9 @@ export function renderListPage(page) {
       updateSelectionState();
     }
   });
+  const rowHeightClass = `row-height-${listConfig.rowHeight || 'low'}`;
   const table = h('table', {
-    class: hasFrozenColumns(listConfig, visibleFields) ? 'has-frozen-columns' : '',
+    class: [hasFrozenColumns(listConfig, visibleFields) ? 'has-frozen-columns' : '', rowHeightClass].filter(Boolean).join(' '),
     style: tableWidthStyle(visibleFields, listConfig)
   }, [
     renderTableColgroup(visibleFields, listConfig),

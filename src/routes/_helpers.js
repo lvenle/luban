@@ -183,7 +183,10 @@ export function serveStatic(res, pathname) {
     sendText(res, 404, 'Not found', 'text/plain; charset=utf-8');
     return;
   }
-  res.writeHead(200, { 'content-type': MIME_TYPES[extname(filePath)] || 'application/octet-stream' });
+  res.writeHead(200, {
+    'content-type': MIME_TYPES[extname(filePath)] || 'application/octet-stream',
+    'cache-control': 'no-cache'
+  });
   res.end(readFileSync(filePath));
 }
 

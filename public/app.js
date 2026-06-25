@@ -16,7 +16,7 @@ export const state = {
 };
 
 export const root = document.querySelector('#app');
-export const APP_VERSION = '2026.06.23';
+export const APP_VERSION = '2026.06.25';
 
 export function storageKey(scope, suffix = '') {
   const appId = state.currentApp?.id || 'global';

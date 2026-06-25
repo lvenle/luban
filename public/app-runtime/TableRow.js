@@ -10,7 +10,7 @@ import { openCellContextMenu } from './TableHeader.js';
 import { openRecordModal, removeRecord } from './RecordModal.js';
 import { getListConfig, setListConfig } from './ViewBar.js';
 import { effectiveFieldType } from './FieldEditor.js';
-import { scheduleMarkdownPreview, cancelMarkdownPreview, openMarkdownRecordEditor } from './MarkdownEditor.js';
+import { openMarkdownRecordEditor } from './MarkdownEditor.js';
 import { calculateSummary, isNumericSummaryField, summaryMode, summaryOptions } from './SummaryValues.js';
 
 export function renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, selectedIds = new Set(), syncSelection = () => {}, updateSelectionLabel = () => {}, rowIndex = rowNumber - 1) {
@@ -41,16 +41,9 @@ export function renderRecordRow(entity, visibleFields, record, listConfig, rowNu
         onpointerdown: (event) => startCellRangeSelection(event, event.currentTarget),
         onpointerenter: (event) => extendCellRangeSelection(event.currentTarget),
         onpointerup: finishCellRangeSelection,
-        onclick: ['textarea', 'richText', 'ai'].includes(field.type)
-          ? (event) => {
-              // For ai fields, only preview if there's content
-              if (field.type === 'ai' && !record.data[field.id]) return;
-              scheduleMarkdownPreview(event.currentTarget, entity, record, field);
-            }
-          : null,
+        onclick: null,
         ondblclick: (event) => {
           if (['textarea', 'richText', 'ai'].includes(field.type)) {
-            cancelMarkdownPreview(event.currentTarget);
             openMarkdownRecordEditor(entity, record, field);
           } else startCellEdit(event.currentTarget, entity, record, field);
         },
@@ -140,6 +133,10 @@ export function openListConfigModal(entity) {
   const config = getListConfig(entity);
   const page = currentPage();
   const pageSizeInput = h('input', { type: 'number', min: '1', max: '1000', step: '1', value: String(page?.pageSize || 100) });
+  const rowHeightSelect = h('select', {}, ['low', 'medium', 'high'].map((v) =>
+    h('option', { value: v, text: { low: '低（默认）', medium: '中', high: '高' }[v] })
+  ));
+  rowHeightSelect.value = config.rowHeight || 'low';
   let order = viewOrderedFields(entity, config).map((field) => field.id);
   const visibleChecks = new Map();
   const searchChecks = new Map();
@@ -195,6 +192,11 @@ export function openListConfigModal(entity) {
         pageSizeInput,
         h('small', { class: 'field-hint', text: '滚动到底部自动加载下一批，单批最多 1000 条。' })
       ]),
+      h('label', { class: 'field page-size-field' }, [
+        h('span', { text: '行高' }),
+        rowHeightSelect,
+        h('small', { class: 'field-hint', text: '控制表格每行的高度。' })
+      ]),
       list,
       h('div', { class: 'row', style: 'margin-top:14px' }, [
         h('button', {
@@ -207,7 +209,7 @@ export function openListConfigModal(entity) {
             const button = event.currentTarget;
             button.disabled = true;
             try {
-              setListConfig(entity, { ...config, visibleFields, searchFields, fieldOrder: order });
+              setListConfig(entity, { ...config, visibleFields, searchFields, fieldOrder: order, rowHeight: rowHeightSelect.value });
               await saveCurrentPackage((pkg) => {
                 const target = pkg.ui.pages.find((item) => item.id === page?.id);
                 if (target) target.pageSize = pageSize;

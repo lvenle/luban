@@ -1,4 +1,4 @@
-import { h } from '../common/dom.js';
+import { h, svgIcon, svgPath } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { openConfirmDialog } from '../common/modal.js';
@@ -43,6 +43,16 @@ export function fieldTypeLabel(type) {
 }
 
 export function openFieldEditModal(entity, field = null, options = {}) {
+  const fieldTypeArrowSvg = (() => {
+    const s = svgIcon('0 0 16 16', [svgPath('M4 6l4 4 4-4')]);
+    s.setAttribute('fill', 'none');
+    s.setAttribute('stroke', 'currentColor');
+    s.setAttribute('stroke-width', '2');
+    s.style.width = '16px';
+    s.style.height = '16px';
+    s.style.display = 'block';
+    return s;
+  })();
   const editing = Boolean(field);
   const draft = field ? structuredClone(field) : { id: uniqueFieldId(entity, 'new_field'), label: '新字段', type: 'text' };
   if (!draft.options && draft.values) draft.options = draft.values;
@@ -190,7 +200,7 @@ export function openFieldEditModal(entity, field = null, options = {}) {
         h('label', { class: 'field-type-picker' }, [
           typeLabel,
           typeSelect,
-          h('span', { class: 'field-type-arrow', text: '›' })
+          h('span', { class: 'field-type-arrow' }, [fieldTypeArrowSvg])
         ])
       ]),
       advanced,

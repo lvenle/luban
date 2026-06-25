@@ -1850,6 +1850,20 @@ tbody tr:hover {
   background: #f1f5f9;
 }
 
+/* Row height options */
+.row-height-low td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.row-height-medium td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.row-height-high td {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
 th {
   position: relative;
   color: var(--muted);
@@ -2285,9 +2299,9 @@ th.header-editing .header-edit-input:focus {
 
 .cell-choice-editor-arrow {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
   color: #64748b;
-  font-size: 20px;
-  line-height: 1;
 }
 
 .field .cell-choice-editor {
@@ -2758,9 +2772,10 @@ thead .frozen-column {
 }
 
 .field-type-arrow {
+  display: flex;
+  align-items: center;
   color: var(--muted);
-  font-size: 22px;
-  line-height: 1;
+  pointer-events: none;
 }
 
 .field-setting-list {

@@ -84,6 +84,7 @@ export function normalizeView(entity, view = {}) {
     filters: [],
     sorts: [],
     summaries: {},
+    rowHeight: 'low',
     group: null
   };
   const next = { ...fallback, ...view };
