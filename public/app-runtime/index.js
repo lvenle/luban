@@ -226,8 +226,11 @@ export function buildAssistantContext() {
   if (!app) return '';
   const page = app.ui.pages.find((p) => p.id === state.currentPageId) || app.ui.pages[0];
   const entity = page?.entity ? entityFor(page) : null;
-  const parts = [`App ID: ${app.id}`, `App Name: ${app.name}`];
-  if (page) parts.push(`Page: ${page.title} (${page.id})`);
-  if (entity) { parts.push(`Entity: ${entity.name} (${entity.id})`); parts.push(`Fields: ${entity.fields.map((f) => `${f.label||f.id} (${f.type})`).join(', ')}`); }
+  const parts = [`当前应用: ${app.name}`, `当前页面: ${page?.title || '无'}`];
+  if (page) parts.push(`页面ID: ${page.id}`, `页面类型: ${page.type}`);
+  if (entity) {
+    parts.push(`当前数据表: ${entity.name} (${entity.id})`);
+    parts.push(`字段列表: ${entity.fields.map((f) => `${f.label||f.id} (${f.type})`).join(', ')}`);
+  }
   return parts.join(' | ');
 }
