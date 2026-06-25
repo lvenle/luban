@@ -182,7 +182,7 @@ function renderTypedHeader(entity, view, invalid, invalidLabel, meta = '', extra
           h('button', { class: `secondary icon-label-button${(view.sorts || []).length ? ' active' : ''}`, onclick: () => openSortModal(entity) }, buttonLabel('sort', '排序'))
         ]),
         h('div', { class: 'toolbar-action-group structure-config-group' }, [
-          h('button', { class: 'secondary icon-label-button', onclick: () => openTypedViewFieldConfigModal(entity, view) }, buttonLabel('fields', '字段设置')),
+          h('button', { class: 'secondary icon-label-button', onclick: () => openTypedViewFieldConfigModal(entity, view) }, buttonLabel('fields', '表格设置')),
           ...extraButtons
         ])
       ]),

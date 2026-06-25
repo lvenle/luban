@@ -306,7 +306,7 @@ export function renderListPage(page) {
           h('button', { class: `secondary icon-label-button${listConfig.group?.field ? ' active' : ''}`, onclick: () => openGroupModal(entity) }, buttonLabel('group', '分组'))
         ]),
         h('div', { class: 'toolbar-action-group structure-config-group' }, [
-          h('button', { class: 'secondary icon-label-button', onclick: () => openListConfigModal(entity) }, buttonLabel('fields', '字段设置')),
+          h('button', { class: 'secondary icon-label-button', onclick: () => openListConfigModal(entity) }, buttonLabel('fields', '表格设置')),
           h('button', { class: 'secondary icon-label-button', onclick: () => openFormLayoutModal(entity) }, buttonLabel('form', '表单视图'))
         ])
       ]),

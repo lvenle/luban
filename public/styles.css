@@ -2680,23 +2680,37 @@ thead .frozen-column {
 
 .field-config-list {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 6px;
 }
 
 .field-config-row {
-  display: grid;
-  grid-template-columns: auto minmax(110px, 1fr) auto auto;
+  display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   border: 1px solid var(--line);
   border-radius: 4px;
-  padding: 7px 9px;
+  padding: 5px 8px;
 }
 
 .drag-handle {
   color: var(--muted);
   font-size: 12px;
   cursor: grab;
+  flex-shrink: 0;
+}
+
+.field-config-row strong {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.field-config-row .check-row {
+  flex-shrink: 0;
+  padding: 0;
 }
 
 .wide-modal {
@@ -4321,7 +4335,7 @@ button.assistant-send {
   }
 
   .field-config-row {
-    grid-template-columns: 1fr;
+    flex-wrap: wrap;
   }
 
   .table-panel .table-command-row {
