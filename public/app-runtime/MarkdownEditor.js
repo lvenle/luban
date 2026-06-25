@@ -105,7 +105,7 @@ export function openMarkdownRecordEditor(entity, record, field) {
   });
   const aiButton = field.type === 'ai' ? h('button', {
     type: 'button',
-    class: 'secondary markdown-tool-button',
+    class: 'secondary markdown-tool-button ai-regen',
     text: '⟳ AI',
     title: 'AI 重新生成',
     onclick: async (event) => {

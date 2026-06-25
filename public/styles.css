@@ -3225,6 +3225,13 @@ thead .frozen-column {
   text-decoration: line-through;
 }
 
+.markdown-tool-button.ai-regen {
+  width: auto;
+  min-width: 60px;
+  padding: 2px 8px;
+  font-weight: 600;
+}
+
 .markdown-task {
   display: flex;
   align-items: center;
