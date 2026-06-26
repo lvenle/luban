@@ -26,7 +26,7 @@ export const SELECT_COLORS = [
   'cyan', 'blue', 'purple', 'pink'
 ];
 
-export const PAGE_TYPES = new Set(['blank', 'list', 'form', 'detail', 'dashboard', 'chart', 'editor']);
+export const PAGE_TYPES = new Set(['page', 'table', 'link']);
 
 export const ACTION_TYPES = new Set([
   'ai.generateText',
@@ -140,7 +140,7 @@ export function normalizePackage(pkg) {
     page.id = slugify(page.id || page.name || page.title || page.displayName || page.type, 'page');
     page.title = page.title || page.displayName || page.name || page.id;
     page.type = normalizePageType(page.type || 'list');
-    if (page.type === 'list') page.pageSize = clampPageSize(page.pageSize, 100);
+    if (page.type === 'table' || page.type === 'page') page.pageSize = clampPageSize(page.pageSize, 100);
     if (!page.entity && page.bindEntity) page.entity = normalizeFieldId(page.bindEntity, 'entity');
     if (page.entity) page.entity = normalizeFieldId(page.entity, 'entity');
     const entity = next.schema.entities.find((item) => item.id === page.entity);
@@ -265,23 +265,32 @@ export function normalizeFieldType(type) {
 
 function normalizePageType(type) {
   const value = String(type || '').trim();
+  // Unified to 3 types: page, table, link
   const map = {
-    table: 'list',
-    kanban: 'list',
-    stats: 'dashboard',
-    statistics: 'chart',
-    grid: 'list',
-    cards: 'list',
-    calendar: 'list',
-    timeline: 'list',
-    gallery: 'list',
-    spreadsheet: 'list',
-    board: 'list',
-    report: 'chart',
-    summary: 'dashboard',
-    overview: 'dashboard'
+    table: 'table',
+    list: 'table',
+    kanban: 'table',
+    grid: 'table',
+    cards: 'table',
+    calendar: 'table',
+    timeline: 'table',
+    gallery: 'table',
+    spreadsheet: 'table',
+    board: 'table',
+    blank: 'page',
+    chart: 'page',
+    dashboard: 'page',
+    editor: 'page',
+    form: 'page',
+    detail: 'page',
+    stats: 'page',
+    statistics: 'page',
+    report: 'page',
+    summary: 'page',
+    overview: 'page',
+    link: 'link'
   };
-  return map[value] || value;
+  return map[value] || 'page';
 }
 
 export function normalizeTableView(view = {}, entity, index = 0) {
@@ -491,8 +500,8 @@ export function validatePackage(pkg) {
       }
     }
   }
-  const hasList = (pkg?.ui?.pages || []).some((page) => page.type === 'list');
-  if (!hasList) errors.push('ui.pages 至少需要一个 list 页面。');
+  const hasTable = (pkg?.ui?.pages || []).some((page) => page.type === 'table' || (page.type === 'page' && page.entity));
+  if (!hasTable) errors.push('ui.pages 至少需要一个数据页面（table 或关联实体的 page）。');
   const pageIds = new Set();
   for (const page of pkg?.ui?.pages || []) {
     if (!page.id) errors.push('页面存在缺少 id 的配置。');

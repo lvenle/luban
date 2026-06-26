@@ -13,7 +13,7 @@ test('generates valid runnable packages for at least 50 demand scenarios', async
     names.add(pkg.manifest.name);
     assert.ok(pkg.schema.entities.length >= 1, prompt);
     assert.ok(pkg.schema.entities[0].fields.length >= 4, prompt);
-    assert.ok(pkg.ui.pages.some((page) => page.type === 'list'), prompt);
+    assert.ok(pkg.ui.pages.some((page) => page.type === 'table' || (page.entity && page.type === 'page')), prompt);
     assert.ok(pkg.actions.actions.length >= 1, prompt);
   }
   assert.ok(GENERATION_SCENARIOS.length >= 50);
@@ -41,7 +41,7 @@ test('fallback modifier supports common natural-language app changes', async () 
   assert.ok(fields.includes('owner'));
   assert.ok(fields.includes('priority'));
   assert.ok(fields.includes('amount'));
-  assert.ok(current.ui.pages.some((page) => page.type === 'chart'));
+  assert.ok(current.ui.pages.some((page) => page.type === 'page' && page.chart));
   assert.ok(current.actions.actions.some((action) => action.type === 'export.csv'));
   assert.ok(current.actions.actions.some((action) => action.type === 'ai.generateText'));
 });

@@ -4,7 +4,7 @@ import { getApp, updateAppPackage } from '../../models/app.js';
 
 register({
   name: 'add_page',
-  description: 'Create a new page for a table. Supports list (table view), chart (chart view), dashboard (dashboard with cards), and blank page types.',
+  description: 'Create a new page for a table. Only use when the user EXPLICITLY asks to create a new page. If the user asks to add a chart or content to the CURRENT page, use update_page instead.',
   risk: 'low',
   schema: {
     type: 'function',
@@ -31,13 +31,11 @@ register({
     const page = {
       id: pageId,
       title: args.title,
-      type: args.type,
-      entity: args.entityId,
-      navKind: args.type === 'blank' ? 'page' : 'table'
+      type: 'page',
+      navKind: 'page',
+      entity: args.entityId
     };
-    if (args.type === 'list') page.features = ['create', 'edit', 'delete', 'search', 'export'];
-    if (args.type === 'chart') page.charts = [];
-    if (args.type === 'dashboard') page.cards = [];
+    if (args.entityId) page.features = ['create', 'edit', 'delete', 'search', 'export'];
     pkg.ui.pages.push(page);
     return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
   }

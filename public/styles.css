@@ -1689,6 +1689,66 @@ tbody tr:hover {
   background: #fbfcfe;
 }
 
+/* Pie chart card */
+.page-card-pie {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 0;
+}
+.pie-canvas {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+.pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.pie-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pie-legend-item strong {
+  margin-left: auto;
+}
+
+/* Line chart card */
+.page-card-line {
+  padding: 4px 0;
+}
+.line-svg {
+  width: 100%;
+  height: 100px;
+  display: block;
+}
+.line-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 2px;
+  gap: 4px;
+}
+.line-labels span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .quick-add-row-button {
   width: auto;
   padding: 3px 8px;
@@ -1734,10 +1794,8 @@ tbody tr:hover {
 }
 
 .page-card-canvas {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(120px, 1fr));
-  gap: 12px;
-  align-content: start;
+  position: relative;
+  min-height: calc(100vh - 160px);
   padding: 12px;
 }
 
@@ -1754,6 +1812,34 @@ tbody tr:hover {
 
 .page-card.is-dragging {
   opacity: 0.5;
+}
+
+.page-card-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  min-width: 0;
+  padding: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  border: 0;
+  background: rgba(255,255,255,0.9);
+  color: #94a3b8;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 3;
+}
+.page-card:hover .page-card-close {
+  display: flex;
+}
+.page-card-close:hover {
+  color: #ef4444;
+  background: #fef2f2;
 }
 
 .page-card-head {

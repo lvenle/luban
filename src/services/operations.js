@@ -18,7 +18,7 @@ export function createTableInApp(app, body = {}) {
     description: body.description || '',
     fields: [{ id: 'name', label: '名称', type: 'text' }]
   });
-  pkg.ui.pages.push({ id: `${entityId}-list`, title: `${name}列表`, type: 'list', entity: entityId, navKind: 'table', features: ['create', 'edit', 'delete', 'search', 'export'], views: [{ id: 'default', name: '全部记录', type: 'list' }] });
+  pkg.ui.pages.push({ id: `${entityId}-list`, title: `${name}列表`, type: 'table', entity: entityId, navKind: 'table', features: ['create', 'edit', 'delete', 'search', 'export'], views: [{ id: 'default', name: '全部记录', type: 'list' }] });
   return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
 }
 

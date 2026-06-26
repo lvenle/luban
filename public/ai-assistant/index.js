@@ -13,6 +13,7 @@ let sessionManager;
 let sseClient;
 let currentAppId = '';
 let currentSessionId = '';
+let currentPageId = '';
 let assistantOpen = false;
 let currentContext = '';
 let currentMode = 'create';
@@ -183,7 +184,7 @@ export function setAppContext(context) {
   currentContext = context || '';
 }
 
-export function setAssistantMode({ mode = 'create', appId = '', appName = '', context = '' } = {}) {
+export function setAssistantMode({ mode = 'create', appId = '', appName = '', context = '', pageId = '' } = {}) {
   const nextMode = mode === 'modify' && appId ? 'modify' : 'create';
   const nextAppId = nextMode === 'modify' ? appId : '';
   const scopeChanged = nextMode !== currentMode || nextAppId !== currentAppId;
@@ -191,6 +192,7 @@ export function setAssistantMode({ mode = 'create', appId = '', appName = '', co
   currentAppId = nextAppId;
   currentAppName = nextMode === 'modify' ? appName : '';
   currentContext = nextMode === 'modify' ? context : '';
+  currentPageId = nextMode === 'modify' ? pageId : '';
   if (scopeChanged && chatView) {
     currentSessionId = '';
     chatView.clear();
@@ -216,7 +218,8 @@ async function handleSend(text) {
       appId: currentAppId,
       sessionId: currentSessionId || undefined,
       message: text,
-      context: currentContext
+      context: currentContext,
+      pageId: currentPageId || undefined
     });
   } catch (error) {
     streamRenderer.finishMessage(`连接失败: ${error.message}`);

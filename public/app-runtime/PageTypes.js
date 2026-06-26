@@ -5,7 +5,49 @@ import { hasDisplayValue, matchesFilter } from './CellEditor.js';
 import { formatNumberSummary } from './TableRow.js';
 import { openRecordModal } from './RecordModal.js';
 import { renderListPage } from './DataTable.js';
+import { openConfirmDialog } from '../common/modal.js';
+import { toast } from '../common/toast.js';
 import { saveCurrentPackage, renderRuntime } from './index.js';
+
+export function renderPageCanvas(page) {
+  const hasCards = Array.isArray(page.cards) && page.cards.length;
+  const hasChart = Boolean(page.chart);
+  const hasEntity = Boolean(page.entity);
+
+  // Any chart goes through card canvas for drag/resize/delete support
+  if (hasChart) return renderChartWithCardsPage(page);
+  // Cards + entity: show cards + data table
+  if (hasCards && hasEntity) return renderMixedPage(page);
+  // Cards only: show card canvas
+  if (hasCards) return renderBlankPage(page);
+  // Entity only: data table
+  if (hasEntity) return renderListPage(page);
+  // Empty: welcome screen
+  return renderBlankPage(page);
+}
+
+function renderChartWithCardsPage(page) {
+  // Convert page.chart to a card so it gets drag/resize/delete capabilities
+  const allCards = [...(page.cards || [])];
+  if (page.chart) {
+    const c = page.chart;
+    allCards.push({ title: page.title || '图表', type: 'chart', entity: page.entity, groupBy: c.groupBy, x: c._x, y: c._y, _isChart: true });
+  }
+  return h('div', { class: 'panel' }, [
+    h('div', { class: 'blank-page-canvas page-card-canvas', 'data-page-id': page.id }, allCards.map((card, index) =>
+      renderPageCard(page, card, index)
+    ))
+  ]);
+}
+
+function renderMixedPage(page) {
+  return h('div', { class: 'panel' }, [
+    h('div', { class: 'blank-page-canvas page-card-canvas', 'data-page-id': page.id }, (page.cards || []).map((card, index) =>
+      renderPageCard(page, card, index)
+    )),
+    renderListPage(page)
+  ]);
+}
 
 export function renderBlankPage(page) {
   const cards = Array.isArray(page.cards) ? page.cards : [];
@@ -30,28 +72,24 @@ export function renderBlankPage(page) {
 }
 
 export function renderPageCard(page, card, index) {
-  const width = clamp(Number(card.w || 3), 2, 6);
-  const height = clamp(Number(card.h || 2), 1, 5);
-  return h('section', {
+  const x = card.x ?? (20 + index * 30);
+  const y = card.y ?? (20 + index * 30);
+  const w = clamp(Number(card.w || 320), 200, 800);
+  const hgt = clamp(Number(card.h || 160), 80, 600);
+
+  const cardEl = h('section', {
     class: `page-card page-card-${card.type || 'stat'}`,
-    draggable: 'true',
-    style: `grid-column: span ${width}; min-height:${height * 74}px`,
-    ondragstart: (event) => {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', String(index));
-      event.currentTarget.classList.add('is-dragging');
-    },
-    ondragover: (event) => {
-      event.preventDefault();
-      event.dataTransfer.dropEffect = 'move';
-    },
-    ondrop: async (event) => {
-      event.preventDefault();
-      const fromIndex = Number(event.dataTransfer.getData('text/plain'));
-      await reorderPageCard(page, fromIndex, index);
-    },
-    ondragend: (event) => event.currentTarget.classList.remove('is-dragging')
+    style: `position:absolute;left:${x}px;top:${y}px;width:${w}px;min-height:${hgt}px`
   }, [
+    h('button', {
+      class: 'ghost page-card-close',
+      text: '×',
+      title: '删除卡片',
+      onclick: (event) => {
+        event.stopPropagation();
+        deleteCard(page, card, index);
+      }
+    }),
     h('div', { class: 'page-card-head' }, [
       h('strong', { text: card.title || pageCardTitle(card) }),
       h('span', { class: 'page-card-filter', text: cardFilterLabel(card) })
@@ -63,13 +101,105 @@ export function renderPageCard(page, card, index) {
       onpointerdown: (event) => startPageCardResize(event, page, index)
     })
   ]);
+  // Free-position drag via pointer events (listeners added only during drag)
+  let dragState = null;
+  cardEl.addEventListener('pointerdown', (event) => {
+    if (event.target.closest('.page-card-close, .page-card-resize')) return;
+    event.preventDefault();
+    const origLeft = parseInt(cardEl.style.left, 10) || 0;
+    const origTop = parseInt(cardEl.style.top, 10) || 0;
+    dragState = { startX: event.clientX, startY: event.clientY, origLeft, origTop };
+    cardEl.classList.add('is-dragging');
+    const onMove = (e) => {
+      if (!dragState) return;
+      cardEl.style.left = `${dragState.origLeft + e.clientX - dragState.startX}px`;
+      cardEl.style.top = `${dragState.origTop + e.clientY - dragState.startY}px`;
+    };
+    const onUp = async () => {
+      if (!dragState) return;
+      cardEl.classList.remove('is-dragging');
+      const finalLeft = Math.round(parseFloat(cardEl.style.left));
+      const finalTop = Math.round(parseFloat(cardEl.style.top));
+      dragState = null;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      await saveCurrentPackage((pkg) => {
+        const target = pkg.ui.pages.find((item) => item.id === page.id);
+        if (card._isChart) {
+          if (target) { target.chart = target.chart || {}; target.chart._x = finalLeft; target.chart._y = finalTop; }
+        } else if (target?.cards?.[index]) {
+          target.cards[index].x = finalLeft;
+          target.cards[index].y = finalTop;
+        }
+      });
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, { once: true });
+  });
+  return cardEl;
 }
+
+const PIE_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
 export function renderPageCardBody(card) {
   if (card.type === 'table') return renderPageTableCard(card);
   if (card.type === 'chart') return renderPageChartCard(card);
+  if (card.type === 'pie') return renderPagePieCard(card);
+  if (card.type === 'line') return renderPageLineCard(card);
   if (card.type === 'pivot') return renderPagePivotCard(card);
   return renderPageStatCard(card);
+}
+
+export function renderPagePieCard(card) {
+  const entity = entityById(card.entity);
+  const field = entity?.fields?.find((item) => item.id === card.groupBy) || entity?.fields?.[0];
+  const rows = groupedCardRows(card, field);
+  const total = rows.reduce((s, r) => s + r.value, 0) || 1;
+  let conic = '';
+  let cursor = 0;
+  const slices = rows.slice(0, 8).map((row, i) => {
+    const pct = (row.value / total) * 100;
+    const color = PIE_COLORS[i % PIE_COLORS.length];
+    const start = cursor;
+    cursor += pct;
+    conic += `${color} ${start}% ${cursor}%`;
+    if (i < rows.length - 1) conic += ', ';
+    return { label: row.label, value: row.value, color, pct: Math.round(pct) };
+  });
+  return h('div', { class: 'page-card-pie' }, [
+    h('div', { class: 'pie-canvas', style: `background: conic-gradient(${conic})` }),
+    h('div', { class: 'pie-legend' }, slices.map((s) =>
+      h('div', { class: 'pie-legend-item' }, [
+        h('span', { class: 'pie-dot', style: `background:${s.color}` }),
+        h('span', { text: `${s.label} (${s.pct}%)` }),
+        h('strong', { text: s.value })
+      ])
+    ))
+  ]);
+}
+
+export function renderPageLineCard(card) {
+  const entity = entityById(card.entity);
+  const field = entity?.fields?.find((item) => item.id === card.groupBy) || entity?.fields?.[0];
+  const rows = groupedCardRows(card, field);
+  if (!rows.length) return h('p', { class: 'muted', text: '暂无数据' });
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  const w = 280, h = 100, pad = 4;
+  const stepX = rows.length > 1 ? (w - pad * 2) / (rows.length - 1) : 0;
+  const pts = rows.map((row, i) => {
+    const x = rows.length > 1 ? Math.round(pad + i * stepX) : w / 2;
+    const y = Math.round(h - pad - ((row.value / max) * (h - pad * 2)));
+    return { x, y };
+  });
+  const points = pts.map((p) => `${p.x},${p.y}`).join(' ');
+  const last = pts[pts.length - 1];
+  return h('div', { class: 'page-card-line' }, [
+    h('svg', { viewBox: `0 0 ${w} ${h}`, class: 'line-svg' }, [
+      h('polyline', { points, fill: 'none', stroke: '#2563eb', 'stroke-width': '2', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }),
+      last ? h('circle', { cx: last.x, cy: last.y, r: '3', fill: '#2563eb' }) : null
+    ]),
+    h('div', { class: 'line-labels' }, rows.map((r) => h('span', { text: r.label })))
+  ]);
 }
 
 export function renderPageStatCard(card) {
@@ -163,16 +293,29 @@ export function pageCardTitle(card) {
   return '统计卡片';
 }
 
-export async function reorderPageCard(page, fromIndex, toIndex) {
-  if (!Number.isInteger(fromIndex) || fromIndex === toIndex) return;
-  await saveCurrentPackage((pkg) => {
-    const target = pkg.ui.pages.find((item) => item.id === page.id);
-    const cards = [...(target.cards || [])];
-    const [moved] = cards.splice(fromIndex, 1);
-    cards.splice(toIndex, 0, moved);
-    target.cards = cards;
+export function deleteCard(page, card, index) {
+  openConfirmDialog({
+    title: '删除卡片',
+    message: `确定删除「${card.title || pageCardTitle(card)}」卡片吗？`,
+    confirmText: '删除',
+    danger: true,
+    onConfirm: async () => {
+      if (card._isChart) {
+        // Synthetic chart card — clear page.chart instead
+        await saveCurrentPackage((pkg) => {
+          const target = pkg.ui.pages.find((item) => item.id === page.id);
+          if (target) delete target.chart;
+        });
+      } else {
+        await saveCurrentPackage((pkg) => {
+          const target = pkg.ui.pages.find((item) => item.id === page.id);
+          if (target?.cards) target.cards.splice(index, 1);
+        });
+      }
+      renderRuntime();
+      toast('卡片已删除');
+    }
   });
-  renderRuntime();
 }
 
 export function startPageCardResize(event, page, index) {
@@ -181,27 +324,29 @@ export function startPageCardResize(event, page, index) {
   const startX = event.clientX;
   const startY = event.clientY;
   const card = page.cards[index];
-  const startW = Number(card.w || 3);
-  const startH = Number(card.h || 2);
+  const el = event.currentTarget.parentElement;
+  const startW = el.offsetWidth;
+  const startH = el.offsetHeight;
   const onMove = (moveEvent) => {
-    card.w = clamp(startW + Math.round((moveEvent.clientX - startX) / 120), 2, 6);
-    card.h = clamp(startH + Math.round((moveEvent.clientY - startY) / 70), 1, 5);
-    renderRuntime();
+    el.style.width = `${Math.max(200, startW + moveEvent.clientX - startX)}px`;
+    el.style.minHeight = `${Math.max(80, startH + moveEvent.clientY - startY)}px`;
   };
   const onUp = async () => {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
-    await saveCurrentPackage((pkg) => {
-      const target = pkg.ui.pages.find((item) => item.id === page.id);
-      if (target?.cards?.[index]) {
-        target.cards[index].w = card.w;
-        target.cards[index].h = card.h;
-      }
-    });
-    renderRuntime();
+    const card = page.cards?.[index];
+    if (card && !card._isChart) {
+      await saveCurrentPackage((pkg) => {
+        const target = pkg.ui.pages.find((item) => item.id === page.id);
+        if (target?.cards?.[index]) {
+          target.cards[index].w = parseInt(el.style.width, 10) || startW;
+          target.cards[index].h = parseInt(el.style.minHeight, 10) || startH;
+        }
+      });
+    }
   };
   window.addEventListener('pointermove', onMove);
-  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointerup', onUp, { once: true });
 }
 
 export function renderDashboardPage(page) {
@@ -229,12 +374,16 @@ export function renderDashboardCard(card) {
 
 export function renderChartPage(page) {
   const entity = entityFor(page);
+  if (!entity) return h('div', { class: 'panel', text: '图表需要关联一个数据表。' });
   const chart = page.chart || {};
   const records = recordsFor(entity.id);
-  const groupField = entity.fields.find((field) => field.id === chart.groupBy) || {};
+  const groupField = entity.fields.find((field) => field.id === chart.groupBy)
+    || entity.fields.find((field) => field.label === chart.groupBy)
+    || {};
   const grouped = new Map();
   for (const record of records) {
-    const key = formatFieldValue(record.data[chart.groupBy], groupField) || '未填写';
+    const raw = record.data[groupField.id || chart.groupBy];
+    const key = formatFieldValue(raw, groupField) || '未填写';
     const value = chart.value === 'count' ? 1 : Number(record.data[chart.value] || 0);
     grouped.set(key, (grouped.get(key) || 0) + value);
   }

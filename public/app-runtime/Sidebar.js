@@ -15,15 +15,13 @@ export function clearPageDragStyles() {
 }
 
 export function pageNavKind(app, page) {
-  if (page?.navKind === 'table' || page?.source === 'table') return 'table';
-  if (page?.navKind === 'link' || page?.source === 'link') return 'link';
-  if (page?.navKind === 'page' || page?.source === 'page') return 'page';
-  if (page?.type === 'list' && page.entity) {
-    const entity = app.schema.entities.find((item) => item.id === page.entity);
-    const firstEntityListPage = app.ui.pages.find((item) => item.type === 'list' && item.entity === page.entity);
-    if (firstEntityListPage?.id === page.id) return 'table';
-    if (page.id === `${page.entity}-list` || page.title === `${entity?.name || ''}列表`) return 'table';
-  }
+  // navKind is the source of truth — trust it first
+  if (page?.navKind) return page.navKind;
+  // Fallback for old page types without navKind
+  if (page?.source === 'table' || page?.type === 'table' || page?.type === 'list') return 'table';
+  if (page?.source === 'link' || page?.type === 'link') return 'link';
+  if (page?.source === 'page' || page?.type === 'page') return 'page';
+  if (page.entity) return 'table';
   return 'page';
 }
 
@@ -125,19 +123,28 @@ export function renderSidebarContent(app, page) {
 export function renderPageNavItem(app, activePage, item) {
   const entity = item.entity ? app.schema.entities.find((candidate) => candidate.id === item.entity) : null;
   const navKind = pageNavKind(app, item);
+  const isTablePage = item.type === 'table' || item.source === 'table';
   const menu = bindFloatingMenu(h('details', { class: 'page-menu', onclick: (event) => event.stopPropagation() }, [
     h('summary', { title: '页面操作' }, '⋮'),
     h('div', { class: 'page-menu-popover' }, [
-      navKind === 'page' || navKind === 'link' ? h('button', {
+      navKind !== 'link' ? h('button', {
         class: 'ghost-menu',
-        text: navKind === 'link' ? '删除链接' : '删除页面',
+        text: '删除页面',
         onclick: (event) => {
           event.preventDefault();
           menu.open = false;
           deletePage(item);
         }
-      }) : null,
-      navKind === 'table' && entity ? h('button', {
+      }) : h('button', {
+        class: 'ghost-menu',
+        text: '删除链接',
+        onclick: (event) => {
+          event.preventDefault();
+          menu.open = false;
+          deletePage(item);
+        }
+      }),
+      isTablePage && entity ? h('button', {
         class: 'ghost-menu',
         text: '清除数据',
         onclick: (event) => {
@@ -146,7 +153,7 @@ export function renderPageNavItem(app, activePage, item) {
           clearTableData(entity);
         }
       }) : null,
-      navKind === 'table' && entity ? h('button', {
+      isTablePage && entity ? h('button', {
         class: 'ghost-menu danger',
         text: '删除表',
         onclick: (event) => {
@@ -241,11 +248,12 @@ export async function reorderPage(draggedId, targetId, position = 'before') {
 }
 
 export function deletePage(page) {
-  const pages = state.currentApp.ui.pages || [];
+  const app = state.currentApp;
+  const pages = app.ui.pages || [];
   if (pages.length <= 1) return toast('至少保留一个页面。');
   const remainingPages = pages.filter((item) => item.id !== page.id);
-  if (!remainingPages.some((item) => item.type === 'list')) return toast('至少保留一个列表页面。');
-  if (page.type === 'list' && page.entity && !remainingPages.some((item) => item.type === 'list' && item.entity === page.entity)) {
+  if (!remainingPages.some((item) => pageNavKind(app, item) !== 'link')) return toast('至少保留一个数据页面。');
+  if (pageNavKind(app, page) !== 'link' && page.entity && !remainingPages.some((item) => pageNavKind(app, item) !== 'link' && item.entity === page.entity)) {
     const entity = state.currentApp.schema.entities.find((item) => item.id === page.entity);
     return toast(`「${entity?.name || page.title}」表只有这一个列表入口，不能单独删除页面。`);
   }
@@ -343,26 +351,16 @@ export function buildBlankPage(title) {
   };
 }
 
-export function buildPageForEntity({ entity, title, type = 'list', navKind = 'page' }) {
-  const page = {
+export function buildPageForEntity({ entity, title }) {
+  return {
     id: uniquePageId(title, entity.id),
     title,
-    type,
+    type: 'page',
     entity: entity.id,
-    navKind
+    navKind: 'page',
+    features: ['create', 'edit', 'delete', 'search', 'export'],
+    views: [{ id: 'default', name: '全部记录', type: 'list' }]
   };
-  if (type === 'list') {
-    page.features = ['create', 'edit', 'delete', 'search', 'export'];
-    page.views = [{ id: 'default', name: '全部记录', type: 'list' }];
-  }
-  if (type === 'chart') {
-    const groupField = entity.fields.find((field) => ['select', 'multiSelect', 'boolean', 'date'].includes(field.type)) || entity.fields[0];
-    page.chart = { type: 'bar', groupBy: groupField?.id || 'name', value: 'count' };
-  }
-  if (type === 'dashboard') {
-    page.cards = [{ type: 'stat', title: `${entity.name}记录数`, entity: entity.id, operation: 'count' }];
-  }
-  return page;
 }
 
 export function openCreatePageModal(sourcePage = null) {
@@ -390,7 +388,7 @@ export function openCreatePageModal(sourcePage = null) {
             let page;
             if (entityId) {
               const entity = entities.find((e) => e.id === entityId);
-              page = buildPageForEntity({ entity, title, type: 'list', navKind: 'table' });
+              page = buildPageForEntity({ entity, title });
             } else {
               page = buildBlankPage(title);
             }

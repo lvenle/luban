@@ -150,7 +150,7 @@ function inlineEditableText({ value, className = '', onSave, multiline = false }
 
 export function entityFor(page) { return state.currentApp.schema.entities.find((e) => e.id === page.entity) || state.currentApp.schema.entities[0]; }
 export function currentPage() { return state.currentApp?.ui.pages.find((p) => p.id === state.currentPageId) || state.currentApp?.ui.pages[0] || null; }
-export function pageEntityForRecordLoad(page) { if (!page || !state.currentApp) return null; if (page.entity) return entityFor(page); if (['list', 'chart', 'editor', 'form', 'detail'].includes(page.type)) return entityFor(page); return null; }
+export function pageEntityForRecordLoad(page) { if (!page || !state.currentApp) return null; if (page.entity) return entityFor(page); return null; }
 export function recordsFor(entityId) { return state.records.filter((r) => !entityId || r.entityId === entityId); }
 export function entityById(entityId) { return state.currentApp.schema.entities.find((e) => e.id === entityId); }
 
@@ -337,11 +337,9 @@ export function setPageRenderers(renderers) {
 export function renderPage(page) {
   if (state.loading) return renderLoadingSkeleton();
   if (!page) return h('div', { class: 'panel', text: '这个软件还没有页面。' });
-  if (page.type === 'blank') return (pageRenderers.renderBlankPage || (() => h('div', { class: 'blank-page-canvas' })))(page);
-  if (page.type === 'chart') return (pageRenderers.renderChartPage || (() => h('div')))(page);
-  if (page.type === 'dashboard') return (pageRenderers.renderDashboardPage || (() => h('div')))(page);
-  if (page.type === 'editor') return (pageRenderers.renderEditorPage || (() => h('div')))(page);
-  return (pageRenderers.renderListPage || (() => h('div', { text: '加载中...' })))(page);
+  const kind = page.navKind || 'page';
+  if (kind === 'table') return (pageRenderers.renderListPage || (() => h('div', { text: '加载中...' })))(page);
+  return (pageRenderers.renderPageCanvas || (() => h('div', { class: 'blank-page-canvas' })))(page);
 }
 
 // Initialize undo/redo keyboard shortcuts once on load

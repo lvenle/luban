@@ -141,7 +141,9 @@ Guidelines:
 - **CRITICAL — Schema accuracy:** When using create_app, only create tables and fields that directly correspond to what the user described. Do not add any default, sample, or unrelated tables. For example, if the user asks for "作业管理" (homework management), only create tables like 作业/作业提交/学生 related to homework — never add 账目/分类/库存 or any other unrelated tables. If the description is too vague to determine the schema, ask the user to clarify what data they want to manage rather than guessing.
 - **Do NOT retry failed tools:** If a tool returns an error, do NOT call it again with slightly different parameters. The error message explains what went wrong. Instead, explain the issue to the user and ask them to clarify. Continuing to retry will produce the same result.
 - **Formula field syntax:** When creating formula fields, use only: IF(condition, value_if_true, value_if_false) for conditional logic, CONCAT(value1, value2) for concatenation, + for string or number addition, {field_label} to reference other fields. Do NOT use & for concatenation — use + or CONCAT() instead. Available functions: IF, ROUND, CONCAT, DATEADD, DATEDIFF, ABS, MIN, MAX, LEN, UPPER, LOWER, TODAY. When referencing select/multiSelect field values in comparisons, use the option's display label (e.g., {status}="完成"), NOT the option's internal id.
->- **Page context awareness:** The "Current Context" section tells you which page the user is currently looking at. Unless the user explicitly names a different page, entity, or table in their request, apply all changes to the current page and its entity. For example, if the context says "Page: 作业列表" and the user says "加一个状态字段", add the field to the current page's entity — do not create a new page or switch to a different entity.`;
+- **CRITICAL — Add cards to existing pages, do NOT replace:** When the user asks to add a chart, stat card, graph, or any content to the current page, use the update_page tool with the "cards" parameter to APPEND new cards. Cards always merge into the page without removing existing content. NEVER set "chart" on a page that already has content — use cards with type:"chart" instead. Never rename or change the page title unless the user explicitly asks to rename the page.
+>- **pageId is auto-filled:** The pageId parameter for update_page is optional — the system automatically fills in the current page's ID. You do not need to determine or provide pageId yourself.
+>- **Card types:** cards support: type:"stat" (number card, entity+operation), type:"chart" (bar chart, entity+groupBy), type:"pie" (pie chart, entity+groupBy), type:"line" (line chart, entity+groupBy). groupBy accepts field ID or field label. Use "pie" when user asks for pie/donut/circular chart, use "line" for trend/line chart, use "chart" for bar/column chart.`;
 
 
   if (app) {
@@ -315,6 +317,7 @@ export async function handleAiApi(req, res, method, parts, url) {
           let args;
           try { args = JSON.parse(tc.function.arguments); } catch { args = {}; }
           args.appId = body.appId || app?.id;
+          if (body.pageId) args.pageId = body.pageId;
 
           if (tool.risk === 'high') {
             const confirmId = `${session.id}:${tc.id}`;

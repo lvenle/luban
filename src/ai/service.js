@@ -277,7 +277,7 @@ function packageToPlan(pkg) {
     description: clean.manifest.description || '',
     tables,
     relations,
-    views: clean.ui.pages.filter((page) => page.type === 'list').map((page) => ({ tableTempId: page.entity, name: page.title, type: 'grid' }))
+    views: clean.ui.pages.filter((page) => page.type === 'table' || page.type === 'list' || (page.entity && !['link', 'page'].includes(page.type))).map((page) => ({ tableTempId: page.entity, name: page.title, type: 'grid' }))
   };
 }
 

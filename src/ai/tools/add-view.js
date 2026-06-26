@@ -37,7 +37,7 @@ register({
     const entity = pkg.schema.entities.find((item) => item.id === args.entityId);
     if (!entity) throw new Error('找不到表。');
     const page = pkg.ui.pages.find((item) => item.id === args.pageId && item.entity === entity.id)
-      || pkg.ui.pages.find((item) => item.type === 'list' && item.entity === entity.id);
+      || pkg.ui.pages.find((item) => (item.type === 'table' || item.type === 'list') && item.entity === entity.id);
     if (!page) throw new Error('找不到该表的表格页面。');
     const view = { id: uniqueViewId(page, args.name), name: args.name, type: args.type };
     if (args.type === 'quadrant') {

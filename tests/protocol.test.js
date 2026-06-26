@@ -9,7 +9,7 @@ test('validates and normalizes a software package', () => {
   const pkg = preparePackage(createBudgetPackage());
   assert.equal(pkg.manifest.name, '家庭记账本');
   assert.equal(pkg.schema.entities[0].id, 'transaction');
-  assert.ok(pkg.ui.pages.some((page) => page.type === 'list'));
+  assert.ok(pkg.ui.pages.some((page) => page.type === 'table'));
 });
 
 test('rejects unsupported field types', () => {
@@ -42,7 +42,7 @@ test('allows blank pages without bound table', () => {
   pkg.ui.pages.push({ id: 'blank-board', title: '空白页面', type: 'blank', navKind: 'page', cards: [] });
   const clean = preparePackage(pkg);
   const blank = clean.ui.pages.find((page) => page.id === 'blank-board');
-  assert.equal(blank.type, 'blank');
+  assert.equal(blank.type, 'page');
   assert.equal(blank.entity, undefined);
 });
 
@@ -108,7 +108,7 @@ test('normalizes JSON Schema style model output', () => {
   assert.equal(pkg.schema.entities[0].id, 'todo_list');
   assert.equal(pkg.schema.entities[0].fields[0].type, 'text');
   assert.equal(pkg.schema.entities[0].fields[1].type, 'select');
-  assert.equal(pkg.ui.pages[0].type, 'list');
+  assert.equal(pkg.ui.pages[0].type, 'table');
   assert.equal(pkg.actions.actions[0].type, 'data.queryRecords');
   assert.deepEqual(pkg.prompts.suggestedCommands, ['增加今日任务页面']);
 });
@@ -138,7 +138,7 @@ test('normalizes generic model patch operations', () => {
     ]
   });
   assert.ok(next.schema.entities[0].fields.some((field) => field.id === 'travel_budget' && field.type === 'boolean'));
-  assert.ok(next.ui.pages.some((page) => page.id === 'travel-budget-page' && page.type === 'chart'));
+  assert.ok(next.ui.pages.some((page) => page.id === 'travel-budget-page' && page.type === 'page' && page.chart));
 });
 
 test('normalizes JSON Patch style model operations', () => {

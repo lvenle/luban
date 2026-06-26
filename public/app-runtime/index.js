@@ -77,7 +77,7 @@ export function renderRuntime() {
   const app = state.currentApp;
   const page = app.ui.pages.find((p) => p.id === state.currentPageId) || app.ui.pages[0];
   state.currentPageId = page?.id || state.currentPageId;
-  setAssistantMode({ mode: 'modify', appId: app.id, appName: app.name, context: buildAssistantContext() });
+  setAssistantMode({ mode: 'modify', appId: app.id, appName: app.name, context: buildAssistantContext(), pageId: state.currentPageId });
   loadSidebarLayout();
   try {
     root.innerHTML = '';
