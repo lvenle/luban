@@ -127,6 +127,15 @@ export function renderPageNavItem(app, activePage, item) {
   const menu = bindFloatingMenu(h('details', { class: 'page-menu', onclick: (event) => event.stopPropagation() }, [
     h('summary', { title: '页面操作' }, '⋮'),
     h('div', { class: 'page-menu-popover' }, [
+      h('button', {
+        class: 'ghost-menu',
+        text: '重命名',
+        onclick: (event) => {
+          event.preventDefault();
+          menu.open = false;
+          renamePage(item);
+        }
+      }),
       navKind !== 'link' ? h('button', {
         class: 'ghost-menu',
         text: '删除页面',
@@ -245,6 +254,43 @@ export async function reorderPage(draggedId, targetId, position = 'before') {
   } catch (error) {
     toast(error.message);
   }
+}
+
+export function renamePage(page) {
+  const input = h('input', { value: page.title || '', placeholder: '页面名称' });
+  const backdrop = h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal compact-modal' }, [
+      h('div', { class: 'toolbar' }, [
+        h('h3', { text: '重命名页面' }),
+        h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
+      ]),
+      h('div', { class: 'field' }, [h('label', { text: '页面名称' }), input]),
+      h('div', { class: 'row', style: 'margin-top:14px' }, [
+        h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
+        h('button', {
+          text: '保存',
+          onclick: async () => {
+            const title = input.value.trim();
+            if (!title) return toast('页面名称不能为空。');
+            try {
+              await saveCurrentPackage((pkg) => {
+                const target = pkg.ui.pages.find((p) => p.id === page.id);
+                if (target) target.title = title;
+              });
+              page.title = title;
+              backdrop.remove();
+              renderRuntime();
+              toast('页面已重命名');
+            } catch (error) {
+              toast(error.message);
+            }
+          }
+        })
+      ])
+    ])
+  ]);
+  document.body.append(backdrop);
+  setTimeout(() => input.focus(), 0);
 }
 
 export function deletePage(page) {

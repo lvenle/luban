@@ -3443,6 +3443,21 @@ thead .frozen-column {
   z-index: 100;
   box-shadow: var(--shadow);
 }
+.toast-success {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #166534;
+}
+.toast-error {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #991b1b;
+}
+.toast-warning {
+  border-color: #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+}
 
 .assistant-fab {
   position: fixed;
