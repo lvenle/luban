@@ -99,9 +99,9 @@ export function renderMobileSidebar(app, page) {
     drawerHead,
     pageList,
     h('div', { class: 'mobile-drawer-actions' }, [
+      h('button', { class: 'secondary', text: '+ 新建表', onclick: () => { state.mobileDrawerOpen = false; openCreateTableModal(); } }),
       h('button', { class: 'secondary', text: '+ 新建页面', onclick: () => { state.mobileDrawerOpen = false; openCreatePageModal(page); } }),
       h('button', { class: 'secondary', text: '+ 新建看板', onclick: () => { state.mobileDrawerOpen = false; openCreateDashboardModal(); } }),
-      h('button', { class: 'secondary', text: '+ 新建表', onclick: () => { state.mobileDrawerOpen = false; openCreateTableModal(); } }),
       h('button', { class: 'secondary', text: '+ 新增链接', onclick: () => { state.mobileDrawerOpen = false; openCreateLinkModal(); } })
     ])
   ];
@@ -124,6 +124,10 @@ export function renderSidebarContent(app, page) {
     ]),
     h('div', { class: 'page-list' }, app.ui.pages.map((item) => renderPageNavItem(app, page, item))),
     h('hr', { class: 'sidebar-divider' }),
+    h('button', { class: 'page-button create-table-button', onclick: openCreateTableModal }, [
+      h('span', { class: 'button-icon table-icon' }, [pageTypeIcon('table')]),
+      h('span', { text: '+ 新建表' })
+    ]),
     h('button', { class: 'page-button create-page-button', onclick: () => openCreatePageModal(page) }, [
       h('span', { class: 'button-icon page-icon' }, [pageTypeIcon('page')]),
       h('span', { text: '+ 新建页面' })
@@ -131,10 +135,6 @@ export function renderSidebarContent(app, page) {
     h('button', { class: 'page-button create-dashboard-button', onclick: openCreateDashboardModal }, [
       h('span', { class: 'button-icon dashboard-icon' }, [pageTypeIcon('dashboard')]),
       h('span', { text: '+ 新建看板' })
-    ]),
-    h('button', { class: 'page-button create-table-button', onclick: openCreateTableModal }, [
-      h('span', { class: 'button-icon table-icon' }, [pageTypeIcon('table')]),
-      h('span', { text: '+ 新建表' })
     ]),
     h('button', { class: 'page-button create-link-button', onclick: openCreateLinkModal }, [
       h('span', { class: 'button-icon page-icon' }, [pageTypeIcon('link')]),
