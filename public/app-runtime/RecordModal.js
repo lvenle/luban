@@ -36,6 +36,8 @@ export function openRecordModal(entity, record = null) {
             if (!form.reportValidity()) return;
             const button = event.currentTarget;
             button.disabled = true;
+            const saveBtnText = button.textContent;
+            button.textContent = '保存中…';
             try {
               const oldData = record ? { ...record.data } : null;
               const data = record ? { ...record.data } : {};
@@ -57,6 +59,7 @@ export function openRecordModal(entity, record = null) {
               renderRuntime();
             } catch (error) {
               button.disabled = false;
+              button.textContent = saveBtnText;
               toast(error.message);
             }
           }

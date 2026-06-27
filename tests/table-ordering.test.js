@@ -61,9 +61,9 @@ test('column drag and freeze interactions are wired to the table header and view
   assert.match(styles, /\.column-drag-ghost/);
   assert.match(styles, /th:has\(\+ th\.selected-column-header\)/);
   assert.match(styles, /td:has\(\+ td\.selected-column-cell\)/);
-  assert.match(styles, /th\.selected-column-header[\s\S]*border-top: 1px solid #2563eb;[\s\S]*border-left: 1px solid #2563eb;[\s\S]*border-right: 1px solid #2563eb;[\s\S]*box-shadow: none;/);
-  assert.match(styles, /selected-column-cell\.selected-cell[\s\S]*border-top: 0;[\s\S]*border-left: 1px solid #2563eb;[\s\S]*border-right: 1px solid #2563eb;[\s\S]*border-bottom: 1px solid #dfe3e8;[\s\S]*box-shadow: none !important;/);
-  assert.match(styles, /selected-column-cell\.selected-cell\.selection-bottom[\s\S]*border-bottom: 1px solid #2563eb;/);
+  assert.match(styles, /th\.selected-column-header[\s\S]*border-top: 1px solid (var\(--brand\)|#2563eb);[\s\S]*border-left: 1px solid (var\(--brand\)|#2563eb);[\s\S]*border-right: 1px solid (var\(--brand\)|#2563eb);[\s\S]*box-shadow: none;/);
+  assert.match(styles, /selected-column-cell\.selected-cell[\s\S]*border-top: 0;[\s\S]*border-left: 1px solid (var\(--brand\)|#2563eb);[\s\S]*border-right: 1px solid (var\(--brand\)|#2563eb);[\s\S]*border-bottom: 1px solid var\(--line\);[\s\S]*box-shadow: none !important;/);
+  assert.match(styles, /selected-column-cell\.selected-cell\.selection-bottom[\s\S]*border-bottom: 1px solid (var\(--brand\)|#2563eb);/);
   assert.match(cellSelection, /const cells = \[\.\.\.table\.querySelectorAll\(`\.editable-cell\[data-field-id=/);
   assert.match(cellSelection, /cells\.forEach\(\(cell\) => cell\.classList\.add\('selected-column-cell'\)\)/);
   assert.doesNotMatch(cellSelection, /querySelectorAll\(`\[data-field-id=/);

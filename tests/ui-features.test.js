@@ -325,5 +325,5 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(cellEditorJs, /const dropdownHost = editor\.closest\('\.modal-backdrop'\) \|\| document\.body;/);
   assert.match(cellEditorJs, /dropdownHost\.append\(dropdown\)/);
   assert.match(css, /td\.choice-cell-editing \{[\s\S]*position: relative;[\s\S]*box-shadow: none/);
-  assert.match(css, /td\.choice-cell-editing::after[\s\S]*position: absolute;[\s\S]*z-index: 10;[\s\S]*inset: 0;[\s\S]*border: 2px solid #2563eb;[\s\S]*pointer-events: none/);
+  assert.match(css, /td\.choice-cell-editing::after[\s\S]*position: absolute;[\s\S]*z-index: 10;[\s\S]*inset: 0;[\s\S]*border: 2px solid (var\(--brand\)|#2563eb);[\s\S]*pointer-events: none/);
 });

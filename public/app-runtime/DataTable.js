@@ -183,7 +183,9 @@ export function renderListPage(page) {
     const filteredItems = applyViewFilters(items, entity, listConfig);
     const sortedItems = sortRecords(filteredItems, listConfig);
     if (sortedItems.length === 0) {
-      tableBody.append(h('tr', {}, [h('td', { colspan: visibleFields.length + 3, class: 'muted', text: '暂无记录' })]));
+      tableBody.append(h('tr', {}, [h('td', { colspan: visibleFields.length + 3, class: 'empty-illustration' }, [
+        h('p', { text: '暂无记录' })
+      ])]));
       tableBody.append(renderQuickAddRow(entity, visibleFields, listConfig));
       updateSelectionState();
       return;

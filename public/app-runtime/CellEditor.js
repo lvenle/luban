@@ -77,11 +77,15 @@ export function startCellEdit(cell, entity, record, field) {
       pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
       record.data = data;
       import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch((err) => console.error('[AI Trigger]', err));
-      await loadCurrentPageRecords();
-      renderRuntime();
+      // Local update only — avoid full re-render flash
+      cell.classList.remove('cell-editing', 'saving-cell');
+      cell.replaceChildren(renderFieldValue(record.data[field.id], field));
     } catch (error) {
       toast(error.message);
-      renderRuntime();
+      cell.classList.remove('saving-cell');
+      cell.classList.add('cell-error');
+      saved = false;
+      input.focus();
     }
   };
   input.addEventListener('compositionstart', () => {
@@ -99,7 +103,10 @@ export function startCellEdit(cell, entity, record, field) {
   input.addEventListener('keydown', (event) => {
     if (event.isComposing || composing || event.keyCode === 229) return;
     if (event.key === 'Enter' && field.type !== 'textarea' && field.type !== 'richText') input.blur();
-    if (event.key === 'Escape') renderRuntime();
+    if (event.key === 'Escape') {
+      cell.classList.remove('cell-editing');
+      cell.replaceChildren(renderFieldValue(record.data[field.id], field));
+    }
   });
   if (input.tagName === 'SELECT' || input.type === 'checkbox') input.addEventListener('change', save);
   if (input.type === 'file') {

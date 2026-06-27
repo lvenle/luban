@@ -56,17 +56,11 @@ function valueToText(raw, field) {
 let mobileSearchQuery = '';
 
 export function renderMobileRecordList(page) {
-  console.log('[MobileRecordList] rendering', state.isMobile);
   const entity = state.currentApp.schema.entities.find((e) => e.id === page.entity);
   if (!entity) return h('div', { class: 'panel', text: '没有关联的实体。' });
   const allRecords = state.records.filter((r) => r.entityId === entity.id);
   const listConfig = getListConfig(entity);
-  let filtered = sortRecords(applyViewFilters(allRecords, entity, listConfig), listConfig);
-
-  if (mobileSearchQuery) {
-    const q = mobileSearchQuery.toLowerCase();
-    filtered = filtered.filter((r) => JSON.stringify(r.data).toLowerCase().includes(q));
-  }
+  const filtered = sortRecords(applyViewFilters(allRecords, entity, listConfig), listConfig);
 
   const visibleFields = viewOrderedFields(entity, listConfig).filter((f) => listConfig.visibleFields.includes(f.id));
   const titleField = pickTitleField(visibleFields);
@@ -82,7 +76,7 @@ export function renderMobileRecordList(page) {
     const checked = selectedIds.has(record.id);
     const title = titleField ? (valueToText(record.data[titleField.id], titleField) || '未命名') : '记录';
 
-    const card = h('div', { class: `mobile-record-card ${checked ? 'selected' : ''}` }, [
+    const card = h('div', { class: `mobile-record-card ${checked ? 'selected' : ''}`, 'data-record-id': record.id }, [
       h('div', { class: 'mobile-card-main', onclick: () => { openRecordModal(entity, record); } }, [
         h('input', {
           type: 'checkbox', checked: checked ? 'checked' : null,
@@ -147,10 +141,32 @@ export function renderMobileRecordList(page) {
       h('input', {
         class: 'mobile-search-input', placeholder: '搜索全部记录...',
         value: mobileSearchQuery,
-        oninput: (e) => { mobileSearchQuery = e.currentTarget.value; renderRuntime(); }
+        oninput: (e) => {
+          mobileSearchQuery = e.currentTarget.value;
+          const q = mobileSearchQuery.toLowerCase();
+          const list = e.currentTarget.closest('.mobile-record-panel')?.querySelector('.mobile-card-list');
+          if (!list) return;
+          let visible = 0;
+          for (const card of list.children) {
+            const match = !q || card.textContent.toLowerCase().includes(q);
+            card.style.display = match ? '' : 'none';
+            if (match) visible++;
+          }
+          const empty = list.parentElement.querySelector('.mobile-empty-search');
+          if (empty) empty.style.display = visible === 0 ? '' : 'none';
+        }
       }),
-      mobileSearchQuery ? h('button', { class: 'ghost mobile-search-clear', text: '✕', onclick: () => { mobileSearchQuery = ''; renderRuntime(); } }) : null
+      mobileSearchQuery ? h('button', { class: 'ghost mobile-search-clear', text: '✕', onclick: () => {
+        mobileSearchQuery = '';
+        const list = document.querySelector('.mobile-card-list');
+        if (list) for (const card of list.children) card.style.display = '';
+        const empty = document.querySelector('.mobile-empty-search');
+        if (empty) empty.style.display = 'none';
+      } }) : null
     ]),
+
+    ...(cards.length ? cards : [h('div', { class: 'mobile-empty muted', text: '暂无记录' })]),
+    h('div', { class: 'mobile-empty muted mobile-empty-search', style: 'display:none', text: '未找到匹配的记录。' }),
 
     ...(cards.length ? cards : [h('div', { class: 'mobile-empty muted', text: mobileSearchQuery ? '未找到匹配的记录。' : '暂无记录。' })]),
 

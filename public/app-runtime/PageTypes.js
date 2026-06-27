@@ -182,7 +182,9 @@ export function renderPageLineCard(card) {
   const entity = entityById(card.entity);
   const field = entity?.fields?.find((item) => item.id === card.groupBy) || entity?.fields?.[0];
   const rows = groupedCardRows(card, field);
-  if (!rows.length) return h('p', { class: 'muted', text: '暂无数据' });
+  if (!rows.length) return h('div', { class: 'empty-illustration' }, [
+    h('p', { text: '暂无数据' })
+  ]);
   const max = Math.max(1, ...rows.map((r) => r.value));
   const w = 280, h = 100, pad = 4;
   const stepX = rows.length > 1 ? (w - pad * 2) / (rows.length - 1) : 0;
