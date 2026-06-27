@@ -17,7 +17,7 @@ export const state = {
 };
 
 export const root = document.querySelector('#app');
-export const APP_VERSION = '2026.06.25';
+export const APP_VERSION = '2026.06.27';
 
 // Reactive mobile detection
 const mobileMq = window.matchMedia('(max-width: 767px)');
