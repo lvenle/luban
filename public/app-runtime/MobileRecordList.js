@@ -120,7 +120,6 @@ export function renderMobileRecordList(page) {
       h('button', { class: 'danger ghost-menu', text: '删除', onclick: () => { closeCardMenu(); removeRecord(record.id, entity.id); } })
     ]);
     document.body.append(menu);
-    setTimeout(() => document.addEventListener('click', closeCardMenu, { once: true }), 0);
   }
 
   return h('div', { class: 'panel table-panel mobile-record-panel' }, [

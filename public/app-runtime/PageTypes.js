@@ -152,7 +152,7 @@ export function renderPageCardBody(card) {
 
 export function renderPagePieCard(card) {
   const entity = entityById(card.entity);
-  const field = entity?.fields?.find((item) => item.id === card.groupBy) || entity?.fields?.[0];
+  const field = resolveCardGroupField(entity, card.groupBy);
   const rows = groupedCardRows(card, field);
   const total = rows.reduce((s, r) => s + r.value, 0) || 1;
   let conic = '';
@@ -166,7 +166,7 @@ export function renderPagePieCard(card) {
     if (i < rows.length - 1) conic += ', ';
     return { label: row.label, value: row.value, color, pct: Math.round(pct) };
   });
-  return h('div', { class: 'page-card-pie' }, [
+  return h('div', { class: 'page-card-pie-body' }, [
     h('div', { class: 'pie-canvas', style: `background: conic-gradient(${conic})` }),
     h('div', { class: 'pie-legend' }, slices.map((s) =>
       h('div', { class: 'pie-legend-item' }, [
@@ -180,7 +180,7 @@ export function renderPagePieCard(card) {
 
 export function renderPageLineCard(card) {
   const entity = entityById(card.entity);
-  const field = entity?.fields?.find((item) => item.id === card.groupBy) || entity?.fields?.[0];
+  const field = resolveCardGroupField(entity, card.groupBy);
   const rows = groupedCardRows(card, field);
   if (!rows.length) return h('div', { class: 'empty-illustration' }, [
     h('p', { text: '暂无数据' })
@@ -234,7 +234,7 @@ export function renderPageTableCard(card) {
 
 export function renderPageChartCard(card) {
   const entity = entityById(card.entity);
-  const field = entity?.fields?.find((item) => item.id === card.groupBy) || entity?.fields?.[0];
+  const field = resolveCardGroupField(entity, card.groupBy);
   const rows = groupedCardRows(card, field);
   const max = Math.max(1, ...rows.map((row) => row.value));
   return h('div', { class: 'page-card-chart' }, rows.slice(0, 6).map((row) =>
@@ -248,7 +248,7 @@ export function renderPageChartCard(card) {
 
 export function renderPagePivotCard(card) {
   const entity = entityById(card.entity);
-  const field = entity?.fields?.find((item) => item.id === card.groupBy) || entity?.fields?.[0];
+  const field = resolveCardGroupField(entity, card.groupBy);
   const rows = groupedCardRows(card, field);
   return h('table', { class: 'page-mini-table' }, [
     h('thead', {}, [h('tr', {}, [h('th', { text: field?.label || '分组' }), h('th', { text: '数量' })])]),
@@ -286,6 +286,13 @@ export function cardFilterLabel(card) {
   if (filters.some((filter) => filter.op === 'thisMonth')) return '本月';
   if (filters.some((filter) => filter.op === 'today')) return '今日';
   return `${filters.length} 个筛选`;
+}
+
+function resolveCardGroupField(entity, groupBy) {
+  if (!entity || !groupBy) return entity?.fields?.[0];
+  return entity.fields.find((f) => f.id === groupBy)
+    || entity.fields.find((f) => f.label === groupBy)
+    || entity.fields[0];
 }
 
 export function pageCardTitle(card) {

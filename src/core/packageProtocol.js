@@ -331,7 +331,8 @@ export function normalizeTableView(view = {}, entity, index = 0) {
       titleField: next.gantt?.titleField || next.titleField || '',
       startField: next.gantt?.startField || next.startField || '',
       endField: next.gantt?.endField || next.endField || '',
-      progressField: next.gantt?.progressField || next.progressField || ''
+      progressField: next.gantt?.progressField || next.progressField || '',
+      scaleType: next.gantt?.scaleType || 'day'
     };
   }
   delete next.fieldId; delete next.optionIds; delete next.titleField; delete next.startField; delete next.endField; delete next.progressField;

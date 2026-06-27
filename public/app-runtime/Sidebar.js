@@ -1,11 +1,12 @@
 import { h, svgIcon, svgPath, svgLine, buttonLabel } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
-import { openConfirmDialog, openTextModal, bindFloatingMenu } from '../common/modal.js';
+import { openConfirmDialog, openTextModal } from '../common/modal.js';
 import { state, entityFor, recordsFor, storageKey, entityById, writeRoute, uniquePageId } from '../app.js';
 import { toggleSidebarCollapsed } from './RuntimeFrame.js';
 import { loadCurrentPageRecords, renderRuntime, saveCurrentPackage } from './index.js';
-import { getViews } from './ViewBar.js';
+import { getViews, selectFromOptions } from './ViewBar.js';
+import { optionObject } from './FieldEditor.js';
 
 export function clearPageDragStyles() {
   document.querySelectorAll('.page-nav-item').forEach((item) => {
@@ -14,13 +15,16 @@ export function clearPageDragStyles() {
   });
 }
 
+const OLD_TABLE_TYPES = ['table', 'list', 'kanban', 'grid', 'cards', 'calendar', 'timeline', 'gallery', 'spreadsheet', 'board'];
+const OLD_PAGE_TYPES = ['page', 'blank', 'chart', 'dashboard', 'editor', 'form', 'detail', 'stats', 'statistics', 'report', 'summary', 'canvas'];
+
 export function pageNavKind(app, page) {
   // navKind is the source of truth — trust it first
   if (page?.navKind) return page.navKind;
-  // Fallback for old page types without navKind
-  if (page?.source === 'table' || page?.type === 'table' || page?.type === 'list') return 'table';
+  // Fallback for old page types (before normalizePackage runs)
+  if (page?.source === 'table' || OLD_TABLE_TYPES.includes(page?.type)) return 'table';
   if (page?.source === 'link' || page?.type === 'link') return 'link';
-  if (page?.source === 'page' || page?.type === 'page') return 'page';
+  if (page?.source === 'page' || OLD_PAGE_TYPES.includes(page?.type)) return 'page';
   if (page.entity) return 'table';
   return 'page';
 }
@@ -35,20 +39,30 @@ export function pageTypeIcon(navKind) {
   }
   if (navKind === 'link') {
     return svgIcon('0 0 18 18', [
-      svgPath('M7.25 6.1 6.1 7.25a3 3 0 0 0 4.24 4.24l1.15-1.15'),
-      svgPath('M10.75 11.9 11.9 10.75a3 3 0 0 0-4.24-4.24L6.5 7.66'),
-      svgLine(7.4, 10.6, 10.6, 7.4)
+      svgPath('M8.3 5.05a2.19 2.19 0 0 1 3.1 0l1.55 1.55a2.19 2.19 0 0 1 0 3.1l-1.04 1.04'),
+      svgPath('M9.7 12.95a2.19 2.19 0 0 1-3.1 0L5.05 11.4a2.19 2.19 0 0 1 0-3.1l1.04-1.04'),
+      svgLine(8.3, 6.8, 9.7, 11.2)
+    ], 'page-type-svg');
+  }
+  if (navKind === 'dashboard') {
+    return svgIcon('0 0 18 18', [
+      svgPath('M2 3a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z'),
+      svgPath('M9 3a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V3Z'),
+      svgPath('M2 10a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-5Z'),
+      svgPath('M9 10a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5Z')
     ], 'page-type-svg');
   }
   return svgIcon('0 0 18 18', [
-    svgPath('M4 2h6l4 4v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z'),
-    svgPath('M10 2v4h4')
+    svgLine(5, 13, 13, 5),
+    svgLine(9, 5, 13, 5),
+    svgLine(13, 5, 13, 9)
   ], 'page-type-svg');
 }
 
 export function pageTypeLabel(page, navKind = 'page') {
   if (navKind === 'table') return '数据表';
   if (navKind === 'link') return '链接';
+  if (navKind === 'dashboard') return '看板';
   return '页面';
 }
 
@@ -62,12 +76,16 @@ export function renderMobileSidebar(app, page) {
     return h('button', {
       class: `mobile-drawer-item ${item.id === page?.id ? 'active' : ''}`,
       onclick: async () => {
-        if (navKind === 'link' && item.url) { window.open(item.url, '_blank', 'noopener'); return; }
+        if (navKind === 'link' && item.url) { if (item.target !== '_self') { window.open(item.url, '_blank', 'noopener'); return; } state.currentPageId = item.id; state.currentViewId = ''; writeRoute(app.id, item.id, false, ''); state.mobileDrawerOpen = false; renderRuntime(); return; }
         state.currentPageId = item.id;
         await loadCurrentPageRecords();
-        const nextEntity = entityFor(item);
-        const views = getViews(nextEntity);
-        state.currentViewId = views[0]?.id || '';
+        if (item.entity) {
+          const nextEntity = entityFor(item);
+          const views = getViews(nextEntity);
+          state.currentViewId = views[0]?.id || '';
+        } else {
+          state.currentViewId = '';
+        }
         writeRoute(app.id, item.id, false, state.currentViewId);
         state.mobileDrawerOpen = false;
         renderRuntime();
@@ -82,6 +100,7 @@ export function renderMobileSidebar(app, page) {
     pageList,
     h('div', { class: 'mobile-drawer-actions' }, [
       h('button', { class: 'secondary', text: '+ 新建页面', onclick: () => { state.mobileDrawerOpen = false; openCreatePageModal(page); } }),
+      h('button', { class: 'secondary', text: '+ 新建看板', onclick: () => { state.mobileDrawerOpen = false; openCreateDashboardModal(); } }),
       h('button', { class: 'secondary', text: '+ 新建表', onclick: () => { state.mobileDrawerOpen = false; openCreateTableModal(); } }),
       h('button', { class: 'secondary', text: '+ 新增链接', onclick: () => { state.mobileDrawerOpen = false; openCreateLinkModal(); } })
     ])
@@ -109,6 +128,10 @@ export function renderSidebarContent(app, page) {
       h('span', { class: 'button-icon page-icon' }, [pageTypeIcon('page')]),
       h('span', { text: '+ 新建页面' })
     ]),
+    h('button', { class: 'page-button create-dashboard-button', onclick: openCreateDashboardModal }, [
+      h('span', { class: 'button-icon dashboard-icon' }, [pageTypeIcon('dashboard')]),
+      h('span', { text: '+ 新建看板' })
+    ]),
     h('button', { class: 'page-button create-table-button', onclick: openCreateTableModal }, [
       h('span', { class: 'button-icon table-icon' }, [pageTypeIcon('table')]),
       h('span', { text: '+ 新建表' })
@@ -123,56 +146,45 @@ export function renderSidebarContent(app, page) {
 export function renderPageNavItem(app, activePage, item) {
   const entity = item.entity ? app.schema.entities.find((candidate) => candidate.id === item.entity) : null;
   const navKind = pageNavKind(app, item);
-  const isTablePage = item.type === 'table' || item.source === 'table';
-  const menu = bindFloatingMenu(h('details', { class: 'page-menu', onclick: (event) => event.stopPropagation() }, [
-    h('summary', { title: '页面操作' }, '⋮'),
-    h('div', { class: 'page-menu-popover' }, [
-      h('button', {
-        class: 'ghost-menu',
-        text: '重命名',
-        onclick: (event) => {
-          event.preventDefault();
-          menu.open = false;
-          renamePage(item);
-        }
-      }),
-      navKind !== 'link' ? h('button', {
-        class: 'ghost-menu',
-        text: '删除页面',
-        onclick: (event) => {
-          event.preventDefault();
-          menu.open = false;
-          deletePage(item);
-        }
-      }) : h('button', {
-        class: 'ghost-menu',
-        text: '删除链接',
-        onclick: (event) => {
-          event.preventDefault();
-          menu.open = false;
-          deletePage(item);
-        }
-      }),
-      isTablePage && entity ? h('button', {
-        class: 'ghost-menu',
-        text: '清除数据',
-        onclick: (event) => {
-          event.preventDefault();
-          menu.open = false;
-          clearTableData(entity);
-        }
-      }) : null,
-      isTablePage && entity ? h('button', {
-        class: 'ghost-menu danger',
-        text: '删除表',
-        onclick: (event) => {
-          event.preventDefault();
-          menu.open = false;
-          deleteTableAndData(entity);
-        }
-      }) : null
-    ])
-  ]));
+  const isTablePage = navKind === 'table';
+  const btn = h('button', {
+    class: 'page-menu ghost', title: '页面操作', text: '⋮',
+    onclick: (event) => {
+      event.stopPropagation();
+      closePageMenus();
+      const rect = event.currentTarget.getBoundingClientRect();
+      const popover = h('div', { class: 'page-menu-popover fixed-menu' }, [
+        h('button', {
+          class: 'ghost-menu', text: '重命名',
+          onclick: () => { popover.remove(); renamePage(item); }
+        }),
+        navKind !== 'link' ? h('button', {
+          class: 'ghost-menu', text: '删除页面',
+          onclick: () => { popover.remove(); deletePage(item); }
+        }) : h('button', {
+          class: 'ghost-menu', text: '删除链接',
+          onclick: () => { popover.remove(); deletePage(item); }
+        }),
+        navKind === 'link' ? h('button', {
+          class: 'ghost-menu', text: item.target === '_self' ? '切换：新页面打开' : '切换：当前页面打开',
+          onclick: () => { popover.remove(); toggleLinkTarget(item); }
+        }) : null,
+        isTablePage && entity ? h('button', {
+          class: 'ghost-menu', text: '清除数据',
+          onclick: () => { popover.remove(); clearTableData(entity); }
+        }) : null,
+        isTablePage && entity ? h('button', {
+          class: 'ghost-menu danger', text: '删除表',
+          onclick: () => { popover.remove(); deleteTableAndData(entity); }
+        }) : null
+      ].filter(Boolean));
+      const popLeft = rect.right + 4;
+      const popRight = window.innerWidth - popLeft - 160;
+      popover.style.left = popRight > -10 ? `${popLeft}px` : `${window.innerWidth - 164}px`;
+      popover.style.top = `${Math.min(rect.top, window.innerHeight - 200)}px`;
+      document.body.append(popover);
+    }
+  });
   const row = h('div', {
     class: `page-nav-item ${item.id === activePage?.id ? 'active' : ''}`,
     draggable: 'true',
@@ -215,21 +227,49 @@ export function renderPageNavItem(app, activePage, item) {
       text: item.title,
       onclick: async () => {
         if (navKind === 'link' && item.url) {
-          window.open(item.url, '_blank', 'noopener');
+          if (item.target !== '_self') { window.open(item.url, '_blank', 'noopener'); return; }
+          state.currentPageId = item.id;
+          state.currentViewId = '';
+          writeRoute(app.id, item.id, false, '');
+          renderRuntime();
           return;
         }
         state.currentPageId = item.id;
         await loadCurrentPageRecords();
-        const nextEntity = entityFor(item);
-        const views = getViews(nextEntity);
-        state.currentViewId = views[0]?.id || '';
+        if (item.entity) {
+          const nextEntity = entityFor(item);
+          const views = getViews(nextEntity);
+          state.currentViewId = views[0]?.id || '';
+        } else {
+          state.currentViewId = '';
+        }
         writeRoute(app.id, item.id, false, state.currentViewId);
         renderRuntime();
       }
     }),
-    menu
+    btn
   ]);
   return row;
+}
+
+function closePageMenus() {
+  document.querySelectorAll('.page-menu-popover.fixed-menu').forEach((el) => el.remove());
+}
+
+export function closeAllMenus() {
+  document.querySelectorAll('.context-menu, .page-menu-popover.fixed-menu, .mobile-card-menu').forEach((el) => el.remove());
+}
+
+function toggleLinkTarget(item) {
+  const next = item.target === '_self' ? '_blank' : '_self';
+  saveCurrentPackage((pkg) => {
+    const target = pkg.ui.pages.find((p) => p.id === item.id);
+    if (target) target.target = next;
+  }).then(() => {
+    item.target = next;
+    renderRuntime();
+    toast(next === '_self' ? '已切换为当前页面打开' : '已切换为新页面打开');
+  }).catch((err) => toast(err.message));
 }
 
 export async function reorderPage(draggedId, targetId, position = 'before') {
@@ -387,17 +427,17 @@ export function showDeleteTableBlocked(error, entity, title = '不能删除表',
   openTextModal(title, `${error.message}\n\n${detail}\n\n${footer}`);
 }
 
-export function buildBlankPage(title) {
+export function buildBlankPage(title, navKind = 'page') {
   return {
-    id: uniquePageId(title, 'page'),
+    id: uniquePageId(title, navKind),
     title,
-    type: 'blank',
-    navKind: 'page',
+    type: 'page',
+    navKind,
     cards: []
   };
 }
 
-export function buildPageForEntity({ entity, title }) {
+export function buildPageForEntity({ entity, title, view }) {
   return {
     id: uniquePageId(title, entity.id),
     title,
@@ -405,17 +445,84 @@ export function buildPageForEntity({ entity, title }) {
     entity: entity.id,
     navKind: 'page',
     features: ['create', 'edit', 'delete', 'search', 'export'],
-    views: [{ id: 'default', name: '全部记录', type: 'list' }]
+    views: [view || { id: 'default', name: '全部记录', type: 'list' }]
   };
 }
 
 export function openCreatePageModal(sourcePage = null) {
-  const nameInput = h('input', { placeholder: '例如：经营看板' });
+  const nameInput = h('input', { placeholder: '例如：任务管理' });
   const entities = state.currentApp?.schema?.entities || [];
-  const entitySelect = h('select', {}, [
-    h('option', { value: '', text: '（不选择，创建空白页面）' }),
+  if (!entities.length) return toast('请先创建一张数据表。');
+  const entitySelect = h('select', { required: true }, [
+    h('option', { value: '', text: '— 请选择数据表 —' }),
     ...entities.map((e) => h('option', { value: e.id, text: e.name }))
   ]);
+
+  const typeSelect = selectFromOptions([
+    ['list', '表格视图'],
+    ['quadrant', '四象限视图'],
+    ['gantt', '甘特视图']
+  ], 'list');
+  typeSelect.style.width = '100%';
+
+  const configWrapper = h('div', { class: 'view-type-config', style: 'margin-top:8px' });
+  let createButton = null;
+
+  const renderConfig = () => {
+    configWrapper.innerHTML = '';
+    const entityId = entitySelect.value;
+    const entity = entityId ? entities.find((e) => e.id === entityId) : null;
+    if (!entity) return;
+    const type = typeSelect.value;
+
+    if (type === 'quadrant') {
+      const fields = entity.fields.filter((f) => f.type === 'select' && (f.options || []).length >= 4);
+      const fieldSelect = selectFromOptions(fields.map((f) => [f.id, f.label]), fields[0]?.id || '');
+      fieldSelect.dataset.viewConfig = 'quadrantField';
+      configWrapper.append(
+        h('label', { class: 'field' }, [h('span', { text: '四象限字段' }), fieldSelect]),
+        fields.length
+          ? h('p', { class: 'muted field-hint', text: '创建时锁定该字段的前 4 个选项。' })
+          : h('p', { class: 'field-error', text: '需要至少一个包含 4 个选项的单选字段。' })
+      );
+    }
+
+    if (type === 'gantt') {
+      const titleFields = entity.fields.filter((f) => f.type !== 'formula' || f.formula?.resultType === 'text');
+      const dateFields = entity.fields.filter((f) => ['date', 'datetime'].includes(f.type) || (f.type === 'formula' && f.formula?.resultType === 'date'));
+      const progressFields = entity.fields
+        .filter((f) => f.type === 'number' || (f.type === 'formula' && f.formula?.resultType === 'number'))
+        .sort((a, b) => Number(b.format === 'percent' || /进度|progress/i.test(`${b.label} ${b.id}`)) - Number(a.format === 'percent' || /进度|progress/i.test(`${a.label} ${a.id}`)));
+      const title = selectFromOptions(titleFields.map((f) => [f.id, f.label]), titleFields[0]?.id || '');
+      const start = selectFromOptions(dateFields.map((f) => [f.id, f.label]), dateFields[0]?.id || '');
+      const end = selectFromOptions(dateFields.map((f) => [f.id, f.label]), dateFields[1]?.id || dateFields[0]?.id || '');
+      const progress = selectFromOptions([['', '自动识别或按日期计算'], ...progressFields.map((f) => [f.id, f.label])], '');
+      title.dataset.viewConfig = 'titleField'; start.dataset.viewConfig = 'startField'; end.dataset.viewConfig = 'endField'; progress.dataset.viewConfig = 'progressField';
+      configWrapper.append(...[
+          h('label', { class: 'field' }, [h('span', { text: '标题字段' }), title]),
+          h('label', { class: 'field' }, [h('span', { text: '开始日期' }), start]),
+          h('label', { class: 'field' }, [h('span', { text: '结束日期' }), end]),
+          h('label', { class: 'field' }, [h('span', { text: '进度字段（可选）' }), progress]),
+          dateFields.length >= 2 ? null : h('p', { class: 'field-error', text: '甘特视图需要至少两个日期或日期时间字段。' })
+        ].filter(Boolean));
+    }
+
+    if (createButton) {
+      const invalidQuadrant = type === 'quadrant' && !configWrapper.querySelector('[data-view-config="quadrantField"]')?.value;
+      const invalidGantt = type === 'gantt' && (dateFieldsInvalid());
+      createButton.disabled = invalidQuadrant || invalidGantt;
+    }
+  };
+
+  function dateFieldsInvalid() {
+    const start = configWrapper.querySelector('[data-view-config="startField"]')?.value;
+    const end = configWrapper.querySelector('[data-view-config="endField"]')?.value;
+    return !start || !end || start === end;
+  }
+
+  const onChange = () => { renderConfig(); };
+  entitySelect.addEventListener('change', onChange);
+  typeSelect.addEventListener('change', onChange);
 
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal compact-modal' }, [
@@ -424,20 +531,73 @@ export function openCreatePageModal(sourcePage = null) {
         h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
       ]),
       h('div', { class: 'field' }, [h('label', { text: '页面名称' }), nameInput]),
-      h('div', { class: 'field' }, [h('label', { text: '数据表（可选）' }), entitySelect]),
+      h('div', { class: 'field' }, [h('label', { text: '数据表' }), entitySelect]),
+      h('div', { class: 'field' }, [h('label', { text: '视图类型' }), typeSelect, configWrapper]),
       h('div', { class: 'row', style: 'margin-top:14px' }, [
+        h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
         h('button', {
           text: '创建',
           onclick: async () => {
-            const title = nameInput.value.trim() || '空白页面';
+            const title = nameInput.value.trim() || (entitySelect.value ? entities.find((e) => e.id === entitySelect.value)?.name || '页面' : '页面');
             const entityId = entitySelect.value;
-            let page;
-            if (entityId) {
-              const entity = entities.find((e) => e.id === entityId);
-              page = buildPageForEntity({ entity, title });
-            } else {
-              page = buildBlankPage(title);
+            if (!entityId) return toast('请选择一个数据表。');
+            const entity = entities.find((e) => e.id === entityId);
+            const type = typeSelect.value;
+            const view = { id: 'default', name: '全部记录', type };
+            if (type === 'quadrant') {
+              const field = entity.fields.find((f) => f.id === configWrapper.querySelector('[data-view-config="quadrantField"]')?.value);
+              if (!field || (field.options || []).length < 4) return toast('请选择至少包含 4 个选项的单选字段。');
+              view.quadrant = { fieldId: field.id, optionIds: field.options.slice(0, 4).map((opt) => optionObject(opt).id) };
             }
+            if (type === 'gantt') {
+              const titleField = configWrapper.querySelector('[data-view-config="titleField"]')?.value;
+              const startField = configWrapper.querySelector('[data-view-config="startField"]')?.value;
+              const endField = configWrapper.querySelector('[data-view-config="endField"]')?.value;
+              const progressField = configWrapper.querySelector('[data-view-config="progressField"]')?.value || '';
+              if (!titleField || !startField || !endField || startField === endField) return toast('请选择标题字段以及两个不同的日期字段。');
+              view.gantt = { titleField, startField, endField, progressField };
+            }
+            const page = buildPageForEntity({ entity, title, view });
+            try {
+              await saveCurrentPackage((pkg) => {
+                pkg.ui.pages.push(page);
+              });
+              state.currentPageId = page.id;
+              state.currentViewId = 'default';
+              await loadCurrentPageRecords();
+              writeRoute(state.currentApp.id, state.currentPageId, false, 'default');
+              backdrop.remove();
+              renderRuntime();
+              toast('页面已创建');
+            } catch (error) {
+              toast(error.message);
+            }
+          }
+        })
+      ])
+    ])
+  ]);
+  document.body.append(backdrop);
+  // Initial render after DOM append so config fields exist
+  requestAnimationFrame(renderConfig);
+}
+
+export function openCreateDashboardModal() {
+  const nameInput = h('input', { placeholder: '例如：经营看板' });
+  const backdrop = h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal compact-modal' }, [
+      h('div', { class: 'toolbar' }, [
+        h('h3', { text: '新建看板' }),
+        h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
+      ]),
+      h('div', { class: 'field' }, [h('label', { text: '看板名称' }), nameInput]),
+      h('div', { class: 'row', style: 'margin-top:14px' }, [
+        h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
+        h('button', {
+          text: '创建',
+          onclick: async () => {
+            const title = nameInput.value.trim() || '看板';
+            const page = buildBlankPage(title, 'dashboard');
             try {
               await saveCurrentPackage((pkg) => {
                 pkg.ui.pages.push(page);
@@ -448,7 +608,7 @@ export function openCreatePageModal(sourcePage = null) {
               writeRoute(state.currentApp.id, state.currentPageId, false, state.currentViewId);
               backdrop.remove();
               renderRuntime();
-              toast('页面已创建');
+              toast('看板已创建');
             } catch (error) {
               toast(error.message);
             }
@@ -498,6 +658,10 @@ export function openCreateTableModal() {
 export function openCreateLinkModal() {
   const titleInput = h('input', { placeholder: '例如：帮助文档' });
   const urlInput = h('input', { placeholder: 'https://...' });
+  const openInSelect = h('select', { style: 'width:100%' }, [
+    h('option', { value: '_blank', text: '新页面（默认）' }),
+    h('option', { value: '_self', text: '当前页面' })
+  ]);
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal compact-modal' }, [
       h('div', { class: 'toolbar' }, [
@@ -506,7 +670,9 @@ export function openCreateLinkModal() {
       ]),
       h('div', { class: 'field' }, [h('label', { text: '链接名称' }), titleInput]),
       h('div', { class: 'field' }, [h('label', { text: '链接地址' }), urlInput]),
+      h('div', { class: 'field' }, [h('label', { text: '打开位置' }), openInSelect]),
       h('div', { class: 'row', style: 'margin-top:14px' }, [
+        h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
         h('button', {
           text: '创建',
           onclick: async () => {
@@ -514,10 +680,12 @@ export function openCreateLinkModal() {
             const url = urlInput.value.trim();
             if (!title) return toast('请输入链接名称。');
             if (!url) return toast('请输入链接地址。');
+            const fullUrl = url.match(/^https?:\/\//i) ? url : `https://${url}`;
             const linkPage = {
               id: uniquePageId(title, 'link'),
               title,
-              url,
+              url: fullUrl,
+              target: openInSelect.value,
               navKind: 'link'
             };
             try {

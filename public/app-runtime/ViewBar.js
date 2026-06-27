@@ -127,7 +127,8 @@ export function normalizeView(entity, view = {}) {
       titleField: next.gantt?.titleField || '',
       startField: next.gantt?.startField || '',
       endField: next.gantt?.endField || '',
-      progressField: next.gantt?.progressField || ''
+      progressField: next.gantt?.progressField || '',
+      scaleType: next.gantt?.scaleType || 'day'
     };
   }
   next.allFields = fieldIds;
@@ -244,7 +245,6 @@ export function openViewMenu(trigger, entity) {
   ]);
   document.body.append(menu);
   positionViewMenu(trigger, menu);
-  setTimeout(() => document.addEventListener('click', closeViewMenu, { once: true }), 0);
 }
 
 export function positionViewMenu(trigger, menu) {

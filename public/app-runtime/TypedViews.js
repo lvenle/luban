@@ -71,12 +71,13 @@ export function renderGanttView(page, entity, records, view) {
   if (invalidMode.has(view.id)) return renderInvalidRecords(entity, view, invalid, '未排期或日期无效');
   const minimum = valid.length ? Math.min(...valid.map((item) => item.start)) : dayStart(Date.now());
   const maximum = valid.length ? Math.max(...valid.map((item) => item.end)) : minimum + 6 * DAY;
-  const scale = ganttScale(minimum, maximum);
+  const scaleType = config.scaleType || 'day';
+  const scale = ganttScale(minimum, maximum, scaleType);
   const ticks = ganttTicks(minimum, maximum, scale.type);
   const timelineWidth = Math.max(640, ticks.length * scale.width);
   const total = Math.max(DAY, maximum - minimum + DAY);
   return h('div', { class: `${TYPED_PANEL_CLASS} gantt-view` }, [
-    ...renderTypedHeader(entity, view, invalid, '无效记录', `自动${scale.label}刻度`, [h('button', { class: 'secondary icon-label-button', onclick: () => openGanttConfigModal(entity, view) }, buttonLabel('settings', '甘特设置'))]),
+    ...renderTypedHeader(entity, view, invalid, '无效记录', '', [h('button', { class: 'secondary icon-label-button', onclick: () => openGanttConfigModal(entity, view) }, buttonLabel('settings', '甘特设置')), h('select', { class: 'gantt-scale-select', style: 'width:auto;min-width:52px', onchange: (e) => { updateCurrentView(entity, { gantt: { ...config, scaleType: e.currentTarget.value } }); renderRuntime(); } }, [h('option', { value: 'day', text: '日', selected: scaleType === 'day' ? 'selected' : null }), h('option', { value: 'week', text: '周', selected: scaleType === 'week' ? 'selected' : null }), h('option', { value: 'month', text: '月', selected: scaleType === 'month' ? 'selected' : null })])]),
     h('div', { class: 'typed-view-body gantt-scroll' }, [
       h('div', { class: 'gantt-chart', style: `--timeline-width:${timelineWidth}px` }, [
         h('div', { class: 'gantt-axis-row' }, [
@@ -102,10 +103,10 @@ export function renderGanttView(page, entity, records, view) {
   ]);
 }
 
-export function ganttScale(start, end) {
+export function ganttScale(start, end, type) {
   const days = Math.max(1, Math.ceil((end - start) / DAY) + 1);
-  if (days <= 45) return { type: 'day', label: '日', width: 34 };
-  if (days <= 270) return { type: 'week', label: '周', width: 76 };
+  if (type === 'day' || (!type && days <= 45)) return { type: 'day', label: '日', width: 34 };
+  if (type === 'week' || (!type && days <= 270)) return { type: 'week', label: '周', width: 76 };
   return { type: 'month', label: '月', width: 94 };
 }
 
@@ -353,6 +354,7 @@ function openGanttConfigModal(entity, view) {
   const start = selectFromOptions(dateFields.map((f) => [f.id, f.label]), gantt.startField || dateFields[0]?.id || '');
   const end = selectFromOptions(dateFields.map((f) => [f.id, f.label]), gantt.endField || dateFields[1]?.id || dateFields[0]?.id || '');
   const progress = selectFromOptions([['', '自动识别或按日期计算'], ...progressFields.map((f) => [f.id, f.label])], gantt.progressField || '');
+  const scaleType = selectFromOptions([['day', '日'], ['week', '周'], ['month', '月']], gantt.scaleType || 'day');
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal compact-modal' }, [
       h('div', { class: 'toolbar' }, [
@@ -363,11 +365,12 @@ function openGanttConfigModal(entity, view) {
       h('label', { class: 'field' }, [h('span', { text: '开始日期' }), start]),
       h('label', { class: 'field' }, [h('span', { text: '结束日期' }), end]),
       h('label', { class: 'field' }, [h('span', { text: '进度字段（可选）' }), progress]),
+      h('label', { class: 'field' }, [h('span', { text: '刻度' }), scaleType]),
       h('p', { class: 'muted field-hint', text: '百分比格式按 0–1 读取；普通数值可使用 0–1 或 0–100。' }),
       h('div', { class: 'row', style: 'margin-top:14px' }, [
         h('button', { text: '保存', onclick: () => {
           if (!start.value || !end.value || start.value === end.value) return toast('请选择两个不同的日期字段。');
-          updateCurrentView(entity, { gantt: { titleField: title.value, startField: start.value, endField: end.value, progressField: progress.value } });
+          updateCurrentView(entity, { gantt: { titleField: title.value, startField: start.value, endField: end.value, progressField: progress.value, scaleType: scaleType.value } });
           backdrop.remove();
           renderRuntime();
         }}),

@@ -615,8 +615,8 @@ textarea {
 
 .card-menu-popover {
   position: absolute;
-  left: calc(100% + 6px);
-  top: 0;
+  right: 0;
+  top: calc(100% + 4px);
   z-index: 30;
   min-width: 126px;
   display: grid;
@@ -752,6 +752,11 @@ textarea {
   overflow: auto;
 }
 
+.sidebar > .page-list {
+  display: grid;
+  gap: 3px;
+}
+
 .runtime.sidebar-collapsed .sidebar {
   display: flex;
   justify-content: center;
@@ -854,6 +859,7 @@ textarea {
 
 .page-button {
   width: 100%;
+  flex-shrink: 0;
   margin-bottom: 8px;
   text-align: left;
   background: transparent;
@@ -898,6 +904,12 @@ textarea {
   border-color: #e3d7ff;
   background: #f5f3ff;
   color: #6d5bd0;
+}
+
+.button-icon.dashboard-icon {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
 }
 
 .page-list {
@@ -998,6 +1010,47 @@ textarea {
   color: #475569;
 }
 
+.page-type-icon.dashboard {
+  border-color: #b3d4ff;
+  background: #e0f0ff;
+  color: #2563eb;
+}
+
+.link-page-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.link-page-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.link-page-url {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--soft);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.link-page-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+}
+
 .menu-item {
   position: relative;
   width: 100%;
@@ -1019,36 +1072,31 @@ textarea {
 }
 
 .page-nav-item:hover .page-menu,
-.page-nav-item:focus-within .page-menu,
-.page-menu[open] {
+.page-nav-item:focus-within .page-menu {
   opacity: 1;
 }
 
-.page-menu summary {
-  width: 24px;
-  height: 24px;
+.page-menu.ghost {
+  width: 28px;
+  height: 28px;
+  min-width: 0;
+  padding: 0;
   display: grid;
   place-items: center;
   border-radius: var(--radius-sm);
   color: #64748b;
   cursor: pointer;
-  list-style: none;
 }
 
-.page-menu summary::-webkit-details-marker {
-  display: none;
-}
-
-.page-menu summary:hover,
-.page-menu[open] summary {
-  background: transparent;
+.page-menu.ghost:hover {
+  background: #e2e8f0;
   color: #27313f;
 }
 
 .page-menu-popover {
   position: absolute;
-  right: 0;
-  top: 28px;
+  left: 100%;
+  top: 0;
   z-index: 20;
   min-width: 144px;
   padding: 4px;
@@ -1056,6 +1104,11 @@ textarea {
   border-radius: var(--radius-sm);
   background: var(--panel);
   box-shadow: var(--shadow);
+}
+
+.page-menu-popover.fixed-menu {
+  position: fixed;
+  z-index: var(--z-modal);
 }
 
 .page-menu-popover .danger,
@@ -1270,8 +1323,8 @@ textarea {
 
 .card-menu summary:hover,
 .card-menu[open] summary,
-.page-menu summary:hover,
-.page-menu[open] summary,
+.page-menu:hover,
+.page-menu[open],
 .view-menu-trigger:hover {
   background: #e2e8f0;
   color: var(--text);
@@ -1281,9 +1334,15 @@ textarea {
 /* 页面列表的 hover 由整行承载，避免文字按钮和菜单按钮形成不同色块。 */
 .page-nav-item .menu-item:hover,
 .page-nav-item .menu-item.active:hover,
-.page-nav-item .page-menu summary:hover,
-.page-nav-item .page-menu[open] summary {
-  background: transparent;
+.page-nav-item .page-menu.ghost {
+  width: 100%;
+  height: 100%;
+  min-height: 28px;
+}
+
+.page-nav-item .page-menu.ghost:hover {
+  background: #dce1ea;
+  color: #27313f;
 }
 
 .page-nav-item.active:hover,
@@ -1653,6 +1712,12 @@ tbody tr:hover {
   font-size: 12px;
   opacity: 0;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0 20px 0 6px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
 }
 
 .summary-cell:hover .summary-mode-select,
@@ -1701,7 +1766,7 @@ tbody tr:hover {
 }
 
 /* Pie chart card */
-.page-card-pie {
+.page-card-pie-body {
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1866,6 +1931,7 @@ tbody tr:hover {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 10px;
+  padding-right: 28px;
 }
 
 .page-card-filter {
@@ -4628,6 +4694,7 @@ button.assistant-send {
   border: none;
   border-top: 1px solid var(--line);
   margin: 8px 0;
+  flex-shrink: 0;
 }
 
 .create-page-button {

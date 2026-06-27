@@ -59,6 +59,11 @@ export function uniquePageId(title, entityId = 'page') {
 
 async function boot() {
   setupModalAccessibility();
+  // Global menu close: click outside any floating menu closes it
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.context-menu, .page-menu-popover, .view-menu-popover, .mobile-card-menu, .page-menu, .view-menu-trigger, .card-menu-popover, .export-menu-trigger')) return;
+    document.querySelectorAll('.context-menu, .page-menu-popover.fixed-menu, .view-menu-popover, .mobile-card-menu').forEach((el) => el.remove());
+  });
   state.apps = (await api('/api/apps')).apps;
   const route = currentRoute();
   if (route.appId) {
@@ -338,8 +343,23 @@ export function renderPage(page) {
   if (state.loading) return renderLoadingSkeleton();
   if (!page) return h('div', { class: 'panel', text: '这个软件还没有页面。' });
   const kind = page.navKind || 'page';
+  if (kind === 'link' && page.target === '_self' && page.url) return renderLinkPage(page);
   if (kind === 'table') return (pageRenderers.renderListPage || (() => h('div', { text: '加载中...' })))(page);
   return (pageRenderers.renderPageCanvas || (() => h('div', { class: 'blank-page-canvas' })))(page);
+}
+
+function renderLinkPage(page) {
+  return h('div', { class: 'panel link-page-panel' }, [
+    h('div', { class: 'link-page-toolbar' }, [
+      h('span', { class: 'link-page-url', text: page.url }),
+      h('a', { class: 'secondary', href: page.url, target: '_blank', text: '新窗口打开' })
+    ]),
+    h('iframe', {
+      class: 'link-page-iframe',
+      src: page.url,
+      sandbox: 'allow-scripts allow-same-origin allow-forms allow-popups'
+    })
+  ]);
 }
 
 // Initialize undo/redo keyboard shortcuts once on load

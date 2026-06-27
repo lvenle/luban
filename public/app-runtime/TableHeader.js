@@ -31,7 +31,7 @@ export function renderResizableHeader(entity, field, nextField, listConfig, visi
       ondblclick: (event) => {
         event.preventDefault();
         event.stopPropagation();
-        startHeaderLabelEdit(header, entity, field);
+        openFieldEditModal(entity, field);
       },
       oncontextmenu: (event) => {
         event.preventDefault();
@@ -145,7 +145,7 @@ export function startHeaderLabelEdit(header, entity, field) {
 
 export function openHeaderContextMenu(event, entity, field, listConfig) {
   closeContextMenu();
-  const menu = h('div', { class: 'context-menu', style: `left:${event.clientX}px; top:${event.clientY}px` }, [
+  const menu = h('div', { class: 'context-menu', style: `left:${Math.min(event.clientX, window.innerWidth - 160)}px; top:${event.clientY}px` }, [
     h('button', { class: 'ghost-menu', text: '编辑字段', onclick: () => { openFieldEditModal(entity, field); closeContextMenu(); } }),
     h('button', { class: 'ghost-menu', text: '隐藏字段', onclick: () => { hideFieldInView(entity, field.id); closeContextMenu(); } }),
     h('button', { class: 'ghost-menu', text: listConfig.frozenFieldId === field.id ? '取消冻结' : '冻结到此列', onclick: () => { freezeThroughField(entity, field.id, listConfig); closeContextMenu(); } }),
@@ -160,7 +160,6 @@ export function openHeaderContextMenu(event, entity, field, listConfig) {
     h('button', { class: 'danger ghost-menu', text: '删除字段', onclick: () => { deleteField(entity, field); closeContextMenu(); } })
   ]);
   document.body.append(menu);
-  setTimeout(() => document.addEventListener('click', closeContextMenu, { once: true }), 0);
 }
 
 export function bindHeaderColumnDrag(header, entity, field, listConfig) {
@@ -310,7 +309,7 @@ export function openCellContextMenu(event, entity, record) {
   event.preventDefault();
   event.stopPropagation();
   closeContextMenu();
-  const menu = h('div', { class: 'context-menu', style: `left:${event.clientX}px; top:${event.clientY}px` }, [
+  const menu = h('div', { class: 'context-menu', style: `left:${Math.min(event.clientX, window.innerWidth - 160)}px; top:${event.clientY}px` }, [
     h('button', { class: 'ghost-menu', text: '向上插入行', onclick: () => { insertRowAround(entity, record, 'above'); closeContextMenu(); } }),
     h('button', { class: 'ghost-menu', text: '向下插入行', onclick: () => { insertRowAround(entity, record, 'below'); closeContextMenu(); } }),
     h('div', { class: 'context-menu-sep' }),
@@ -319,7 +318,6 @@ export function openCellContextMenu(event, entity, record) {
     h('button', { class: 'danger ghost-menu', text: '删除行', onclick: () => { closeContextMenu(); removeRecord(record.id, entity.id); } })
   ]);
   document.body.append(menu);
-  setTimeout(() => document.addEventListener('click', closeContextMenu, { once: true }), 0);
 }
 
 async function duplicateRecordRow(entity, record) {
