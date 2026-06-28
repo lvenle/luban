@@ -1,3 +1,12 @@
+import { isSingleChoiceField, isMultiChoiceField, isFormulaField, isRelationField } from './fieldTypeHelpers.js';
+
+export class FormulaError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'FormulaError';
+  }
+}
+
 const FUNCTIONS = new Set([
   'IF', 'ROUND', 'CONCAT', 'DATEADD', 'DATEDIFF', 'ABS', 'MIN', 'MAX',
   'LEN', 'UPPER', 'LOWER', 'TODAY',
@@ -84,11 +93,11 @@ export function calculateFormulaFields(entity, data, options = {}) {
   // 暂存原始值并在公式计算后恢复，避免污染业务数据。
   const selectOriginals = {};
   for (const field of entity?.fields || []) {
-    if (field.type === 'select' && next[field.id] != null) {
+    if (isSingleChoiceField(field) && next[field.id] != null) {
       const option = (field.options || []).find((opt) => opt.id === next[field.id]);
       if (option) { selectOriginals[field.id] = next[field.id]; next[field.id] = option.label; }
     }
-    if (field.type === 'multiSelect' && Array.isArray(next[field.id])) {
+    if (isMultiChoiceField(field) && Array.isArray(next[field.id])) {
       selectOriginals[field.id] = next[field.id];
       next[field.id] = next[field.id].map((id) => {
         const option = (field.options || []).find((opt) => opt.id === id);
@@ -114,12 +123,12 @@ export function calculateFormulaFields(entity, data, options = {}) {
 
 export function formulaDependents(entity, fieldId) {
   return (entity?.fields || []).filter((field) =>
-    field.type === 'formula' && (field.formula?.dependencies || []).includes(fieldId)
+    isFormulaField(field) && (field.formula?.dependencies || []).includes(fieldId)
   );
 }
 
 export function renameFormulaBinding(field, fieldId, nextLabel) {
-  if (field.type !== 'formula' || !field.formula?.bindings) return;
+  if (!isFormulaField(field) || !field.formula?.bindings) return;
   const bindings = { ...field.formula.bindings };
   let expression = field.formula.expression || '';
   for (const [token, id] of Object.entries(bindings)) {
@@ -285,8 +294,8 @@ function bindFields(node, entity, existingBindings, bindings, dependencies) {
     );
     if (candidates.length !== 1) throw new FormulaError(candidates.length ? `字段引用不唯一：${node.token}` : `找不到字段：${node.token}`);
     const field = candidates[0];
-    if (field.type === 'formula') throw new FormulaError(`公式不能引用公式字段：${field.label}`);
-    if (field.type === 'relation') throw new FormulaError(`公式不能引用关联字段：${field.label}`);
+    if (isFormulaField(field)) throw new FormulaError(`公式不能引用公式字段：${field.label}`);
+    if (isRelationField(field)) throw new FormulaError(`公式不能引用关联字段：${field.label}`);
     node.fieldId = field.id;
     bindings[node.token] = field.id;
     dependencies.push(field.id);

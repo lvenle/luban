@@ -1,61 +1,16 @@
 import { normalizeFieldId, slugify } from './ids.js';
 import { compileFormula, normalizeFormulaField } from './formula.js';
+import {
+  FIELD_TYPES,
+  TABLE_VIEW_TYPES,
+  SELECT_COLORS,
+  PAGE_TYPES,
+  ACTION_TYPES,
+  PATCH_OPS
+} from './contract.js';
 
-export const FIELD_TYPES = new Set([
-  'text',
-  'textarea',
-  'number',
-  'date',
-  'datetime',
-  'url',
-  'select',
-  'multiSelect',
-  'boolean',
-  'relation',
-  'image',
-  'file',
-  'richText',
-  'formula',
-  'ai'
-]);
-
-export const TABLE_VIEW_TYPES = new Set(['list', 'quadrant', 'gantt']);
-
-export const SELECT_COLORS = [
-  'gray', 'red', 'orange', 'yellow', 'lime', 'green', 
-  'cyan', 'blue', 'purple', 'pink'
-];
-
-export const PAGE_TYPES = new Set(['page', 'table', 'link']);
-
-export const ACTION_TYPES = new Set([
-  'ai.generateText',
-  'ai.rewriteText',
-  'ai.summarize',
-  'data.createRecord',
-  'data.updateRecord',
-  'data.queryRecords',
-  'export.markdown',
-  'export.json',
-  'export.csv'
-]);
-
-const PATCH_OPS = new Set([
-  'renameApp',
-  'updateDescription',
-  'addEntity',
-  'renameEntity',
-  'addField',
-  'updateField',
-  'removeField',
-  'addPage',
-  'updatePage',
-  'removePage',
-  'addAction',
-  'updateAction',
-  'removeAction',
-  'addSuggestedCommand'
-]);
+// Re-export for backward compatibility
+export { FIELD_TYPES, TABLE_VIEW_TYPES, SELECT_COLORS, PAGE_TYPES, ACTION_TYPES };
 
 export function normalizePackage(pkg) {
   const next = structuredClone(pkg);
@@ -88,16 +43,16 @@ export function normalizePackage(pkg) {
       field.label = field.label || field.displayName || field.name || field.id;
       field.type = normalizeFieldType(field.type || 'text');
       delete field.required;
-      if (field.type === 'select' || field.type === 'multiSelect') {
+      if (FIELD_TYPES[field.type]?.isChoiceType) {
         field.options = normalizeOptions(field.options || field.config?.options || []);
         field.config = { ...(field.config || {}), options: field.options };
       }
-      if (field.type === 'relation') {
+      if (FIELD_TYPES[field.type]?.isRelationType) {
         normalizeRelationField(field, next.schema.entities);
       }
     }
     for (const field of entity.fields) {
-      if (field.type === 'formula' && field.formula?.expression && Object.keys(idMapping).length) {
+      if (FIELD_TYPES[field.type]?.isFormulaType && field.formula?.expression && Object.keys(idMapping).length) {
         for (const [oldId, newId] of Object.entries(idMapping)) {
           field.formula.expression = field.formula.expression.replaceAll(`{${oldId}}`, `{${newId}}`);
         }
@@ -107,7 +62,7 @@ export function normalizePackage(pkg) {
     for (const field of entity.fields) {
       if (field.type !== 'formula' || !field.formula?.expression) continue;
       for (const refField of entity.fields) {
-        if (refField.type !== 'select' && refField.type !== 'multiSelect') continue;
+        if (!FIELD_TYPES[refField.type]?.isChoiceType) continue;
         for (const option of refField.options || []) {
           if (!option.id || !option.id.startsWith('opt_')) continue;
           field.formula.expression = field.formula.expression
@@ -117,7 +72,7 @@ export function normalizePackage(pkg) {
       }
     }
     for (const field of entity.fields) {
-      if (field.type === 'formula') normalizeFormulaField(field, entity);
+      if (FIELD_TYPES[field.type]?.isFormulaType) normalizeFormulaField(field, entity);
     }
     const entityFieldIds = new Set(entity.fields.map((field) => field.id));
     if (entity.formLayout) {
@@ -140,7 +95,7 @@ export function normalizePackage(pkg) {
     page.id = slugify(page.id || page.name || page.title || page.displayName || page.type, 'page');
     page.title = page.title || page.displayName || page.name || page.id;
     page.type = normalizePageType(page.type || 'list');
-    if (page.type === 'table' || page.type === 'page') page.pageSize = clampPageSize(page.pageSize, 100);
+    if (PAGE_TYPES[page.type]?.hasPageSize) page.pageSize = clampPageSize(page.pageSize, 100);
     if (!page.entity && page.bindEntity) page.entity = normalizeFieldId(page.bindEntity, 'entity');
     if (page.entity) page.entity = normalizeFieldId(page.entity, 'entity');
     const entity = next.schema.entities.find((item) => item.id === page.entity);
@@ -265,7 +220,7 @@ export function normalizeFieldType(type) {
 
 function normalizePageType(type) {
   const value = String(type || '').trim();
-  // Unified to 3 types: page, table, link
+  // Unified to 4 types: page, table, link, dashboard
   const map = {
     table: 'table',
     list: 'table',
@@ -279,7 +234,7 @@ function normalizePageType(type) {
     board: 'table',
     blank: 'page',
     chart: 'page',
-    dashboard: 'page',
+    dashboard: 'dashboard',
     editor: 'page',
     form: 'page',
     detail: 'page',
@@ -423,7 +378,7 @@ function normalizeRelationField(field, entities) {
   } else {
     // 未指定展示字段时，自动选择目标实体的第一个 text 字段
     const target = (entities || []).find((e) => e.id === field.targetEntity);
-    const firstTextField = target?.fields?.find((f) => f.type === 'text');
+    const firstTextField = target?.fields?.find((f) => FIELD_TYPES[f.type]?.id === 'text');
     field.displayField = firstTextField?.id || normalizeFieldId('name', 'field');
   }
   field.multiple = Boolean(field.multiple ?? config.multiple);
@@ -462,16 +417,16 @@ export function validatePackage(pkg) {
       if (fieldIds.has(field.id)) errors.push(`实体 ${entity.id} 字段 ID 重复：${field.id}`);
       fieldIds.add(field.id);
       if (!FIELD_TYPES.has(field.type)) errors.push(`字段 ${field.id} 类型不支持：${field.type}`);
-      if ((field.type === 'select' || field.type === 'multiSelect') && !Array.isArray(field.options)) {
+      if ((FIELD_TYPES[field.type]?.isChoiceType) && !Array.isArray(field.options)) {
         errors.push(`字段 ${field.id} 的 options 必须是数组。`);
       }
-      if (field.type === 'select' || field.type === 'multiSelect') {
+      if (FIELD_TYPES[field.type]?.isChoiceType) {
         for (const option of field.options || []) {
           if (!option?.id || !option?.label) errors.push(`字段 ${field.id} 的选项必须包含 id 和 label。`);
           if (!SELECT_COLORS.includes(option?.color)) errors.push(`字段 ${field.id} 的选项颜色不支持：${option?.color}`);
         }
       }
-      if (field.type === 'formula') {
+      if (FIELD_TYPES[field.type]?.isFormulaType) {
         try {
           const compiled = compileFormula(field.formula?.expression, entity, field.formula?.bindings || {});
           if (!['number', 'date', 'text'].includes(field.formula?.resultType)) errors.push(`公式字段 ${field.id} 缺少有效结果类型。`);
@@ -480,7 +435,7 @@ export function validatePackage(pkg) {
           errors.push(`公式字段 ${field.id} 无效：${error.message}`);
         }
       }
-      if (field.type === 'ai') {
+      if (FIELD_TYPES[field.type]?.isAiType) {
         if (!field.aiConfig?.prompt) errors.push(`AI 字段 ${field.id} 缺少提示词。`);
         if (!Array.isArray(field.aiConfig?.triggerFieldIds) || field.aiConfig.triggerFieldIds.length === 0) {
           errors.push(`AI 字段 ${field.id} 需要至少一个触发字段。`);
@@ -493,7 +448,7 @@ export function validatePackage(pkg) {
   }
   for (const entity of entities) {
     for (const field of entity.fields || []) {
-      if (field.type !== 'relation') continue;
+      if (!FIELD_TYPES[field.type]?.isRelationType) continue;
       const target = entities.find((item) => item.id === field.targetEntity);
       if (!field.targetEntity || !target) errors.push(`关联字段 ${field.id} 引用了不存在的目标表：${field.targetEntity || ''}`);
       if (!field.displayField || (target && !target.fields?.some((item) => item.id === field.displayField))) {
@@ -501,7 +456,7 @@ export function validatePackage(pkg) {
       }
     }
   }
-  const hasTable = (pkg?.ui?.pages || []).some((page) => page.type === 'table' || (page.type === 'page' && page.entity));
+  const hasTable = (pkg?.ui?.pages || []).some((page) => PAGE_TYPES[page.type]?.id === 'table' || (PAGE_TYPES[page.type]?.id === 'page' && page.entity));
   if (!hasTable) errors.push('ui.pages 至少需要一个数据页面（table 或关联实体的 page）。');
   const pageIds = new Set();
   for (const page of pkg?.ui?.pages || []) {
@@ -542,7 +497,7 @@ export function validatePackage(pkg) {
 }
 
 function isNumericField(field) {
-  return field?.type === 'number' || (field?.type === 'formula' && field.formula?.resultType === 'number');
+  return !!(FIELD_TYPES[field?.type]?.isNumericType) || (!!FIELD_TYPES[field?.type]?.isFormulaType && field.formula?.resultType === 'number');
 }
 
 export function preparePackage(pkg) {
@@ -674,10 +629,10 @@ function normalizePatchPayload(operation) {
     next.field.id = normalizeFieldId(next.field.id || next.field.name || next.field.label, 'field');
     next.field.label ||= next.field.displayName || next.field.name || next.field.id;
     next.field.type = normalizeFieldType(next.field.type || 'text');
-    if (next.field.type === 'select' || next.field.type === 'multiSelect') {
+    if (FIELD_TYPES[next.field.type]?.isChoiceType) {
       next.field.options = normalizeOptions(next.field.options || next.field.values || []);
     }
-    if (next.field.type === 'relation') normalizeRelationField(next.field);
+    if (FIELD_TYPES[next.field.type]?.isRelationType) normalizeRelationField(next.field);
   }
   if (next.fieldId) next.fieldId = normalizeFieldId(next.fieldId, 'field');
 
@@ -690,8 +645,8 @@ function normalizePatchPayload(operation) {
         field.id = normalizeFieldId(field.id || field.label || field.name, 'field');
         field.label ||= field.displayName || field.name || field.id;
         field.type = normalizeFieldType(field.type || 'text');
-        if (field.type === 'relation') normalizeRelationField(field);
-        if (field.type === 'select' || field.type === 'multiSelect') {
+        if (FIELD_TYPES[field.type]?.isRelationType) normalizeRelationField(field);
+        if (FIELD_TYPES[field.type]?.isChoiceType) {
           field.options = normalizeOptions(field.options || field.values || []);
         }
       }
@@ -805,12 +760,12 @@ function applyOperation(pkg, operation) {
 function resolveRelationDisplayFields(pkg) {
   for (const entity of pkg.schema.entities) {
     for (const field of entity.fields) {
-      if (field.type !== 'relation') continue;
+      if (!FIELD_TYPES[field.type]?.isRelationType) continue;
       if (field.displayField && field.displayField !== 'field') continue;
       const target = pkg.schema.entities.find((e) => e.id === field.targetEntity);
       if (!target || !target.fields.length) continue;
       const best = target.fields.find((f) => f.id === 'name' || f.id === 'title' || f.label === '名称' || f.label === '标题' || f.label === '姓名')
-        || target.fields.find((f) => f.type === 'text')
+        || target.fields.find((f) => FIELD_TYPES[f.type]?.id === 'text')
         || target.fields[0];
       if (best) {
         field.displayField = best.id;

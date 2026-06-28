@@ -35,7 +35,7 @@ test('50 generated app scenarios are usable through HTTP runtime APIs', async ()
       generatedNames.add(app.name);
       assert.ok(created.appId, prompt);
       assert.ok(app.schema.entities.length >= 1, prompt);
-      assert.ok(app.ui.pages.some((page) => page.type === 'list'), prompt);
+      assert.ok(app.ui.pages.some((page) => page.type === 'table'), prompt);
 
       const entity = app.schema.entities[0];
       const marker = `验收记录-${index}`;

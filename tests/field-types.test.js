@@ -58,9 +58,8 @@ test('new field UI and AI tools expose url but do not offer boolean', () => {
   assert.doesNotMatch(fieldEditor, /\['boolean', '复选框'\]/);
   assert.match(cellEditor, /field\.type === 'url'/);
   assert.match(cellEditor, /class: 'cell-link url-link'/);
-  assert.match(addField, /'url'/);
-  assert.doesNotMatch(addField.match(/const FIELD_TYPES = \[[^\n]+/)?.[0] || '', /'boolean'/);
-  assert.doesNotMatch(updateField.match(/const FIELD_TYPES = \[[^\n]+/)?.[0] || '', /'boolean'/);
+  assert.match(addField, /TOOL_FIELD_TYPES[\s\S]*filter.*t !== 'boolean'/);
+  assert.match(updateField, /TOOL_FIELD_TYPES[\s\S]*filter.*t !== 'boolean'/);
 });
 
 function source(relativePath) { return readFileSync(new URL(relativePath, import.meta.url), 'utf8'); }

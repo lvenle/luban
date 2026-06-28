@@ -1,8 +1,10 @@
+import { isSingleChoiceField, isMultiChoiceField, isRelationField, isFileLikeField } from '../core/fieldTypeHelpers.js';
+
 export function displayExportValue(value, field = {}) {
-  if (field.type === 'select') return optionLabel(field, value);
-  if (field.type === 'multiSelect') return (Array.isArray(value) ? value : []).map((item) => optionLabel(field, item)).join('、');
-  if (field.type === 'relation') return (Array.isArray(value) ? value : [value]).filter(Boolean).map((item) => item.displayValue || item).join('、');
-  if (field.type === 'image' || field.type === 'file') return fileLabel(value);
+  if (isSingleChoiceField(field)) return optionLabel(field, value);
+  if (isMultiChoiceField(field)) return (Array.isArray(value) ? value : []).map((item) => optionLabel(field, item)).join('、');
+  if (isRelationField(field)) return (Array.isArray(value) ? value : [value]).filter(Boolean).map((item) => item.displayValue || item).join('、');
+  if (isFileLikeField(field)) return fileLabel(value);
   if (Array.isArray(value)) return value.join('、');
   if (value && typeof value === 'object') return value.displayValue || value.label || value.optionId || '';
   if (typeof value === 'boolean') return value ? '是' : '否';

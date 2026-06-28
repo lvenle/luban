@@ -1,14 +1,16 @@
 import { register } from '../registry.js';
 import { getApp } from '../../models/app.js';
 import { createFieldsInApp } from '../../services/operations.js';
+import { FIELD_TYPES } from '../../core/contract.js';
+import { isFormulaField } from '../../core/fieldTypeHelpers.js';
 
-const FIELD_TYPES = ['text', 'url', 'number', 'textarea', 'select', 'multiSelect', 'date', 'datetime', 'image', 'file', 'formula', 'richText', 'relation'];
+const TOOL_FIELD_TYPES = [...FIELD_TYPES].filter((t) => t !== 'boolean' && t !== 'ai');
 const FIELD_SCHEMA = {
   type: 'object',
   properties: {
     id: { type: 'string', description: 'Optional field ID' },
     label: { type: 'string', description: 'Field display name' },
-    type: { type: 'string', enum: FIELD_TYPES, description: 'Field type' },
+    type: { type: 'string', enum: TOOL_FIELD_TYPES, description: 'Field type' },
     options: { type: 'array', items: { type: 'string' }, description: 'Options for select/multiSelect fields' },
     formula: {
       type: 'object',
@@ -38,7 +40,7 @@ register({
           entityId: { type: 'string', description: 'Entity/table ID' },
           fields: { type: 'array', minItems: 1, items: FIELD_SCHEMA, description: 'All fields to add in this single call' },
           label: { type: 'string', description: 'Field display name' },
-          type: { type: 'string', enum: FIELD_TYPES, description: 'Legacy single-field type' },
+          type: { type: 'string', enum: TOOL_FIELD_TYPES, description: 'Legacy single-field type' },
           options: { type: 'array', items: { type: 'string' }, description: 'Options for select/multiSelect fields' },
           formula: { type: 'object', description: 'Formula definition for formula fields' }
         },
@@ -66,6 +68,6 @@ function normalizeToolField(field) {
   const normalized = { id: field.id, label: field.label, type: legacyBoolean ? 'select' : field.type };
   const options = legacyBoolean ? ['否', '是'] : field.options;
   if (options) normalized.options = options.map((option) => typeof option === 'string' ? { id: option, label: option } : option);
-  if (field.type === 'formula') normalized.formula = field.formula;
+  if (isFormulaField(field)) normalized.formula = field.formula;
   return normalized;
 }

@@ -14,7 +14,7 @@
 │                                                                      │
 │   ┌──────────┐  ┌──────────────┐  ┌──────────────┐  ┌───────────┐  │
 │   │ Home 页  │  │ Runtime      │  │ AI 助理抽屉  │  │ 设置 Modal│  │
-│   │ App 网格 │  │ 三栏布局     │  │ 对话/计划/执 │  │ AI 配置   │  │
+│   │ App 网格 │  │ 三栏布局     │  │ SSE 对话/工具│  │ AI 配置   │  │
 │   │ 分类筛选 │  │ 侧栏+工作区  │  │ 行/历史记录  │  │           │  │
 │   └──────────┘  └──────────────┘  └──────────────┘  └───────────┘  │
 │                                                                      │
@@ -36,7 +36,7 @@
 │   └──────────┘ └─────────────────┘ └──────────────────────────┘     │
 │                                                                      │
 │   ┌────────────┐ ┌───────────────┐ ┌────────────┐ ┌────────────┐   │
-│   │ storage/db │ │ ai/service    │ │ ai/agent   │ │ services/  │   │
+│   │ storage/db │ │ ai/service  │ │ ai/agent   │ │ services/  │   │
 │   │ SQLite 层  │ │ AI + Mock     │ │ .js        │ │ .js        │   │
 │   │ CRUD       │ │ 50+ 场景      │ │ Agent 逻辑 │ │ Action 执行│   │
 │   │ 关系处理   │ │ Patch 生成    │ │ 意图识别   │ │ 内置 Action│   │
@@ -99,12 +99,11 @@
 | | `DELETE /api/apps/:id/tables/:eid/records` | 清空表记录 |
 | | `POST /api/apps/:id/tables/:eid/import` | 导入 CSV/XLSX |
 | | `GET/POST /api/apps/:id/tables/:eid/fields` | 字段列表/创建 |
-| AI 助手 | `GET /api/ai/sessions` | 会话列表 |
-| | `GET /api/ai/sessions/:id` | 会话详情 |
-| | `POST /api/ai/plan` | 生成 AI 计划 |
-| | `POST /api/ai/sessions/:id/revise` | 修订计划 |
-| | `POST /api/ai/sessions/:id/execute` | 执行计划 |
-| | `POST /api/ai/sessions/:id/cancel` | 取消会话 |
+| AI 助手 | `POST /api/ai/chat` | SSE 流式对话（主要 AI 入口） |
+| | `POST /api/ai/chat/confirm` | 确认高风险工具操作 |
+| | `POST /api/ai/generate-options` | AI 生成 select 选项 |
+| | `GET /api/ai/sessions` | 会话列表 |
+| | `GET /api/ai/sessions/:id` | 会话详情（含消息和执行日志） |
 | 配置 | `GET/PUT /api/settings` | AI 设置读写 |
 | Action | `POST /api/apps/:id/actions/:aid/run` | 执行 Action |
 | 文件 | `POST /api/apps/:id/uploads` | 上传文件 |
@@ -123,9 +122,9 @@
 | `apps` | 应用存储 | id, slug, name, manifestJson, schemaJson, uiJson, actionsJson, promptsJson, category, version |
 | `records` | 记录存储 | id, appId, entityId, dataJson, createdAt, updatedAt |
 | `record_relations` | 跨实体关联 | id, sourceRecordId, fieldId, targetRecordId, targetEntityId |
-| `ai_sessions` | AI 会话 | id, appId, status(created/clarifying/waiting_confirmation/executing/completed/cancelled), planJson, resultAppId |
-| `ai_messages` | 对话消息 | id, sessionId, role(user/assistant), content, createdAt |
-| `ai_execution_logs` | 执行日志 | id, sessionId, step, status, message, createdAt |
+| `ai_sessions` | AI 会话 | id, appId, type(create/modify), status(idle/completed), createdAt, updatedAt |
+| `ai_messages` | 对话消息 | id, sessionId, role(user/assistant), content, structuredContentJson, createdAt |
+| `ai_execution_logs` | 执行日志 | id, sessionId, stepName, toolName, status, inputJson, outputJson, error, createdAt |
 | `settings` | KV 配置 | key, value |
 
 **核心功能**：
@@ -162,21 +161,23 @@ app.sgpkg
 └── sample-data.json    # 可选样本数据
 ```
 
-**字段类型**（13 种）：
+**字段类型**（15 种）：
 
-`text`, `textarea`, `number`, `date`, `datetime`, `select`, `multiSelect`, `boolean`, `relation`, `image`, `file`, `richText`, `formula`
+`text`, `textarea`, `number`, `date`, `datetime`, `url`, `select`, `multiSelect`, `boolean`, `relation`, `image`, `file`, `richText`, `formula`, `ai`
 
-**页面类型**（7 种）：
+**页面类型**（4 种）：
 
-`blank`, `list`, `form`, `detail`, `dashboard`, `chart`, `editor`
+`page`, `table`, `link`, `dashboard`
 
-**Action 类型**（8 种）：
+> 过去已有的别名（blank→page, list→table, chart→page 等）由 `normalizePageType()` 自动收口。dashboard 是独立类型，不走收口。
 
-`ai.generateText`, `ai.rewriteText`, `ai.summarize`, `data.createRecord`, `data.updateRecord`, `data.queryRecords`, `export.markdown`, `export.json`, `export.csv`
+**Action 类型**（10 种）：
 
-**Patch 操作**（16 种）：
+`ai.generateText`, `ai.rewriteText`, `ai.summarize`, `data.createRecord`, `data.updateRecord`, `data.queryRecords`, `data.deleteRecord`, `export.markdown`, `export.json`, `export.csv`
 
-`renameApp`, `updateDescription`, `addEntity`, `renameEntity`, `addField`, `updateField`, `removeField`, `addPage`, `updatePage`, `removePage`, `addAction`, `updateAction`, `removeAction`, `addSuggestedCommand`, `removeSuggestedCommand`, `renameTable`
+**Patch 操作**（14 种）：
+
+`renameApp`, `updateDescription`, `addEntity`, `renameEntity`, `addField`, `updateField`, `removeField`, `addPage`, `updatePage`, `removePage`, `addAction`, `updateAction`, `removeAction`, `addSuggestedCommand`
 
 **核心流程**：
 
@@ -200,7 +201,7 @@ applyPatch(pkg, patch)
 
 ---
 
-### 4. `src/ai.js` — AI 集成与 Mock 生成器
+### 4. `src/ai/service.js` — AI 集成与 Mock 生成器
 
 **双模式**：
 
@@ -247,28 +248,19 @@ generatePatchFromPrompt(prompt, currentPackage, settings)
 
 ---
 
-### 5. `src/agent.js` — AI 代理意图识别
+### 5. `src/agent.js` — 遗留意图识别（旧 planning flow）
+
+**注意：** 当前主要 AI 入口是 `POST /api/ai/chat`（SSE 流式对话），agent.js 是旧规划执行流程的遗留模块，保留用于兼容。
 
 **意图类型**（10 种）：
 
 `CreateApp`, `CreateTable`, `CreatePage`, `AddField`, `CreateRelation`, `ModifySchema`, `DeleteSchema`, `QuerySchema`, `AnalyzeData`, `GeneralChat`
 
-**核心流程**：
+**接口**：
 
-```
-understandAgentRequest(prompt, { app, session })
-  → detectIntent(text, app)     // 正则匹配中文意图
-  → buildAgentContext()          // 构建当前上下文
-  → clarifyRequest()              // 信息不足时生成澄清问题
-  → return { state: 'CLARIFY' | 'PLAN', intent, context, clarification }
-```
-
-**澄清流程**：
-- 用户第一次请求不明确 → 返回 CLARIFY + 问题列表
-- 用户补充信息 → 生成完整 Plan
-- Plan 等待用户确认（`waiting_confirmation`）
-- 用户确认 → 执行（`completed`）
-- 用户取消 → 标记 `cancelled`
+- `understandAgentRequest(prompt, { app, session })` — 正则匹配中文意图，返回 `CLARIFY` / `PLAN` 状态
+- `buildPlanningPrompt(prompt, opts)` — 构建 AI 规划提示词
+- `describePlan(plan)` — 生成 Plan 的人类可读摘要
 
 ---
 
@@ -338,7 +330,7 @@ runAction(app, actionId)
 | `renderRuntime()` | 运行框架 | 三栏布局（侧栏 + 工作区 + 助理抽屉） |
 | `renderListPage(page)` | 列表页 | 数据表 + 视图 + 搜索/排序/筛选/分组 + 行内编辑 + 批量操作 + 汇总行 + 列管理 |
 | `renderChartPage(page)` | 图表页 | 柱状图统计（按字段分组、计数/求和/平均） |
-| `renderDashboardPage(page)` | 仪表盘 | 统计卡片（数值/趋势） |
+| `renderDashboardPage(page)` | 看板页 | 统计卡片网格（stat/quickAction），page.type='dashboard' 时独立调用 |
 | `renderEditorPage(page)` | 编辑器页 | 回退到列表页 |
 | `renderBlankPage(page)` | 白板页 | Canvas + 卡片（统计/表格/图表/透视表） |
 
@@ -371,10 +363,10 @@ runAction(app, actionId)
 ```
 
 **AI 助理功能**：
-- 对话界面（消息气泡 + 历史记录选择）
-- Plan 可视化（创建计划/修改计划卡片）
-- 澄清流程显示（CLARIFY → PLAN → CONFIRM → EXECUTE）
-- 执行进度展示（步骤日志）
+- SSE 流式对话（消息气泡 + 历史记录选择）
+- 工具调用卡片：实时展示 AI 执行的 create_app/add_field 等操作
+- 高风险工具确认弹窗（用户可确认/拒绝）
+- 历史会话恢复（消息与工具日志按时间交错排序）
 - 上下文感知（根据当前视图决定 contextKey）
 
 **状态管理**：
@@ -452,14 +444,8 @@ tests/
 | 3.18 | Force 级联删除 | DELETE record?force=true → 200 |
 | 3.19 | 清空表记录 | DELETE records → deletedCount + 查询为空 |
 | 3.20 | 删除表及级联清理 | DELETE table → 实体移除 + 关联字段清理 |
-| 3.21 | AI 计划不创建 App | POST ai/plan → App 数量不变 |
-| 3.22 | AI 计划执行创建 | POST sessions/execute → appId + session.status=completed |
-| 3.23 | 多实体+关联验证 | schema.entities.length >= 3 + relation field |
-| 3.24 | AI 会话历史 | GET sessions?appId= → 会话 + messageCount >= 2 |
-| 3.25 | 会话详情 | GET sessions/:id → messages + logs |
-| 3.26 | 澄清流程: 模糊请求 | POST ai/plan "帮我创建一个系统" → state=CLARIFY |
-| 3.27 | 澄清后生成计划 | 补充信息 → state=CONFIRM + plan.type |
-| 3.28 | 取消会话 | POST cancel → session.status=cancelled |
+| 3.21 | 双向关联同步 | 从任一方增删关系 → 另一关系字段同步更新 |
+| 3.22 | AI 会话记录 | GET sessions?appId= → 返回应用关联会话 |
 
 #### 4. 场景生成测试（`scenarios.test.js`）
 

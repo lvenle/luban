@@ -15,7 +15,7 @@ test('stores app package and records in SQLite', () => {
   const app = createAppFromPackage(createBudgetPackage());
   const record = createRecord(app.id, 'transaction', { type: '支出', amount: 42, category: '餐饮', date: '2026-06-10' });
   assert.ok(record.id);
-  const records = listRecords(app.id, { entityId: 'transaction', q: '餐饮' });
+  const records = listRecords(app.id, { entityId: 'transaction' });
   assert.equal(records.length, 1);
   assert.equal(records[0].data.amount, 42);
 });

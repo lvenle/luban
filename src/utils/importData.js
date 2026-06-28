@@ -113,6 +113,8 @@ function rowsToRecords(rows, entity) {
     .filter((data) => Object.keys(data).length);
 }
 
+import { isMultiChoiceField, isSingleChoiceField, isRelationField, isFileLikeField } from '../core/fieldTypeHelpers.js';
+
 function normalizeImportValue(value, field) {
   const text = String(value ?? '').trim();
   if (!text && field.type !== 'boolean') return '';
@@ -121,10 +123,10 @@ function normalizeImportValue(value, field) {
     return number === null || field.format !== 'percent' ? number : number / 100;
   }
   if (field.type === 'boolean') return ['是', 'true', '1', 'yes', 'y'].includes(text.toLowerCase());
-  if (field.type === 'multiSelect') return splitMultiValue(text).map((item) => optionId(field, item));
-  if (field.type === 'select') return optionId(field, text);
-  if (field.type === 'relation') return [];
-  if (field.type === 'image' || field.type === 'file') return undefined;
+  if (isMultiChoiceField(field)) return splitMultiValue(text).map((item) => optionId(field, item));
+  if (isSingleChoiceField(field)) return optionId(field, text);
+  if (isRelationField(field)) return [];
+  if (isFileLikeField(field)) return undefined;
   return text;
 }
 

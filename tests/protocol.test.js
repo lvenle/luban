@@ -4,6 +4,7 @@ import { applyPatch, preparePackage } from '../src/core/packageProtocol.js';
 import { generatePlanFromPrompt, planToPackage } from '../src/ai/service.js';
 import { createBudgetPackage } from '../src/ai/samplePackages.js';
 import { packageToZipPayload, zipPayloadToPackage } from '../src/utils/zip.js';
+import { PAGE_TYPES } from '../src/core/contract.js';
 
 test('validates and normalizes a software package', () => {
   const pkg = preparePackage(createBudgetPackage());
@@ -204,4 +205,32 @@ test('rejects invalid relation target', () => {
     ui: { pages: [{ id: 'product-list', title: '商品列表', type: 'list', entity: 'product' }] },
     actions: { actions: [] }
   }), /关联字段/);
+});
+
+test('dashboard is a valid PAGE_TYPES entry', () => {
+  assert.ok(PAGE_TYPES.has('dashboard'));
+  assert.ok(!PAGE_TYPES.has('list'));
+  assert.ok(!PAGE_TYPES.has('blank'));
+});
+
+test('normalizePageType returns dashboard for dashboard input', async () => {
+  const { preparePackage } = await import('../src/core/packageProtocol.js');
+  const pkg = preparePackage(createBudgetPackage());
+  pkg.ui.pages.push({ id: 'my-dashboard', title: '经营看板', type: 'dashboard', cards: [{ type: 'stat', title: '总支出', entity: 'transaction', operation: 'sum', field: 'amount' }] });
+  const clean = preparePackage(pkg);
+  const dash = clean.ui.pages.find((p) => p.id === 'my-dashboard');
+  assert.equal(dash.type, 'dashboard');
+  assert.equal(dash.entity, undefined);
+  assert.ok(Array.isArray(dash.cards));
+});
+
+test('dashboard-only (no data table) package is rejected by validation', async () => {
+  const { preparePackage } = await import('../src/core/packageProtocol.js');
+  assert.throws(() => preparePackage({
+    manifest: { name: 'Just Dashboard' },
+    schema: { entities: [{ id: 'placeholder', name: '占位', fields: [{ id: 'name', label: '名称', type: 'text' }] }] },
+    ui: { pages: [{ id: 'dash', title: '看板', type: 'dashboard', cards: [] }] },
+    actions: { actions: [] },
+    prompts: {}
+  }), /至少需要一个数据页面/);
 });

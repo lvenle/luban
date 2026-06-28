@@ -2,6 +2,7 @@ import { register } from '../registry.js';
 import { getPackageFromApp } from '../../storage/db.js';
 import { getApp, updateAppPackage } from '../../models/app.js';
 import { normalizeFieldId } from '../../core/ids.js';
+import { isSingleChoiceField, isTemporalField, isNumericField } from '../../core/fieldTypeHelpers.js';
 
 register({
   name: 'add_view',
@@ -42,7 +43,7 @@ register({
     const view = { id: uniqueViewId(page, args.name), name: args.name, type: args.type };
     if (args.type === 'quadrant') {
       const field = entity.fields.find((item) => item.id === args.fieldId);
-      if (field?.type !== 'select' || (field.options || []).length < 4) throw new Error('四象限视图需要包含至少 4 个选项的单选字段。');
+      if (!isSingleChoiceField(field) || (field.options || []).length < 4) throw new Error('四象限视图需要包含至少 4 个选项的单选字段。');
       view.quadrant = { fieldId: field.id, optionIds: field.options.slice(0, 4).map((option) => option.id) };
     }
     if (args.type === 'gantt') {
@@ -61,8 +62,8 @@ register({
   }
 });
 
-function dateLike(field) { return ['date', 'datetime'].includes(field?.type) || (field?.type === 'formula' && field.formula?.resultType === 'date'); }
-function numberLike(field) { return field?.type === 'number' || (field?.type === 'formula' && field.formula?.resultType === 'number'); }
+function dateLike(field) { return isTemporalField(field) || (field?.type === 'formula' && field.formula?.resultType === 'date'); }
+function numberLike(field) { return isNumericField(field) || (field?.type === 'formula' && field.formula?.resultType === 'number'); }
 function uniqueViewId(page, name) {
   const base = normalizeFieldId(name, 'view');
   const ids = new Set((page.views || []).map((view) => view.id));

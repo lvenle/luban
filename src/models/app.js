@@ -2,6 +2,7 @@ import { getDb, rowToApp, getPackageFromApp, withTransaction, triggerBackup } fr
 import { preparePackage } from '../core/packageProtocol.js';
 import { createId, slugify } from '../core/ids.js';
 import { formulaDependents } from '../core/formula.js';
+import { isFormulaField } from '../core/fieldTypeHelpers.js';
 import { notFound } from '../routes/_helpers.js';
 
 function now() {
@@ -95,7 +96,7 @@ function validateFormulaDependencyChanges(existing, nextPackage) {
     if (!nextEntity) continue;
     for (const oldField of oldEntity.fields || []) {
       const dependents = formulaDependents(oldEntity, oldField.id)
-        .filter((formula) => nextEntity.fields?.some((field) => field.id === formula.id && field.type === 'formula'));
+        .filter((formula) => nextEntity.fields?.some((field) => field.id === formula.id && isFormulaField(field)));
       if (!dependents.length) continue;
       const nextField = nextEntity.fields?.find((field) => field.id === oldField.id);
       if (!nextField || nextField.type !== oldField.type) {

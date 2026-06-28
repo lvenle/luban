@@ -74,7 +74,7 @@ test('tool display info contains app, table, and field business names', () => {
 });
 
 test('completed app creation refreshes the home list with the created app id', () => {
-  assert.match(assistantIndexJs, /if \(data\.appId && currentMode === 'modify'\) currentAppId = data\.appId/);
+  assert.match(assistantIndexJs, /if \(data\.appId\) \{\s*if \(currentMode === 'create'\) currentMode = 'modify';/);
   assert.match(assistantIndexJs, /detail: \{ appId: data\.appId \|\| currentAppId \}/);
   assert.match(appShellJs, /if \(!state\.currentApp\) \{\s*await loadApps\(\)/);
 });
@@ -105,7 +105,7 @@ test('completed tool cards remain visible and are restored from session logs', (
   assert.match(assistantIndexJs, /sessionHistoryEntries\(body\.session\.messages \|\| \[\], body\.session\.logs \|\| \[\]\)/);
   assert.match(assistantIndexJs, /history\.push\(\{ kind: 'message', item: message \}\);[\s\S]*history\.push\(\{ kind: 'tool'/);
   assert.match(assistantIndexJs, /export function completedToolLogs\(logs\)/);
-  assert.match(assistantIndexJs, /const input = log\.input \|\| queue\.shift\(\) \|\| null/);
+  assert.match(assistantIndexJs, /const input = hasOwnInput \? log\.input : \(queue\.shift\(\) \|\| null\)/);
 });
 
 test('failed tool cards show detailed live and historical errors', () => {
@@ -118,7 +118,7 @@ test('failed tool cards show detailed live and historical errors', () => {
 test('create_app tool cards disclose all fields created inside the operation', () => {
   assert.match(createAppToolJs, /entities: app\.schema\.entities\.map/);
   assert.match(createAppToolJs, /fields: entity\.fields\.map/);
-  assert.match(toolDisplayJs, /appendCreatedFieldDetails\(existing\.card, data\.output\)/);
+  assert.match(toolDisplayJs, /appendOperationDetails\(/);
   assert.match(toolDisplayJs, /text: '新建字段'/);
   assert.match(toolDisplayJs, /fieldNames\.join\('、'\)/);
   assert.match(assistantCss, /\.tool-card-operation-list/);

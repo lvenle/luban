@@ -5,6 +5,7 @@ import { normalizeFieldId } from '../core/ids.js';
 import { preparePackage } from '../core/packageProtocol.js';
 import { importRowsFromFile } from '../utils/importData.js';
 import { formulaDependents, renameFormulaBinding } from '../core/formula.js';
+import { isRelationField } from '../core/fieldTypeHelpers.js';
 import { notFound, badRequest, readBuffer } from '../routes/_helpers.js';
 
 export function createTableInApp(app, body = {}) {
@@ -47,7 +48,7 @@ export function deleteTableInApp(app, entityId) {
   const pkg = getPackageFromApp(app);
   pkg.schema.entities = pkg.schema.entities.filter((entity) => entity.id !== entityId);
   for (const sourceEntity of pkg.schema.entities) {
-    sourceEntity.fields = (sourceEntity.fields || []).filter((field) => !(field.type === 'relation' && field.targetEntity === entityId));
+    sourceEntity.fields = (sourceEntity.fields || []).filter((field) => !(isRelationField(field) && field.targetEntity === entityId));
   }
   pkg.ui.pages = pkg.ui.pages.filter((page) => page.entity !== entityId);
   preparePackage(pkg);

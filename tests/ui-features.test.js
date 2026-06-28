@@ -238,15 +238,17 @@ test('frontend exposes required runtime configuration features', () => {
 });
 
 test('frontend has styles for list config, form layout, inline edit, and logs', () => {
-  assert.match(css, /\.page-nav-item \.menu-item:hover,[\s\S]*?\.page-nav-item \.page-menu summary:hover[\s\S]*?background:\s*transparent/);
+  assert.match(css, /\.page-nav-item \.menu-item:hover/);
+  assert.match(css, /\.page-menu summary,[\s\S]*background: transparent/);
+  assert.match(css, /\.page-nav-item \.page-menu\.ghost/);
   assert.match(css, /\.hero-meta/);
   assert.match(css, /\.section-heading/);
   assert.match(css, /\.category-filter/);
   assert.match(css, /\.clickable-card/);
   assert.match(css, /\.card-menu/);
-  assert.match(css, /\.card-menu-popover \.ghost-menu\.danger:hover,[\s\S]*background: #fef2f2/);
-  assert.match(css, /\.card-menu summary:hover,[\s\S]*\.page-menu summary:hover,[\s\S]*\.view-menu-trigger:hover[\s\S]*background: #f1f5f9/);
-  assert.match(css, /\.page-menu-popover \.ghost-menu\.danger:hover,[\s\S]*\.view-menu-popover \.ghost-menu\.danger-text:hover[\s\S]*background: #fef2f2/);
+  assert.match(css, /\.card-menu-popover \.ghost-menu\.danger:hover,[\s\S]*background: #fee2e2/);
+  assert.match(css, /\.card-menu summary:hover,[\s\S]*\.page-menu:hover,[\s\S]*\.view-menu-trigger:hover[\s\S]*background: #e2e8f0/);
+  assert.match(css, /\.page-menu-popover \.ghost-menu\.danger:hover,[\s\S]*\.view-menu-popover \.ghost-menu\.danger-text:hover[\s\S]*background: #fee2e2/);
   assert.match(css, /\.menu-item/);
   assert.match(css, /\.query-zone/);
   assert.match(css, /\.assistant-fab/);

@@ -111,4 +111,10 @@ function viewPackage(views) {
   };
 }
 
+test('dashboard page type dispatches to renderDashboardPage as independent entry', () => {
+  const pt = source('../public/app-runtime/PageTypes.js');
+  assert.match(pt, /if \(page\.type === 'dashboard'\) return renderDashboardPage\(page\);/);
+  assert.match(pt, /export function renderDashboardPage\(page\)/);
+});
+
 function source(relativePath) { return readFileSync(new URL(relativePath, import.meta.url), 'utf8'); }

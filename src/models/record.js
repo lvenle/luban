@@ -3,6 +3,7 @@ import { getApp } from './app.js';
 import { createId } from '../core/ids.js';
 import { calculateFormulaFields } from '../core/formula.js';
 import { notFound, badRequest } from '../routes/_helpers.js';
+import { isSingleChoiceField, isMultiChoiceField, isRelationField, isFormulaField, isTemporalField, isFileLikeField } from '../core/fieldTypeHelpers.js';
 
 function now() {
   return new Date().toISOString();
@@ -52,11 +53,11 @@ function recordSearchText(app, record) {
   const values = [JSON.stringify(record.data)];
   for (const field of entity?.fields || []) {
     const value = record.data?.[field.id];
-    if (field.type === 'select') {
+    if (isSingleChoiceField(field)) {
       const option = (field.options || []).find((item) => item.id === value || item.label === value);
       if (option) values.push(option.label);
     }
-    if (field.type === 'multiSelect') {
+    if (isMultiChoiceField(field)) {
       for (const id of Array.isArray(value) ? value : []) {
         const option = (field.options || []).find((item) => item.id === id || item.label === id);
         if (option) values.push(option.label);
@@ -225,7 +226,7 @@ export function validateRecordData(entity, data = {}, options = {}) {
   const fields = new Map((entity.fields || []).map((field) => [field.id, field]));
   const normalized = {};
   for (const field of entity.fields || []) {
-    if (field.type === 'formula') continue;
+    if (isFormulaField(field)) continue;
     const present = Object.prototype.hasOwnProperty.call(data, field.id);
     const value = present ? data[field.id] : undefined;
     if (!present) continue;
@@ -283,7 +284,7 @@ function validateFieldValue(field, value) {
     if (typeof value !== 'boolean') throw badRequest(`字段「${field.label}」必须是布尔值。`);
     return value;
   }
-  if (field.type === 'date' || field.type === 'datetime') {
+  if (isTemporalField(field)) {
     if (Number.isNaN(Date.parse(value))) throw badRequest(`字段「${field.label}」必须是有效日期。`);
     return String(value);
   }
@@ -294,21 +295,21 @@ function validateFieldValue(field, value) {
     if (!['http:', 'https:'].includes(parsed.protocol)) throw badRequest(`字段「${field.label}」只支持 http 或 https 链接。`);
     return url;
   }
-  if (field.type === 'select') {
+  if (isSingleChoiceField(field)) {
     const id = String(value?.optionId || value?.id || value);
     const option = (field.options || []).find((item) => item.id === id || item.label === id);
     if (!option) throw badRequest(`字段「${field.label}」包含无效选项。`);
     return option.id;
   }
-  if (field.type === 'multiSelect') {
+  if (isMultiChoiceField(field)) {
     if (!Array.isArray(value)) throw badRequest(`字段「${field.label}」必须是选项数组。`);
     const ids = value.map((item) => String(item?.optionId || item?.id || item));
     const normalized = ids.map((id) => (field.options || []).find((option) => option.id === id || option.label === id)?.id);
     if (normalized.some((id) => !id)) throw badRequest(`字段「${field.label}」包含无效选项。`);
     return [...new Set(normalized)];
   }
-  if (field.type === 'relation') return value;
-  if (field.type === 'image' || field.type === 'file') {
+  if (isRelationField(field)) return value;
+  if (isFileLikeField(field)) {
     if (typeof value !== 'object' || Array.isArray(value) || !value.url) throw badRequest(`字段「${field.label}」必须是有效文件。`);
     return value;
   }
@@ -326,9 +327,9 @@ function validTimestamp(value) {
 }
 
 function splitRelationData(app, entityId, data = {}) {
-  const fields = entityFields(app, entityId).filter((field) => field.type === 'relation');
+  const fields = entityFields(app, entityId).filter((field) => isRelationField(field));
   const relationIds = new Set(fields.map((field) => field.id));
-  const formulaIds = new Set(entityFields(app, entityId).filter((field) => field.type === 'formula').map((field) => field.id));
+  const formulaIds = new Set(entityFields(app, entityId).filter((field) => isFormulaField(field)).map((field) => field.id));
   const cleanData = {};
   for (const [key, value] of Object.entries(data || {})) {
     if (!relationIds.has(key) && !formulaIds.has(key)) cleanData[key] = normalizeStoredValue(value);
@@ -425,7 +426,7 @@ function findReciprocalRelationField(app, sourceEntityId, field) {
   const targetEntity = app?.schema?.entities?.find((entity) => entity.id === field.targetEntity);
   if (!targetEntity) return null;
   const candidates = (targetEntity.fields || []).filter((candidate) =>
-    candidate.type === 'relation' && candidate.targetEntity === sourceEntityId
+    isRelationField(candidate) && candidate.targetEntity === sourceEntityId
   );
   const configuredId = field.reciprocalFieldId
     || field.inverseFieldId
@@ -488,7 +489,7 @@ function hydrateRelationValues(appId, records) {
   return records.map((record) => {
     const data = { ...record.data };
     for (const field of fieldsByEntity.get(record.entityId) || []) {
-      if (field.type === 'relation') data[field.id] = grouped.get(`${record.id}:${field.id}`) || [];
+      if (isRelationField(field)) data[field.id] = grouped.get(`${record.id}:${field.id}`) || [];
     }
     return { ...record, data };
   });
@@ -564,7 +565,7 @@ function entityFields(app, entityId) {
 }
 
 function relationField(app, entityId, fieldId) {
-  const field = entityFields(app, entityId).find((item) => item.id === fieldId && item.type === 'relation');
+  const field = entityFields(app, entityId).find((item) => item.id === fieldId && isRelationField(item));
   if (!field) throw notFound('找不到关联字段。');
   return field;
 }

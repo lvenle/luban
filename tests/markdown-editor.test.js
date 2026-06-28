@@ -31,13 +31,11 @@ test('long text cells use click preview and double-click markdown editor', () =>
   const typed = readFileSync(new URL('../public/app-runtime/TypedViews.js', import.meta.url), 'utf8');
   const cellEditor = readFileSync(new URL('../public/app-runtime/CellEditor.js', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
-  assert.match(row, /scheduleMarkdownPreview/);
   assert.match(row, /openMarkdownRecordEditor/);
-  assert.match(row, /\['textarea', 'richText'\]\.includes\(field\.type\)/);
-  assert.match(typed, /scheduleMarkdownPreview/);
+  assert.match(row, /\['textarea', 'richText', 'ai'\]\.includes\(field\.type\)/);
   assert.match(typed, /openMarkdownRecordEditor/);
-  assert.match(row, /scheduleMarkdownPreview\(event\.currentTarget, entity, record, field\)/);
-  assert.match(typed, /scheduleMarkdownPreview\(event\.currentTarget, entity, record, field\)/);
+  assert.match(row, /openMarkdownRecordEditor\(entity, record, field\)/);
+  assert.match(typed, /openMarkdownRecordEditor\(entity, record, field\)/);
   assert.match(cellEditor, /field\.type === 'textarea' \|\| field\.type === 'richText'[\s\S]*markdown-cell-content[\s\S]*renderMarkdown\(value\)/);
   assert.match(styles, /\.markdown-cell-content[\s\S]*text-overflow: ellipsis;[\s\S]*white-space: nowrap;/);
   const editor = readFileSync(new URL('../public/app-runtime/MarkdownEditor.js', import.meta.url), 'utf8');

@@ -16,7 +16,7 @@ export function clearPageDragStyles() {
 }
 
 const OLD_TABLE_TYPES = ['table', 'list', 'kanban', 'grid', 'cards', 'calendar', 'timeline', 'gallery', 'spreadsheet', 'board'];
-const OLD_PAGE_TYPES = ['page', 'blank', 'chart', 'dashboard', 'editor', 'form', 'detail', 'stats', 'statistics', 'report', 'summary', 'canvas'];
+const OLD_PAGE_TYPES = ['page', 'blank', 'chart', 'editor', 'form', 'detail', 'stats', 'statistics', 'report', 'summary', 'canvas'];
 
 export function pageNavKind(app, page) {
   // navKind is the source of truth — trust it first
@@ -24,6 +24,7 @@ export function pageNavKind(app, page) {
   // Fallback for old page types (before normalizePackage runs)
   if (page?.source === 'table' || OLD_TABLE_TYPES.includes(page?.type)) return 'table';
   if (page?.source === 'link' || page?.type === 'link') return 'link';
+  if (page?.type === 'dashboard') return 'dashboard';
   if (page?.source === 'page' || OLD_PAGE_TYPES.includes(page?.type)) return 'page';
   if (page.entity) return 'table';
   return 'page';

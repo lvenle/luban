@@ -1,6 +1,6 @@
 {
   "name": "luban-ai-mvp",
-  "version": "2026.06.23",
+  "version": "2026.06.25",
   "private": true,
   "description": "Luban AI System MVP: AI-generated structured personal apps with a SQLite-backed runtime.",
   "license": "AGPL-3.0-only",

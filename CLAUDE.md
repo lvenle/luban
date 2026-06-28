@@ -31,7 +31,7 @@ src/
     session.js       — AI session CRUD + settings access
     record.js        — Record CRUD
   routes/
-    ai.js            — AI API: SSE chat streaming, sessions, legacy plan/execute
+    ai.js            — AI API: SSE chat streaming, sessions, confirm
     app.js           — App API: list, create, generate, import
     runtime.js       — Runtime data API: records, entities, fields, relations
     settings.js      — Settings API
@@ -45,11 +45,19 @@ src/
   core/
     packageProtocol.js — .sgpkg validation, patch application, field type defs
     ids.js           — UUID generation, slug/normalize helpers
+    formula.js       — Formula engine: tokenizer, parser, AST evaluator, caching, select label resolution
+    contract.js      — Protocol constants & metadata registry (FIELD_TYPES, PAGE_TYPES, ACTION_TYPES, PATCH_OPS, etc.)
+    fieldTypeHelpers.js — Semantic field-type helpers (isChoiceField, isRelationField, isTemporalField, etc.)
   services/
     operations.js    — Field/entity/relation CRUD operations
     actions.js       — Built-in action runner
   scripts/
     initSamples.js   — Sample data initializer
+  utils/
+    export.js        — CSV & Markdown record export
+    importData.js    — File import (CSV/XLSX) row parsing
+    xlsx.js          — XLSX export via minimal XML builder
+    zip.js           — .sgpkg zip packaging/unpacking
 public/
   index.html         — SPA entry point
   app.js             — Main state, routing, topbar, event listeners
@@ -68,6 +76,38 @@ public/
 5. On `message_end`, frontend fires `ai-message-end` event → `loadApps()` re-renders home
 6. AI sessions persist with messages + execution logs in SQLite
 
+### Protocol Constants & Metadata Layer
+
+**`src/core/contract.js`** is the single source of truth for protocol constants:
+
+- `FIELD_TYPES` — registry with metadata per field type (id, label, category, flags like `isChoiceType`, `isRelationType`, `isFormulaType`, etc.)
+- `PAGE_TYPES` — page/table/link/dashboard with flags like `hasPageSize`
+- `ACTION_TYPES` — all 10 action types with labels and descriptions
+- `PATCH_OPS` — all 14 patch operations with labels and descriptions
+- `TABLE_VIEW_TYPES` — list/quadrant/gantt
+- `SELECT_COLORS` — color palette array (backward-compatible)
+
+**`src/core/fieldTypeHelpers.js`** provides semantic helpers for readable field-type checks:
+
+```js
+import { isChoiceField, isRelationField, isFormulaField, isTemporalField } from '../core/fieldTypeHelpers.js';
+
+// Instead of:
+if (field.type === 'select' || field.type === 'multiSelect')
+
+// Write:
+if (isChoiceField(field))
+```
+
+**Guidelines for field type checks:**
+
+- Use helpers for **semantic category** checks: choice, relation, formula, temporal, file-like, text-like, numeric
+- Keep **specific single-type** branches as-is: `field.type === 'number'`, `field.type === 'url'`, `field.type === 'ai'`
+- Do NOT chase zero `field.type ===` — readability over dogmatism
+- formula field `.resultType` is a separate domain — do NOT mix with `FIELD_TYPES`
+
+Available helpers: `isChoiceField`, `isSingleChoiceField`, `isMultiChoiceField`, `isRelationField`, `isFormulaField`, `isNumericField`, `isDateField`, `isDateTimeField`, `isTemporalField`, `isFileLikeField`, `isTextLikeField`. All accept `{ type: '...' }` or `'...'` string directly.
+
 ### Software Package Protocol (.sgpkg)
 
 A zip containing: `manifest.json`, `schema.json` (entities + fields), `ui.json` (pages + views), `actions.json`, `prompts.json`. The `preparePackage()` function validates and normalizes packages. Patches are applied via `applyPatch()` for iterative modification.
@@ -76,9 +116,15 @@ A zip containing: `manifest.json`, `schema.json` (entities + fields), `ui.json` 
 
 Two modes:
 - **OpenAI mode:** Configure API key in settings. Uses streaming chat completions with tool calls.
-- **Mock mode:** No API key = local fallback. `generatePackageFromPrompt()` returns `pickSamplePackage()` immediately, which keyword-matches against 30+ scenarios and falls back to `createBudgetPackage()` (家庭记账本).
+  - `generatePackageFromPrompt()` sends prompt to OpenAI → returns generated package
+  - On API failure, throws error (no silent fallback) — the tool handler surfaces the error to the user
+- **Mock mode:** No API key = local fallback. `generatePackageFromPrompt()` immediately returns `pickSamplePackage()`, which keyword-matches against 30+ scenarios and falls back to `createBudgetPackage()` (家庭记账本).
 
-The `create_app` tool handler flow: `generatePackageFromPrompt()` → if empty result → `pickSamplePackage()`. This means when AI generation fails (no key, bad model, timeout), the system silently falls back to a best-guess sample. This is a known issue — unrelated tables can appear when the sample doesn't match the user's request.
+The `create_app` tool handler calls `generatePackageFromPrompt()` → validates result → creates app. When mock mode returns an unrelated sample, unrelated tables can appear. This is a known issue.
+
+AI tools: `create_app`, `add_entity`, `add_field`, `add_relation`, `add_page`, `add_view`, `create_view`, `add_record`, `add_action`, `update_entity`, `update_field`, `update_record`, `remove_entity`, `remove_field`, `remove_page`, `delete_record`, `design_form`, `query_data`, `clear_sessions`.
+
+Legacy planning: `src/ai/agent.js` contains `understandAgentRequest()` (intent detection) and `buildPlanningPrompt()` — used by the old generate-plan-then-execute flow. The current SSE chat flow (`handleAiApi` → `streamOpenAI`) replaces this.
 
 ### Database Schema (SQLite, WAL mode)
 
@@ -102,4 +148,6 @@ The `create_app` tool handler flow: `generatePackageFromPrompt()` → if empty r
 - **Session loading race condition:** `renderAssistantDrawer()` now always calls `sessionManager.load()` even when the drawer already exists (fix at line 230).
 - **Silent error handling:** `onSwitch` callback now shows `toast()` on HTTP/session errors instead of swallowing them.
 - **Tool log input mismatch:** `completedToolLogs()` now checks `hasOwnInput` before consuming the pending-input queue.
+- **FormulaError class missing:** `FormulaError` was used in `formula.js` but never defined, causing ReferenceErrors on invalid formula expressions. Now exported as a proper Error subclass.
 - **Unrelated table fallback:** When AI generation fails, `pickSamplePackage()` defaults to 家庭记账本 with no homework management keywords. To fix: add keywords to `samplePackages.js` or improve `generatePackageFromPrompt()` fallback logic in `create-app.js`.
+- **Record q-search limited for selects:** `listRecords({q})` uses SQL `LIKE` on `dataJson`, but select values are stored as option IDs (not labels). The JS post-filter resolves labels correctly but may miss records if SQL pre-filter strips them. To fix: add a label-aware SQL filter or remove the SQL pre-filter.

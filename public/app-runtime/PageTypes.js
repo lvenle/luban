@@ -10,6 +10,9 @@ import { toast } from '../common/toast.js';
 import { saveCurrentPackage, renderRuntime } from './index.js';
 
 export function renderPageCanvas(page) {
+  // Dashboard is a first-class page type, rendered via independent entry
+  if (page.type === 'dashboard') return renderDashboardPage(page);
+
   const hasCards = Array.isArray(page.cards) && page.cards.length;
   const hasChart = Boolean(page.chart);
   const hasEntity = Boolean(page.entity);
@@ -359,7 +362,18 @@ export function startPageCardResize(event, page, index) {
 }
 
 export function renderDashboardPage(page) {
-  const cards = page.cards || state.currentApp.ui.home?.cards || [];
+  const cards = Array.isArray(page.cards) && page.cards.length
+    ? page.cards
+    : state.currentApp?.ui?.home?.cards || [];
+  if (!cards.length) {
+    return h('div', { class: 'panel' }, [
+      h('div', { class: 'blank-page-canvas', 'data-page-id': page.id }, [
+        h('div', { class: 'blank-page-welcome' }, [
+          h('p', { class: 'blank-page-hint', text: '这个看板还没有内容。' })
+        ])
+      ])
+    ]);
+  }
   return h('div', { class: 'panel' }, [
     h('h3', { text: page.title || '仪表盘' }),
     h('div', { class: 'stat-grid' }, cards.map((card) => renderDashboardCard(card)))

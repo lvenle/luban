@@ -1,8 +1,9 @@
 import { register } from '../registry.js';
 import { getApp } from '../../models/app.js';
 import { updateFieldInApp } from '../../services/operations.js';
+import { FIELD_TYPES } from '../../core/contract.js';
 
-const FIELD_TYPES = ['text', 'url', 'number', 'textarea', 'select', 'multiSelect', 'date', 'datetime', 'image', 'file', 'formula', 'richText', 'relation'];
+const TOOL_FIELD_TYPES = [...FIELD_TYPES].filter((t) => t !== 'boolean' && t !== 'ai');
 
 register({
   name: 'update_field',
@@ -20,7 +21,7 @@ register({
           entityId: { type: 'string', description: 'Entity/table ID' },
           fieldId: { type: 'string', description: 'Field ID' },
           label: { type: 'string', description: 'New field display name' },
-          type: { type: 'string', enum: FIELD_TYPES, description: 'New field type' },
+          type: { type: 'string', enum: TOOL_FIELD_TYPES, description: 'New field type' },
           options: { type: 'array', items: { type: 'string' }, description: 'New options for select/multiSelect' }
         },
         required: ['appId', 'entityId', 'fieldId']

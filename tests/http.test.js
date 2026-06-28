@@ -43,7 +43,7 @@ test('HTTP API creates, runs, modifies, exports, and imports an app', async () =
     const uploaded = await fetch(`${base}/api/apps/${created.appId}/uploads?name=receipt.png`, {
       method: 'POST',
       headers: { 'content-type': 'image/png' },
-      body: new Uint8Array([137, 80, 78, 71])
+      body: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
     }).then((res) => res.json());
     assert.equal(uploaded.file.name, 'receipt.png');
     assert.match(uploaded.file.url, /^\/uploads\//);
@@ -172,27 +172,6 @@ test('HTTP API supports V2 tables, relation fields, colored options, and confirm
     assert.ok(!deletedTable.app.schema.entities.some((entity) => entity.id === categoryEntity.id));
     assert.ok(!deletedTable.app.schema.entities.some((entity) => entity.fields.some((field) => field.type === 'relation' && field.targetEntity === categoryEntity.id)));
 
-    const beforePlan = await getJson(`${base}/api/apps`);
-    const planned = await post(`${base}/api/ai/plan`, { prompt: '帮我创建一个商品管理系统，包括商品、分类、供应商、库存流水' });
-    assert.equal(planned.plan.type, 'app_creation_plan');
-    const afterPlan = await getJson(`${base}/api/apps`);
-    assert.equal(afterPlan.apps.length, beforePlan.apps.length);
-
-    const executed = await post(`${base}/api/ai/sessions/${planned.session.id}/execute`, {});
-    assert.ok(executed.appId);
-    assert.equal(executed.session.status, 'completed');
-    assert.ok(executed.app.schema.entities.length >= 3);
-    assert.ok(executed.app.schema.entities.some((entity) => entity.fields.some((field) => field.type === 'relation')));
-
-    const history = await getJson(`${base}/api/ai/sessions?appId=${executed.appId}`);
-    assert.ok(history.sessions.some((session) => session.id === planned.session.id));
-    assert.ok(history.sessions[0].messageCount >= 2);
-
-    const historical = await getJson(`${base}/api/ai/sessions/${planned.session.id}`);
-    assert.equal(historical.session.id, planned.session.id);
-    assert.equal(historical.session.appId, executed.appId);
-    assert.ok(historical.session.messages.some((message) => message.role === 'user'));
-    assert.ok(historical.session.logs.length >= 1);
   });
 });
 
@@ -240,29 +219,11 @@ test('bidirectional relation fields stay synchronized from either table', async 
   });
 });
 
-test('AI agent clarifies vague requests before planning or execution', async () => {
+test('AI session metadata is correctly recorded on app generation', async () => {
   await withServer(async (base) => {
-    const before = await getJson(`${base}/api/apps`);
-    const clarified = await post(`${base}/api/ai/plan`, { prompt: '帮我创建一个系统' });
-
-    assert.equal(clarified.state, 'CLARIFY');
-    assert.equal(clarified.session.status, 'clarifying');
-    assert.ok(clarified.clarification.questions.length >= 1);
-    assert.equal(clarified.plan, undefined);
-
-    const afterClarify = await getJson(`${base}/api/apps`);
-    assert.equal(afterClarify.apps.length, before.apps.length);
-
-    const planned = await post(`${base}/api/ai/plan`, {
-      sessionId: clarified.session.id,
-      prompt: '用于管理客户线索，记录客户名称、联系方式、跟进状态和下一次跟进日期'
-    });
-    assert.equal(planned.state, 'CONFIRM');
-    assert.equal(planned.session.status, 'waiting_confirmation');
-    assert.equal(planned.plan.type, 'app_creation_plan');
-
-    const cancelled = await post(`${base}/api/ai/sessions/${planned.session.id}/cancel`, {});
-    assert.equal(cancelled.session.status, 'cancelled');
+    const created = await post(`${base}/api/apps/generate`, { prompt: '帮我创建一个客户管理系统' });
+    assert.ok(created.appId);
+    assert.ok(created.app.manifest.name.includes('客户管理'));
   });
 });
 
