@@ -117,12 +117,11 @@ import { isMultiChoiceField, isSingleChoiceField, isRelationField, isFileLikeFie
 
 function normalizeImportValue(value, field) {
   const text = String(value ?? '').trim();
-  if (!text && field.type !== 'boolean') return '';
+  if (!text) return '';
   if (field.type === 'number') {
     const number = text === '' ? null : Number(text.replace(/[,%]/g, ''));
     return number === null || field.format !== 'percent' ? number : number / 100;
   }
-  if (field.type === 'boolean') return ['是', 'true', '1', 'yes', 'y'].includes(text.toLowerCase());
   if (isMultiChoiceField(field)) return splitMultiValue(text).map((item) => optionId(field, item));
   if (isSingleChoiceField(field)) return optionId(field, text);
   if (isRelationField(field)) return [];

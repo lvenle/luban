@@ -18,8 +18,8 @@ function selectFromOptions(options, value) {
   return select;
 }
 
-export function fieldTypes(includeLegacyBoolean = false) {
-  const types = [
+export function fieldTypes() {
+  return [
     ['text', '文本'],
     ['textarea', '长文本'],
     ['url', '链接'],
@@ -34,12 +34,10 @@ export function fieldTypes(includeLegacyBoolean = false) {
     ['formula', '公式'],
     ['ai', 'AI 字段']
   ];
-  if (includeLegacyBoolean) types.push(['boolean', '复选框（旧类型）']);
-  return types;
 }
 
 export function fieldTypeLabel(type) {
-  return fieldTypes(type === 'boolean').find(([value]) => value === type)?.[1] || type || '文本';
+  return fieldTypes().find(([value]) => value === type)?.[1] || type || '文本';
 }
 
 export function openFieldEditModal(entity, field = null, options = {}) {
@@ -57,7 +55,7 @@ export function openFieldEditModal(entity, field = null, options = {}) {
   const draft = field ? structuredClone(field) : { id: uniqueFieldId(entity, 'new_field'), label: '新字段', type: 'text' };
   if (!draft.options && draft.values) draft.options = draft.values;
   const labelInput = h('input', { value: draft.label || '', placeholder: '请输入字段标题' });
-  const typeSelect = selectFromOptions(fieldTypes(draft.type === 'boolean'), draft.type || 'text');
+  const typeSelect = selectFromOptions(fieldTypes(), draft.type || 'text');
   const advanced = h('div', { class: 'field-advanced field-popover-section' });
   const typeLabel = h('span', { class: 'field-type-current', text: fieldTypeLabel(typeSelect.value) });
   const renderAdvanced = () => {
@@ -162,10 +160,6 @@ export function openFieldEditModal(entity, field = null, options = {}) {
       advanced.append(h('div', { class: 'field-setting-list' }, [
         h('label', { class: 'field-setting-row' }, [h('span', { text: '日期格式' }), format])
       ]));
-      return;
-    }
-    if (type === 'boolean') {
-      advanced.append(h('p', { class: 'field-help', text: '是/否字段会在表格和表单中以开关值编辑。' }));
       return;
     }
     if (type === 'image') {

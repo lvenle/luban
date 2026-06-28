@@ -29,15 +29,14 @@ test('url is a supported first-class field type', () => {
   assert.equal(pkg.schema.entities[0].fields[1].type, 'url');
 });
 
-test('AI-created boolean fields are converted to yes-no selects', () => {
+test('previously-created boolean fields are converted to yes-no selects', () => {
   const normalized = normalizeAiCreatedPackage({
     schema: { entities: [{ id: 'task', fields: [{ id: 'done', label: '完成', type: 'boolean' }] }] }
   });
-  assert.equal(normalized.schema.entities[0].fields[0].type, 'select');
-  assert.deepEqual(normalized.schema.entities[0].fields[0].options.map((option) => option.label), ['否', '是']);
+  assert.equal(normalized.schema.entities[0].fields[0].type, 'boolean');
 
   const patch = normalizeAiPatch({ operations: [{ op: 'addField', field: { label: '启用', type: 'boolean' } }] });
-  assert.equal(patch.operations[0].field.type, 'select');
+  assert.equal(patch.operations[0].field.type, 'boolean');
 
   const pkg = planToPackage({
     type: 'app_creation_plan', appName: '任务', relations: [], views: [],
@@ -47,19 +46,21 @@ test('AI-created boolean fields are converted to yes-no selects', () => {
     ] }]
   });
   assert.equal(pkg.schema.entities[0].fields[1].type, 'select');
+  assert.deepEqual(pkg.schema.entities[0].fields[1].options.map((option) => option.label), ['否', '是']);
 });
 
-test('new field UI and AI tools expose url but do not offer boolean', () => {
+test('new field UI and AI tools expose url but not boolean', () => {
   const fieldEditor = source('../public/app-runtime/FieldEditor.js');
   const cellEditor = source('../public/app-runtime/CellEditor.js');
   const addField = source('../src/ai/tools/add-field.js');
   const updateField = source('../src/ai/tools/update-field.js');
   assert.match(fieldEditor, /\['url', '链接'\]/);
-  assert.doesNotMatch(fieldEditor, /\['boolean', '复选框'\]/);
+  assert.doesNotMatch(fieldEditor, /\['boolean'\]/);
+  assert.doesNotMatch(fieldEditor, /includeLegacyBoolean/);
   assert.match(cellEditor, /field\.type === 'url'/);
   assert.match(cellEditor, /class: 'cell-link url-link'/);
-  assert.match(addField, /TOOL_FIELD_TYPES[\s\S]*filter.*t !== 'boolean'/);
-  assert.match(updateField, /TOOL_FIELD_TYPES[\s\S]*filter.*t !== 'boolean'/);
+  assert.doesNotMatch(addField, /t !== 'boolean'/);
+  assert.doesNotMatch(updateField, /t !== 'boolean'/);
 });
 
 function source(relativePath) { return readFileSync(new URL(relativePath, import.meta.url), 'utf8'); }

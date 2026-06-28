@@ -27,7 +27,6 @@ const FIELD_TYPES_RECORD = [
   { id: 'url',        label: '链接',     category: 'basic',    supportsDefault: false, supportsFormula: false, toolAllowed: true,                               description: '超链接' },
   { id: 'select',     label: '单选',     category: 'choice',   supportsDefault: false, supportsFormula: false, toolAllowed: true, isChoiceType: true, isSingleChoiceType: true, description: '下拉单选' },
   { id: 'multiSelect', label: '多选',    category: 'choice',   supportsDefault: false, supportsFormula: false, toolAllowed: true, isChoiceType: true, isMultiChoiceType: true,  description: '下拉多选' },
-  { id: 'boolean',    label: '是/否',    category: 'basic',    supportsDefault: true,  supportsFormula: false, toolAllowed: false,                              description: '是/否（AI 生成时自动转为 select）' },
   { id: 'relation',   label: '关联',     category: 'relation', supportsDefault: false, supportsFormula: false, toolAllowed: true, isRelationType: true,               description: '关联到另一张表的记录' },
   { id: 'image',      label: '图片',     category: 'media',    supportsDefault: false, supportsFormula: false, toolAllowed: true, isFileLikeType: true,               description: '图片文件' },
   { id: 'file',       label: '文件',     category: 'media',    supportsDefault: false, supportsFormula: false, toolAllowed: true, isFileLikeType: true,               description: '附件文件' },

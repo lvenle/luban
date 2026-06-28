@@ -28,7 +28,7 @@
 ┌──────────────────────────────────────────────────────────────────────┐
 │                     Node.js HTTP Server                               │
 │                                                                      │
-│   src/server.js  (738 lines)                                         │
+│   src/server.js                                                     │
 │   ┌──────────┐ ┌─────────────────┐ ┌──────────────────────────┐     │
 │   │ 静态文件  │ │ API Routes      │ │ Helper: sendJson/Text     │     │
 │   │ / → index │ │ /api/*          │ │ /Binary, readJson/Buffer  │     │
@@ -161,9 +161,9 @@ app.sgpkg
 └── sample-data.json    # 可选样本数据
 ```
 
-**字段类型**（15 种）：
+**字段类型**（14 种）：
 
-`text`, `textarea`, `number`, `date`, `datetime`, `url`, `select`, `multiSelect`, `boolean`, `relation`, `image`, `file`, `richText`, `formula`, `ai`
+`text`, `textarea`, `number`, `date`, `datetime`, `url`, `select`, `multiSelect`, `relation`, `image`, `file`, `richText`, `formula`, `ai`
 
 **页面类型**（4 种）：
 
@@ -264,14 +264,22 @@ generatePatchFromPrompt(prompt, currentPackage, settings)
 
 ---
 
-### 6. `src/actions.js` — Action 执行器
+### 6. `src/actions.js` — Action 执行器（系统内置 Action）
+
+Action 是系统内置的标准动作/应用级业务动作的底层能力，与页面 Runtime 提供的基础 CRUD 分离。
+
+**关键说明**：
+- **页面 Runtime 提供基础 CRUD**：数据表格中的新增、修改、删除、查询由 Runtime 直接处理，不经过 Action。
+- **Action 是底层预留机制**：用于`data.queryRecords`、`export.csv`、`ai.generateText`等系统内置动作。
+- **不支持用户自定义 Action**：当前不执行任何用户代码，不提供用户自定义 Action 能力。
+- **安全性**：`runAction()`仅执行内置白名单 Action，不使用`eval`、`Function`构造器、用户上传 JS 或 shell 执行。
 
 **调度逻辑**：
 
 ```
 runAction(app, actionId)
   → 查找 action 定义
-  → 按 type 分发:
+  → 按 type 分发（仅限白名单内置类型）:
     - data.queryRecords → db.listRecords()
     - export.csv → toCsv(records, entity)
     - export.json → JSON.stringify(records)
@@ -294,7 +302,7 @@ runAction(app, actionId)
 
 - 构建标准 OOXML 结构：`[Content_Types].xml` / `_rels` / `xl/workbook.xml` / `xl/worksheets/sheet1.xml`
 - `recordsToXlsx(records, entity)` — 记录 → XLSX 二进制
-- 支持的字段类型：text, number, date, boolean, select, multiSelect, relation
+- 支持的字段类型：text, number, date, select, multiSelect, relation
 
 ---
 

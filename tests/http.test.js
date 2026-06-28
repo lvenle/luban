@@ -241,7 +241,6 @@ function sampleFieldValue(field, marker) {
   if (field.type === 'number') return 42;
   if (field.type === 'date') return '2026-06-11';
   if (field.type === 'datetime') return '2026-06-11T10:00';
-  if (field.type === 'boolean') return true;
   const firstOption = typeof field.options?.[0] === 'object'
     ? (field.options[0].id || field.options[0].value || field.options[0].label)
     : field.options?.[0];

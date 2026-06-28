@@ -588,7 +588,6 @@ export function sampleFieldValue(field) {
   if (field.type === 'number') return '123';
   if (field.type === 'date') return '2026-06-12';
   if (field.type === 'datetime') return '2026-06-12 09:00';
-  if (field.type === 'boolean') return '是 / 否';
   if (field.type === 'select' || field.type === 'multiSelect') return optionObject(field.options?.[0] || '选项').label;
   if (field.type === 'relation') return '关联记录';
   if (field.type === 'url') return 'https://example.com';

@@ -42,6 +42,12 @@ export function normalizePackage(pkg) {
       fieldIds.add(field.id);
       field.label = field.label || field.displayName || field.name || field.id;
       field.type = normalizeFieldType(field.type || 'text');
+      // Backward compat: convert any remaining boolean to select
+      if (field.type === 'boolean') {
+        field.type = 'select';
+        field.options = normalizeOptions(['否', '是']);
+        field.config = { ...(field.config || {}), options: field.options };
+      }
       delete field.required;
       if (FIELD_TYPES[field.type]?.isChoiceType) {
         field.options = normalizeOptions(field.options || field.config?.options || []);
@@ -171,8 +177,8 @@ export function normalizeFieldType(type) {
   const map = {
     string: 'text',
     enum: 'select',
-    bool: 'boolean',
-    checkbox: 'boolean',
+    bool: 'select',
+    checkbox: 'select',
     long_text: 'textarea',
     multi_select: 'multiSelect',
     multiselect: 'multiSelect',

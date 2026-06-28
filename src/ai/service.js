@@ -25,41 +25,23 @@ export function formatPatchOpsForPrompt(ops) {
 }
 
 // Internal filtered collections
-const PROMPT_FIELD_TYPES = [...FIELD_TYPES].filter((t) => t !== 'boolean' && t !== 'ai');
+const PROMPT_FIELD_TYPES = [...FIELD_TYPES].filter((t) => t !== 'ai');
 const PROMPT_FIELD_TYPES_STR = formatFieldTypesForPrompt(PROMPT_FIELD_TYPES);
 const PROMPT_ACTION_TYPES_STR = formatActionTypesForPrompt();
 const PROMPT_PAGE_TYPES_STR = formatPageTypesForPrompt();
 const PROMPT_PATCH_OPS = ['addEntity', 'renameEntity', 'addField', 'updateField', 'removeField', 'addPage', 'updatePage', 'removePage', 'addAction', 'updateAction', 'removeAction', 'addSuggestedCommand'];
 const PROMPT_PATCH_OPS_STR = formatPatchOpsForPrompt(PROMPT_PATCH_OPS);
-const VALIDATE_PLAN_TYPES = [...FIELD_TYPES].filter((t) => t !== 'boolean' && t !== 'ai');
+const VALIDATE_PLAN_TYPES = [...FIELD_TYPES].filter((t) => t !== 'ai');
 const V2_PLAN_TYPES = [...FIELD_TYPES].filter((t) => t !== 'ai');
 
 const YES_NO_OPTIONS = () => normalizeOptions(['否', '是']);
 
 export function normalizeAiCreatedPackage(pkg) {
-  const next = structuredClone(pkg || {});
-  for (const entity of next.schema?.entities || []) {
-    for (const field of entity.fields || []) {
-      if (normalizeFieldType(field.type) !== 'boolean') continue;
-      field.type = 'select';
-      field.options = YES_NO_OPTIONS();
-      field.config = { ...(field.config || {}), options: field.options };
-    }
-  }
-  return next;
+  return structuredClone(pkg || {});
 }
 
 export function normalizeAiPatch(patch) {
-  const next = structuredClone(patch || {});
-  for (const operation of next.operations || []) {
-    const fields = [operation.field, ...(operation.fields || [])].filter(Boolean);
-    for (const field of fields) {
-      if (normalizeFieldType(field.type) !== 'boolean') continue;
-      field.type = 'select';
-      field.options = YES_NO_OPTIONS();
-    }
-  }
-  return next;
+  return structuredClone(patch || {});
 }
 
 export async function generatePackageFromPrompt(prompt, settings = {}) {
@@ -69,9 +51,8 @@ export async function generatePackageFromPrompt(prompt, settings = {}) {
       {
         role: 'system',
         content:
-          '你是 Software Garden 的软件设计助手。只输出 JSON，不要 Markdown。\n\n输出 JSON 结构示例：\n{\n  "manifest": { "name": "应用名称", "description": "简短描述", "icon": "table" },\n  "schema": {\n    "entities": [\n      {\n        "id": "entity_唯一标识",\n        "name": "表名",\n        "fields": [\n          { "id": "field_唯一标识", "label": "字段名", "type": "text" }\n        ]\n      }\n    ]\n  },\n  "ui": {\n    "pages": [\n      { "id": "page_唯一标识", "title": "页面标题", "type": "table", "entity": "entity_唯一标识" }\n    ]\n  },\n  "actions": { "actions": [] },\n  "prompts": {}\n}\n\n要求：\n1. entity.id 和 field.id 使用唯一且有意义的 ID（如 entity_student, field_name），不能重复。\n2. field.type 只支持：' + PROMPT_FIELD_TYPES_STR + '。不支持 option、boolean 类型。\n3. 每张表至少有一个 text 类型字段。\n4. manifest.name 和 entities 必须直接基于用户需求生成，不要添加用户没有提到的表或字段。\n5. 仔细理解用户的描述，只创建用户明确需要的表。例如如果用户说"创建作业管理"，就只创建作业/作业提交等相关表，不要创建账目、分类等无关表。\n6. 每个字段必须对应用户需求中的具体信息点，不要凭空添加额外字段。\n7. 做减法：宁可生成一个精准的表，也不要画蛇添足。\n8. 页面类型支持：' + PROMPT_PAGE_TYPES_STR + '。每张表至少生成一个 table 类型的数据页面。\n9. 所有 ID 都不能重复。\n10. actions.actions 中的 type 只支持：' + PROMPT_ACTION_TYPES_STR + '。如果不确定就用 data.createRecord。\n11. formula 字段的 expression 只支持 IF(条件, 是, 否) 条件判断、CONCAT 拼接、+ 运算符、{字段名} 引用字段。不要使用 & 运算符。可用函数：IF, CONCAT, ROUND, ABS, MIN, MAX, LEN, UPPER, LOWER, TODAY, DATEADD, DATEDIFF。公式中引用 select/multiSelect 字段做比较时，用选项的 label（显示值），不要用选项的 id。'
+          '你是 Software Garden 的软件设计助手。只输出 JSON，不要 Markdown。\n\n输出 JSON 结构示例：\n{\n  "manifest": { "name": "应用名称", "description": "简短描述", "icon": "table" },\n  "schema": {\n    "entities": [\n      {\n        "id": "entity_唯一标识",\n        "name": "表名",\n        "fields": [\n          { "id": "field_唯一标识", "label": "字段名", "type": "text" }\n        ]\n      }\n    ]\n  },\n  "ui": {\n    "pages": [\n      { "id": "page_唯一标识", "title": "页面标题", "type": "table", "entity": "entity_唯一标识" }\n    ]\n  },\n  "actions": { "actions": [] },\n  "prompts": {}\n}\n\n要求：\n1. entity.id 和 field.id 使用唯一且有意义的 ID（如 entity_student, field_name），不能重复。\n2. field.type 只支持：' + PROMPT_FIELD_TYPES_STR + '。\n3. 每张表至少有一个 text 类型字段。\n4. manifest.name 和 entities 必须直接基于用户需求生成，不要添加用户没有提到的表或字段。\n5. 仔细理解用户的描述，只创建用户明确需要的表。例如如果用户说"创建作业管理"，就只创建作业/作业提交等相关表，不要创建账目、分类等无关表。\n6. 每个字段必须对应用户需求中的具体信息点，不要凭空添加额外字段。\n7. 做减法：宁可生成一个精准的表，也不要画蛇添足。\n8. 页面类型支持：' + PROMPT_PAGE_TYPES_STR + '。每张表至少生成一个 table 类型的数据页面。\n9. 所有 ID 都不能重复。\n10. actions.actions 中的 type 只支持：' + PROMPT_ACTION_TYPES_STR + '。如果不确定就用 data.createRecord。\n11. formula 字段的 expression 只支持 IF(条件, 是, 否) 条件判断、CONCAT 拼接、+ 运算符、{字段名} 引用字段。不要使用 & 运算符。可用函数：IF, CONCAT, ROUND, ABS, MIN, MAX, LEN, UPPER, LOWER, TODAY, DATEADD, DATEDIFF。公式中引用 select/multiSelect 字段做比较时，用选项的 label（显示值），不要用选项的 id。'
       },
-      { role: 'system', content: '禁止创建 boolean 字段；是/否数据必须使用包含”否、是”两个选项的 select 字段。' },
       { role: 'user', content: prompt }
     ]);
     return normalizeAiCreatedPackage(parseJsonContent(body.choices?.[0]?.message?.content || '{}'));
@@ -89,7 +70,7 @@ export async function generatePatchFromPrompt(prompt, currentPackage, settings =
         content:
           '你是 Software Garden 的软件进化助手。只输出 Patch JSON，顶层包含 summary 和 operations。支持操作：' + PROMPT_PATCH_OPS_STR + '。页面类型支持：' + PROMPT_PAGE_TYPES_STR + '。用户要求为已有表创建列表页、统计图表、看板或编辑入口时，使用 addPage；允许多个页面引用同一个 entity。'
       },
-      { role: 'system', content: '新增或修改字段时支持 url；禁止使用 boolean，是/否数据改用包含”否、是”的 select。' },
+      { role: 'system', content: '新增或修改字段时支持 url；是/否数据必须使用包含“否、是”的 select。' },
       { role: 'user', content: JSON.stringify({ currentPackage, request: prompt }) }
     ]);
     return normalizeAiPatch(parseJsonContent(body.choices?.[0]?.message?.content || '{}'));
@@ -123,7 +104,7 @@ export async function generatePlanFromPrompt(prompt, settings = {}, currentPacka
         content:
           '你是 Software Garden V2 的多维表规划助手。只输出 JSON plan。创建应用时 type=app_creation_plan，包含 appName、description、tables、relations、views。views 可以包含多个页面，且允许多个页面引用同一张表；view.type 可用 grid/list、chart、dashboard、editor。页面类型统一为 ' + PROMPT_PAGE_TYPES_STR + '。字段类型可用 ' + formatFieldTypesForPrompt(V2_PLAN_TYPES) + '；formula 必须包含 config.expression 和 config.resultType(number/date/text)，表达式用 {字段名} 引用同表原始字段。select/multiSelect options 必须包含 id、label、color。不要执行，只规划。'
       },
-      { role: 'system', content: '字段类型支持 url。禁止规划 boolean；是/否数据必须规划为包含”否、是”的 select。' },
+      { role: 'system', content: '字段类型支持 url。是/否数据必须使用包含“否、是”的 select。' },
       { role: 'user', content: prompt }
     ]);
     const plan = parseJsonContent(body.choices?.[0]?.message?.content || '{}');
@@ -203,7 +184,7 @@ function planViewToPage(view, entities, usedPageIds) {
     page.features = ['create', 'edit', 'delete', 'search', 'export'];
   }
   if (type === 'chart') {
-    const groupField = entity?.fields?.find((field) => ['select', 'multiSelect', 'boolean', 'date'].includes(field.type)) || entity?.fields?.[0];
+    const groupField = entity?.fields?.find((field) => ['select', 'multiSelect', 'date'].includes(field.type)) || entity?.fields?.[0];
     page.chart = { type: 'bar', groupBy: view.groupBy || groupField?.id || 'name', value: view.value || 'count' };
   }
   if (type === 'dashboard') {

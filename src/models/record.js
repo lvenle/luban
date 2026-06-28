@@ -280,10 +280,6 @@ function validateFieldValue(field, value) {
     if (!Number.isFinite(number)) throw badRequest(`字段「${field.label}」必须是数值。`);
     return number;
   }
-  if (field.type === 'boolean') {
-    if (typeof value !== 'boolean') throw badRequest(`字段「${field.label}」必须是布尔值。`);
-    return value;
-  }
   if (isTemporalField(field)) {
     if (Number.isNaN(Date.parse(value))) throw badRequest(`字段「${field.label}」必须是有效日期。`);
     return String(value);

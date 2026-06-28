@@ -77,7 +77,6 @@ function sampleValue(field, marker) {
   if (field.type === 'number') return 42;
   if (field.type === 'date') return '2026-06-11';
   if (field.type === 'datetime') return '2026-06-11T10:00';
-  if (field.type === 'boolean') return true;
   if (field.type === 'select') return optionValue(field.options?.[0]) || '默认';
   if (field.type === 'multiSelect') return [optionValue(field.options?.[0]) || '默认'];
   return '验收数据';

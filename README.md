@@ -1,282 +1,645 @@
-# 鲁班AI系统
+# 鲁班 AI 系统
 
-> AI 原生软件自定义平台
+> **AI Native Application Platform**
+> 用 AI 创建、运行、修改并持续演化软件，而不仅仅是生成代码。
 
-鲁班AI原生系统
-[demo地址：https://luban-byp6.onrender.com/](https://luban-byp6.onrender.com/)
+**Demo：** [https://luban-byp6.onrender.com/](https://luban-byp6.onrender.com/)
 
-鲁班AI系统是一个面向个人、团队和业务场景的 AI 原生软件创造平台。它希望把“做软件”从传统的代码工程，推进到“用自然语言表达需求、由 AI 生成结构化软件、再由运行时即时运行”的新模式。
+---
 
-你可以把它理解为一个软件工坊：用户描述想要的工具，系统自动生成数据模型、页面、表单、操作能力和建议指令，并把它安装成一个可以立刻使用、持续修改、可导入导出的轻量应用。
+# 项目简介
 
-## 系统介绍
+鲁班 AI 是一个面向个人、团队和业务场景的 **AI 原生软件创建平台（AI Native Application Platform）**。
 
-鲁班AI系统以“用 AI 打造未来的软件”为产品方向，把软件创建拆成一套可被 AI 理解和执行的结构化流程：先理解自然语言需求，再生成数据表、字段、页面、视图、动作和提示词，最后由 Runtime 直接运行。
+它希望把"开发软件"从传统的代码工程，推进到：
 
-它不是一次性生成静态页面，而是围绕“软件资产”持续演化。用户可以先创建一个能用的应用，再在真实使用过程中继续通过 AI 助手追加功能，例如增加字段、创建统计页、添加数据表、建立表关系、生成导出动作或调整页面结构。
+> **自然语言 → AI 理解 → 软件协议（Contract）→ 软件包（Package）→ Runtime 即时运行**
 
-## 愿景
+用户无需编写代码，只需要描述需求，例如：
 
-过去，软件通常由开发者预先设计，再交付给用户使用。鲁班AI系统尝试反过来：让用户从自己的工作流出发，用自然语言定义软件，让 AI 负责把需求转化为可验证、可运行、可迭代的应用结构。
+> 创建一个客户管理系统
 
-它关注的不是生成一段临时代码，而是生成一套稳定的软件资产：
+AI 会自动生成：
 
-- 有明确协议的软件包
-- 有结构化数据模型
-- 有可渲染的页面与表单
-- 有可执行的内置 Action
-- 有可持续修改的 AI Patch 流程
-- 有本地持久化、导入、导出和运行时
+- 数据模型（Schema）
+- 页面（Pages）
+- Dashboard（看板）
+- Actions
+- Prompt
+- 软件包（Package）
 
-最终目标是让每个人都能拥有适合自己流程的小软件，而不是被迫适应通用工具。
+随后 Runtime 立即运行应用。
 
-## 核心能力
+整个应用后续仍然可以继续通过 AI 演进，例如：
 
-- **自然语言创建软件**：输入一句需求，生成可运行的软件应用。
-- **生成即运行**：根据生成的结构自动渲染列表、表单、详情、仪表盘、图表和编辑器页面。
-- **AI 持续改进**：在应用内部通过对话添加字段、页面、表、关系和 Action。
-- **多表与关系字段**：支持跨实体关系、关系选项搜索和关联数据展示。
-- **数据管理**：支持新增、编辑、删除、搜索、排序、行内编辑和字段显示配置。
-- **导入导出**：支持 `.sgpkg` 软件包导入导出，也支持 CSV / XLSX 数据导出。
-- **本地优先存储**：使用 SQLite 保存应用结构、用户数据、AI 会话和执行日志。
+- 增加字段
+- 增加页面
+- 创建 Dashboard
+- 创建关系字段
+- 增加 Action
+- 调整页面布局
 
-## 可以创建什么
+AI 不重新生成整个应用，而是生成 Patch，对已有软件持续修改。
 
-鲁班AI系统适合生成面向数据、内容的小型业务软件，例如：
+---
+
+# 系统介绍
+
+鲁班 AI 并不是一个传统低代码平台。
+
+它采用 **Contract First + Package Driven + AI Native** 的设计思想。
+
+AI 首先生成统一的软件协议（Contract），再由 Runtime 根据协议即时运行应用。
+
+整个系统围绕统一协议工作：
+
+```
+Natural Language
+
+↓
+
+AI
+
+↓
+
+Contract
+
+↓
+
+Package
+
+↓
+
+Runtime
+
+↓
+
+Running Application
+```
+
+这样 AI、Runtime、Package、Validation、Tests 始终使用同一套协议，避免文档、Prompt 与代码逐渐漂移。
+
+---
+
+# 愿景
+
+过去的软件开发流程通常是：
+
+需求
+
+↓
+
+开发
+
+↓
+
+上线
+
+↓
+
+结束
+
+鲁班 AI 希望变成：
+
+需求
+
+↓
+
+AI 创建软件
+
+↓
+
+立即运行
+
+↓
+
+持续使用
+
+↓
+
+持续演化
+
+软件不再是一段代码，而是一套可以持续成长的软件资产。
+
+每个应用都拥有：
+
+- 完整的软件协议（Contract）
+- 结构化数据模型
+- 可运行页面
+- Dashboard
+- 内置 Action
+- AI Patch 修改能力
+- 本地持久化
+- 软件包导入导出
+
+最终目标是：
+
+> **让每个人都拥有属于自己的软件，而不是适应别人开发的软件。**
+
+---
+
+# 核心能力
+
+- 自然语言创建软件
+- AI 持续修改已有软件
+- Dashboard 看板页面
+- 多实体、多表关系
+- 关系字段
+- 行内编辑
+- 排序
+- 分组
+- 搜索
+- CSV/XLSX 导出
+- `.sgpkg` 软件包导入导出
+- SQLite 本地存储
+- AI 会话历史
+- Runtime 即时渲染
+
+---
+
+# 可以创建什么
+
+适用于各种轻量业务系统，例如：
 
 - 项目管理
-- 待办事项工具
 - 客户管理
+- CRM
+- 待办事项
+- 工单系统
 - 库存管理
 - 订单管理
 - 会议纪要
-- 工单管理
+- 用户访谈
 - 产品需求池
-- 知识库管理
-- 课程反馈收集
-- 线索管理器
-- 直播排期管理
-- 用户访谈记录
-- 竞品分析库
+- 课程反馈
+- 知识库
+- 内容管理
+- 竞品分析
+- 数据收集
 
-## 界面预览
+---
 
-### 首页
+# 界面预览
 
-鲁班AI系统首页
+## 首页
 
-首页是用户的软件工厂入口，集中展示本地已经创建或导入的软件。用户可以通过 AI 助手创建新软件，也可以导入 `.sgpkg` 软件包继续使用已有应用。软件卡片按分类组织，支持快速筛选、打开、导出和继续改造。
+首页是软件工厂入口。
 
-### AI 助理创建应用
+支持：
 
-AI 助理创建应用
+- 创建软件
+- 导入软件
+- 导出软件
+- 分类浏览
+- AI 创建
 
-AI 助理是鲁班AI系统的软件创建入口。用户只需要描述想要的软件，例如任务管理、客户管理、内容生成或项目跟踪，系统会把需求转化为结构化应用方案，并生成可运行的软件包。创建过程保留对话上下文，后续还可以继续通过 AI 助理追加字段、页面、表关系和自动化动作。
+---
 
-### 软件详情页
+## AI 助理
 
-鲁班AI系统软件详情页
+AI 助理负责：
 
-软件详情页是每个应用的运行工作台。左侧是自动生成的页面与数据表导航，中间是当前页面的运行区域，顶部提供新增记录、导入、导出、搜索、排序、分组、字段设置和表单视图等操作。右上角保留 AI 助手入口，用户可以在使用软件的同时继续提出修改需求，让应用持续演化，无缝衔接。
+- 创建应用
+- 修改应用
+- 添加字段
+- 添加页面
+- 创建 Dashboard
+- 新增 Action
 
-## 技术架构
+创建完成后即可立即运行。
 
-当前版本是一个便于本地运行和验证的 MVP，尽量减少外部依赖：
+---
 
-- Node.js 内置 HTTP Server
-- Node.js 内置 `node:sqlite`
-- 原生浏览器前端
-- 原生模块化 JavaScript
-- 本地 SQLite 数据库
-- `.sgpkg` zip 软件包协议
+## 软件运行页
 
-```text
+运行页包括：
+
+- 页面导航
+- 数据管理
+- Dashboard
+- 搜索
+- 排序
+- 分组
+- 导入导出
+- AI 修改
+
+整个应用可以边使用边演化。
+
+---
+
+# 当前架构
+
+```
+                    contract.js
+               (Single Source of Truth)
+                        │
+        ┌───────────────┼────────────────┐
+        │               │                │
+ Package Protocol   AI Prompt       AI Tools
+        │               │
+        └───────────────┼────────────────┘
+                        │
+                   Runtime
+                        │
+        ┌───────────────┴───────────────┐
+        │                               │
+    Validation                      SQLite
+                        │
+                      Tests
+```
+
+经过 Architecture Freeze 后：
+
+- Contract
+- Package Protocol
+- AI Prompt
+- Validation
+- Tests
+
+已经统一使用同一份协议定义。
+
+---
+
+# 技术架构
+
+当前版本尽量减少外部依赖：
+
+- Node.js HTTP Server
+- Node.js SQLite
+- 原生 Browser SPA
+- ES Modules
+- SQLite
+- ZIP 软件包
+
+```
 Browser SPA
-  ├─ 首页应用列表
-  ├─ Runtime 三栏工作台
-  ├─ AI 助手抽屉
-  └─ 设置面板
+ ├── 首页
+ ├── Runtime 工作台
+ ├── AI 助手
+ └── 设置
 
 Node.js Server
-  ├─ App CRUD
-  ├─ Record CRUD
-  ├─ Table / Field 管理
-  ├─ Relation 管理
-  ├─ AI Plan / Patch / Execute
-  ├─ Action Runner
-  ├─ Import / Export
-  └─ Settings
+ ├── AI Chat (SSE)
+ ├── AI Confirm
+ ├── App Runtime
+ ├── Record CRUD
+ ├── Action Runner
+ ├── Package Protocol
+ ├── Import / Export
+ └── Settings
 
 SQLite
-  ├─ apps
-  ├─ records
-  ├─ record_relations
-  ├─ ai_sessions
-  ├─ ai_messages
-  ├─ ai_execution_logs
-  └─ settings
+ ├── apps
+ ├── records
+ ├── record_relations
+ ├── ai_sessions
+ ├── ai_messages
+ ├── ai_execution_logs
+ └── settings
 ```
 
-## 软件包协议
+---
 
-`.sgpkg` 是鲁班AI系统的软件包格式，本质是一个 zip 包：
+# Contract Layer
 
-```text
+Contract Layer 是整个系统唯一协议来源。
+
+位置：
+
+```
+src/core/contract.js
+```
+
+目前统一维护：
+
+- FIELD_TYPES
+- PAGE_TYPES
+- TABLE_VIEW_TYPES
+- ACTION_TYPES
+- PATCH_OPS
+- SELECT_COLORS
+
+AI Prompt、Package Protocol、Validation、Tests 全部引用同一份 Contract。
+
+避免协议漂移。
+
+---
+
+# 软件包协议
+
+`.sgpkg` 是鲁班 AI 的软件包格式。
+
+```
 app.sgpkg
-├── manifest.json
-├── schema.json
-├── ui.json
-├── actions.json
-├── prompts.json
-└── sample-data.json
+
+manifest.json
+
+schema.json
+
+ui.json
+
+actions.json
+
+prompts.json
+
+sample-data.json
 ```
 
-默认导出只包含应用结构，不包含真实用户数据。
+默认导出：
 
-## 支持的模型元素
+- 应用结构
+- 页面
+- Action
+- Prompt
 
-字段类型包括：
+默认不导出真实业务数据。
 
-```text
-普通文本：text
-长文本：textarea
-数字：number
-日期：date
-日期+时间：datetime
-下拉单选：select
-下拉多选：multiSelect
-关联字段：relation
-图片：image
-文件：file
-链接：url
+---
+
+# 支持的模型元素
+
+## 字段类型
+
+目前支持：
+
+- text
+- textarea
+- richText
+- number
+- date
+- datetime
+- url
+- select
+- multiSelect
+- relation
+- image
+- file
+- formula
+- ai
+
+---
+
+## 页面类型
+
+正式支持：
+
+- page
+- table
+- dashboard
+- link
+
+---
+
+## View 类型
+
+支持：
+
+- list
+- quadrant
+- gantt
+
+---
+
+# AI 工作流
+
+创建应用：
 
 ```
+User
 
-页面类型包括：
+↓
 
-```text
-table（数据表）, link（链接）, page（页面）
+POST /api/ai/chat
+
+↓
+
+Package
+
+↓
+
+Runtime
+
+↓
+
+Running App
 ```
 
-## 快速开始
+修改应用：
 
-### 环境要求
+```
+User
 
-本项目使用 Node.js 内置 SQLite，因此需要 Node.js 25 或更高版本。
+↓
 
-```bash
+AI
+
+↓
+
+Patch
+
+↓
+
+Validate
+
+↓
+
+Apply
+
+↓
+
+Runtime
+```
+
+高风险操作需要用户确认后执行。
+
+---
+
+# 快速开始
+
+## 环境要求
+
+Node.js 25+
+
+```
 node -v
 ```
 
-### 安装依赖
+安装：
 
-```bash
+```
 npm install
 ```
 
-### 启动服务
+启动：
 
-```bash
-npm start
 ```
-
-打开浏览器访问：
-
-```text
-http://localhost:5173
+npm start
 ```
 
 开发模式：
 
-```bash
+```
 npm run dev
 ```
 
-## AI 配置
+浏览器：
 
-首页右上角进入“设置”，可填写：
+```
+http://localhost:5173
+```
+
+---
+
+# AI 配置
+
+设置中可配置：
 
 - API Base URL
 - API Key
 - Model
 
-如果 API Key 为空，系统会使用本地 Mock AI。这样即使没有模型服务，也可以完成软件创建、修改和验收演示。
+如果未配置模型，将自动使用 Mock AI。
 
-## 示例 Prompt
+---
 
-```text
-帮我创建一个家庭记账本，可以记录收入、支出、分类、日期、备注，并统计每月支出。
+# 示例 Prompt
+
+```
+帮我创建一个家庭记账本。
+
+帮我创建一个客户管理系统。
+
+增加一个客户等级字段。
+
+新增一个经营分析看板。
 ```
 
-```text
-帮我创建一个客户管理app，记录客户姓名、电话、来源、跟进状态、备注。
+---
+
+# 测试
+
 ```
-
-```text
-给这个客户管理器增加一个跟进提醒日期，并增加一个统计不同跟进状态的页面。
-```
-
-## 测试
-
-```bash
 npm test
 ```
 
-测试覆盖：
+目前测试覆盖：
 
-- 软件包协议校验
-- Patch 应用
-- SQLite CRUD
-- Action runner
-- `.sgpkg` 导入导出
-- HTTP API 核心闭环
-- UI 功能场景
-- 多类自然语言生成场景
+- Package Protocol
+- Contract
+- Dashboard
+- Patch
+- AI Regression
+- Prompt
+- SQLite
+- Runtime
+- HTTP API
+- UI
 
-## 数据目录
+Architecture Freeze 后：
 
-默认数据目录：
+- 文档
+- Prompt
+- Protocol
+- Tests
 
-```text
-data/
-├── db.sqlite
-├── apps/
-├── uploads/
-└── exports/
+保持同步。
+
+---
+
+# 性能基准测试
+
+```
+npm run bench
 ```
 
-应用结构保存在 `apps` 表中：
+性能基准测试位于 `benchmarks/performance.bench.js`，使用独立 SQLite 文件 `data/bench.sqlite`，不会污染业务数据库。
 
-- `manifestJson`
-- `schemaJson`
-- `uiJson`
-- `actionsJson`
-- `promptsJson`
+覆盖场景：
+- 大量记录创建（1000 / 5000 / 10000 条）
+- 列表分页读取
+- 搜索性能
+- 关系字段选项加载
+- 公式字段批量计算
+- CSV / XLSX 导出
+- AI 会话长历史读取
 
-用户记录统一保存在 `records.dataJson`，并通过 `entityId` 区分不同实体。
+基准测试默认不因性能阈值失败，仅输出性能指标供参考。
 
-## 当前限制
+---
 
-这是一个 MVP 版本，当前主要聚焦“AI 生成结构化软件并即时运行”的核心闭环。
+# 数据目录
 
-- 暂不支持多用户和登录。
-- 暂不支持云同步。
-- 不执行 AI 生成的任意代码。
-- 暂不支持富文本编辑器在。
-- 图表使用轻量原生展示，后续可替换为更完整的图表组件。
-- 当前实现为了便于直接运行，未引入 React、Fastify、Prisma 等工程化框架。
+```
+data/
 
-## 项目定位
+db.sqlite
 
-鲁班AI系统不是一个表单生成器，也不是一个简单的 Chatbot 外壳。它更像一个 AI 原生软件操作系统的原型：用协议约束 AI 输出，用运行时承载软件结构，用持续对话完成软件演化。
+apps/
 
-它的长期方向是：
+uploads/
 
-- 从“生成页面”走向“生成软件”
-- 从“聊天回答”走向“可执行工作流”
-- 从“模板工具”走向“按需定制的个人与团队系统”
-- 从“一次性生成”走向“持续演化的软件资产”
+exports/
+```
 
-## License
+---
 
-本项目采用 [GNU Affero General Public License v3.0](LICENSE) 开源协议。
+# 当前限制
+
+当前版本仍为 MVP：
+
+- 暂不支持多用户
+- 暂不支持云同步
+- 不执行 AI 生成代码
+- 图表仍采用轻量实现
+- 暂未引入 React、Fastify、Prisma 等框架
+- 页面基础 CRUD（新增/修改/删除/查询）由 Runtime 直接处理，不经过 Action
+- Action 仅用于系统内置标准动作，不支持用户自定义 Action
+
+---
+
+# 项目定位
+
+鲁班 AI 并不是：
+
+- 代码生成器
+- 表单生成器
+- ChatBot 外壳
+
+它更希望成为：
+
+> **AI Native Software Platform**
+
+让 AI 创建软件、运行软件，并持续演化软件。
+
+---
+
+# 已完成
+
+- ✅ Architecture Freeze
+- ✅ Contract Layer
+- ✅ Dashboard 独立页面类型
+- ✅ Prompt Contract 化
+- ✅ Package Protocol 收口
+- ✅ Semantic Field Helpers
+- ✅ AI Patch
+- ✅ Runtime
+- ✅ SQLite Storage
+
+---
+
+# 设计原则
+
+项目坚持以下原则：
+
+- **Contract First**：协议唯一来源。
+- **AI Native**：AI 是 Runtime 的一部分，而不是外挂。
+- **Package Driven**：应用以 Package 为运行单位。
+- **Small Evolution**：优先 Patch 演进，而不是整体重建。
+- **Readable Code**：保持代码可读性，避免过度抽象。
+- **Single Source of Truth**：文档、Prompt、Runtime、Tests 使用同一套协议。
+
+---
+
+# License
+
+本项目采用 **GNU Affero General Public License v3.0 (AGPL-3.0)** 开源协议。

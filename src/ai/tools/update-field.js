@@ -3,7 +3,7 @@ import { getApp } from '../../models/app.js';
 import { updateFieldInApp } from '../../services/operations.js';
 import { FIELD_TYPES } from '../../core/contract.js';
 
-const TOOL_FIELD_TYPES = [...FIELD_TYPES].filter((t) => t !== 'boolean' && t !== 'ai');
+const TOOL_FIELD_TYPES = [...FIELD_TYPES].filter((t) => t !== 'ai');
 
 register({
   name: 'update_field',
@@ -33,8 +33,8 @@ register({
     if (!app) throw new Error('App not found');
     const patch = {};
     if (args.label) patch.label = args.label;
-    if (args.type) patch.type = args.type === 'boolean' ? 'select' : args.type;
-    const options = args.type === 'boolean' ? ['否', '是'] : args.options;
+    if (args.type) patch.type = args.type;
+    const options = args.options;
     if (options) patch.options = options.map((opt) => ({ id: opt, label: opt }));
     return updateFieldInApp(app, args.entityId, args.fieldId, patch);
   }

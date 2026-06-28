@@ -270,7 +270,7 @@ function uniqueMockPageId(pkg, entity, title) {
 }
 
 function chooseGroupField(entityDef) {
-  return entityDef?.fields?.find((field) => field.type === 'select' || field.type === 'boolean') || entityDef?.fields?.[0] || { id: 'status', label: '状态' };
+  return entityDef?.fields?.find((field) => field.type === 'select') || entityDef?.fields?.[0] || { id: 'status', label: '状态' };
 }
 
 function fieldLabel(field) {

@@ -79,7 +79,7 @@ export function createTodoPackage() {
             { id: 'title', label: '任务', type: 'text', required: true },
             { id: 'due_date', label: '截止日期', type: 'date' },
             { id: 'priority', label: '优先级', type: 'select', options: ['低', '中', '高'] },
-            { id: 'done', label: '完成状态', type: 'boolean' },
+            { id: 'done', label: '完成状态', type: 'select', options: ['否', '是'] },
             { id: 'note', label: '备注', type: 'textarea' }
           ]
         }
@@ -307,7 +307,7 @@ export function scenarioDefinitions() {
       fields: [
         textField('habit', '习惯', true),
         dateField('date', '日期', true),
-        booleanField('done', '完成'),
+        selectField('done', '完成', ['否', '是']),
         numberField('streak', '连续天数'),
         textareaField('note', '备注')
       ],
@@ -480,7 +480,7 @@ export function scenarioDefinitions() {
         numberField('cost', '费用'),
         selectField('cycle', '周期', ['月付', '季付', '年付']),
         dateField('renew_date', '续费日期'),
-        booleanField('active', '启用')
+        selectField('active', '启用', ['否', '是'])
       ],
       chartField: 'cycle',
       sumField: 'cost',
@@ -983,7 +983,7 @@ export function scenarioDefinitions() {
         selectField('category', '分类', ['蔬果', '肉蛋奶', '日用品', '其他']),
         numberField('quantity', '数量'),
         numberField('budget', '预算'),
-        booleanField('bought', '已购买')
+        selectField('bought', '已购买', ['否', '是'])
       ],
       chartField: 'category',
       sumField: 'budget',
@@ -1001,7 +1001,7 @@ export function scenarioDefinitions() {
         textField('task', '清洁任务'),
         selectField('frequency', '频率', ['每天', '每周', '每月']),
         textField('owner', '负责人'),
-        booleanField('done', '完成')
+        selectField('done', '完成', ['否', '是'])
       ],
       chartField: 'frequency',
       suggestedCommands: ['增加提醒日期', '增加家务评分']
@@ -1448,10 +1448,6 @@ function numberField(id, label, required = false) {
 
 function dateField(id, label, required = false) {
   return { id, label, type: 'date', required };
-}
-
-function booleanField(id, label, required = false) {
-  return { id, label, type: 'boolean', required };
 }
 
 function selectField(id, label, options, required = false) {

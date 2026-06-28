@@ -4,7 +4,7 @@ import { createFieldsInApp } from '../../services/operations.js';
 import { FIELD_TYPES } from '../../core/contract.js';
 import { isFormulaField } from '../../core/fieldTypeHelpers.js';
 
-const TOOL_FIELD_TYPES = [...FIELD_TYPES].filter((t) => t !== 'boolean' && t !== 'ai');
+const TOOL_FIELD_TYPES = [...FIELD_TYPES].filter((t) => t !== 'ai');
 const FIELD_SCHEMA = {
   type: 'object',
   properties: {
@@ -64,10 +64,8 @@ register({
 });
 
 function normalizeToolField(field) {
-  const legacyBoolean = field.type === 'boolean';
-  const normalized = { id: field.id, label: field.label, type: legacyBoolean ? 'select' : field.type };
-  const options = legacyBoolean ? ['否', '是'] : field.options;
-  if (options) normalized.options = options.map((option) => typeof option === 'string' ? { id: option, label: option } : option);
+  const normalized = { id: field.id, label: field.label, type: field.type };
+  if (field.options) normalized.options = field.options.map((option) => typeof option === 'string' ? { id: option, label: option } : option);
   if (isFormulaField(field)) normalized.formula = field.formula;
   return normalized;
 }

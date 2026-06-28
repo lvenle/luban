@@ -138,7 +138,7 @@ test('normalizes generic model patch operations', () => {
       }
     ]
   });
-  assert.ok(next.schema.entities[0].fields.some((field) => field.id === 'travel_budget' && field.type === 'boolean'));
+  assert.ok(next.schema.entities[0].fields.some((field) => field.id === 'travel_budget' && field.type === 'select'));
   assert.ok(next.ui.pages.some((page) => page.id === 'travel-budget-page' && page.type === 'page' && page.chart));
 });
 

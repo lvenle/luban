@@ -8,7 +8,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "bench": "node benchmarks/performance.bench.js"
   },
   "engines": {
     "node": ">=25.0.0"
