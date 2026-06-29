@@ -1,4 +1,4 @@
-import { getDb, rowToApp, withTransaction } from '../storage/db.js';
+import { getDb, rowToApp, withTransaction, triggerBackup } from '../storage/db.js';
 import { getApp } from './app.js';
 import { createId } from '../core/ids.js';
 import { calculateFormulaFields } from '../core/formula.js';
@@ -93,6 +93,7 @@ export function createRecord(appId, entityId, data, customCreatedAt) {
       .run(id, appId, entityId, JSON.stringify(cleanData || {}), createdAt, createdAt);
     setRecordRelationValues(appId, entityId, id, relations);
   });
+  triggerBackup();
   return calculateRecordFormulas(getRecord(id));
 }
 
@@ -130,6 +131,7 @@ export function updateRecord(recordId, data) {
     if (dataChanged) database.prepare('UPDATE records SET dataJson = ?, updatedAt = ? WHERE id = ?').run(nextJson, now(), recordId);
     if (relationsChanged) setRecordRelationValues(existing.appId, existing.entityId, recordId, relations);
   });
+  triggerBackup();
   return calculateRecordFormulas(getRecord(recordId));
 }
 
@@ -157,10 +159,12 @@ export function deleteRecord(recordId, options = {}) {
     error.details = { referenceCount };
     throw error;
   }
-  return withTransaction(() => {
+  const result = withTransaction(() => {
     database.prepare('DELETE FROM record_relations WHERE sourceRecordId = ? OR targetRecordId = ?').run(recordId, recordId);
     return database.prepare('DELETE FROM records WHERE id = ?').run(recordId).changes > 0;
   });
+  triggerBackup();
+  return result;
 }
 
 export function deleteRecordForApp(appId, recordId, options = {}) {
@@ -172,11 +176,13 @@ export function deleteRecordsForApp(appId, recordIds = [], options = {}) {
   const ids = [...new Set(recordIds.map(String))];
   if (!ids.length) return 0;
   if (ids.length > 1000) throw badRequest('单次最多删除 1000 条记录。');
-  return withTransaction(() => {
+  const count = withTransaction(() => {
     for (const id of ids) if (!getRecordForApp(appId, id)) throw notFound(`找不到记录：${id}`);
     for (const id of ids) deleteRecord(id, options);
     return ids.length;
   });
+  triggerBackup();
+  return count;
 }
 
 export function countRecordReferences(recordId) {

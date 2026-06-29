@@ -1,4 +1,4 @@
-import { getDb, getPackageFromApp, withTransaction } from '../storage/db.js';
+import { getDb, getPackageFromApp, withTransaction, triggerBackup } from '../storage/db.js';
 import { updateAppPackage } from '../models/app.js';
 import { createRecord } from '../models/record.js';
 import { normalizeFieldId } from '../core/ids.js';
@@ -70,11 +70,13 @@ export function clearTableRecordsInApp(app, entityId) {
     error.details = { references };
     throw error;
   }
-  return withTransaction((database) => {
+  const result = withTransaction((database) => {
     database.prepare('DELETE FROM record_relations WHERE appId = ? AND (sourceEntityId = ? OR targetEntityId = ?)').run(app.id, entityId, entityId);
     const deleted = database.prepare('DELETE FROM records WHERE appId = ? AND entityId = ?').run(app.id, entityId);
     return { ok: true, deletedCount: deleted.changes };
   });
+  triggerBackup();
+  return result;
 }
 
 export async function importTableRecordsInApp(req, app, entityId, fileName) {

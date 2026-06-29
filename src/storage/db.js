@@ -186,6 +186,8 @@ export function getDb() {
   return db;
 }
 
+let pendingUpload = null; // tracks in-flight upload promise
+
 /**
  * Upload the database to Supabase immediately and stop the backup timer.
  * Called during graceful shutdown so the latest data is persisted before exit.
@@ -194,6 +196,8 @@ export async function closeDb() {
   stopBackupTimer();
   const cfg = supabaseConfig();
   if (cfg) {
+    // Wait for any in-flight triggerBackup to finish before doing final upload
+    if (pendingUpload) await pendingUpload;
     await uploadToSupabase(cfg);
   }
   if (db) {
@@ -203,14 +207,23 @@ export async function closeDb() {
 }
 
 /**
- * Trigger an immediate backup to Supabase (fire-and-forget).
- * Used after data-changing operations like app creation.
+ * Trigger an immediate backup to Supabase.
+ * Used after data-changing operations like app creation or record mutations.
+ * Errors are logged to console.error — never silently swallowed.
+ * closeDb() awaits any pending upload before shutdown.
  */
 export function triggerBackup() {
   const cfg = supabaseConfig();
-  if (cfg) {
-    uploadToSupabase(cfg).catch((err) => console.error('[db] triggerBackup failed:', err.message));
-  }
+  if (!cfg) return;
+  const run = uploadToSupabase(cfg);
+  pendingUpload = run;
+  run.catch((err) => {
+    console.error('[db] 备份到 Supabase 失败：', err.message);
+    if (pendingUpload === run) pendingUpload = null;
+  });
+  run.then(() => {
+    if (pendingUpload === run) pendingUpload = null;
+  });
 }
 
 export function resetDbForTests(path) {
