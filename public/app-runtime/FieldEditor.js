@@ -2,9 +2,12 @@ import { h, svgIcon, svgPath } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { openConfirmDialog } from '../common/modal.js';
-import { state } from '../app.js';
+import { state } from '../app-context.js';
 import { getViews, setViews, normalizeView, getListConfig, setListConfig } from './ViewBar.js';
-import { saveCurrentPackage, loadCurrentPageRecords, renderRuntime } from './index.js';
+import { saveCurrentPackage, loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
+import { configureRuntimePorts } from './runtime-ports.js';
+
+configureRuntimePorts({ optionObject, effectiveFieldType, fieldTypeLabel, optionLabel });
 
 const OPTION_COLORS = [
   'gray', 'red', 'orange', 'yellow', 'lime', 'green', 

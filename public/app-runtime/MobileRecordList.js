@@ -1,11 +1,11 @@
 import { h } from '../common/dom.js';
-import { state, storageKey, viewOrderedFields, applyViewFilters, sortRecords } from '../app.js';
+import { state, storageKey, viewOrderedFields, applyViewFilters, sortRecords } from '../app-context.js';
 import { renderViewBar, openFilterModal, openSortModal, openGroupModal, getListConfig, setListConfig } from './ViewBar.js';
 import { openRecordModal, removeRecord } from './RecordModal.js';
 import { openConfirmDialog } from '../common/modal.js';
 import { toast } from '../common/toast.js';
 import { readStorage, writeStorage } from '../common/storage.js';
-import { renderRuntime, loadCurrentPageRecords, renderInfiniteLoadSentinel } from './index.js';
+import { renderRuntime, loadCurrentPageRecords, renderInfiniteLoadSentinel } from './runtime-actions.js';
 import { optionLabel } from './FieldEditor.js';
 
 function pickTitleField(visibleFields) {

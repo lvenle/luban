@@ -2,10 +2,13 @@ import { h, svgIcon, svgPath, svgLine } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { clearUndoStack } from '../common/UndoStack.js';
-import { state, root, topbar, writeRoute, entityFor, currentPage, pageEntityForRecordLoad, recordsFor, entityById, formatFieldValue, dateKey, renderPage, setPageRenderers, toggleMobileDrawer } from '../app.js';
+import { state, root, topbar, writeRoute, entityFor, currentPage, pageEntityForRecordLoad, recordsFor, entityById, formatFieldValue, dateKey, renderPage, setPageRenderers, toggleMobileDrawer } from '../app-context.js';
 import { renderAssistantDrawer, removeAssistantDrawer, setAssistantMode } from '../ai-assistant/index.js';
 import { loadSidebarLayout, startSidebarResize, toggleSidebarCollapsed } from './RuntimeFrame.js';
 import { renderSidebarContent, renderMobileSidebar } from './Sidebar.js';
+import { configureRuntimeActions } from './runtime-actions.js';
+
+configureRuntimeActions({ renderRuntime, loadCurrentPageRecords, saveCurrentPackage, renderInfiniteLoadSentinel });
 
 async function registerPageRenderers() {
   const dt = await import('./DataTable.js').catch(() => ({}));

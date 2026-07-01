@@ -2,9 +2,9 @@ import { h, svgIcon, svgPath, svgLine, buttonLabel } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { openConfirmDialog, openTextModal } from '../common/modal.js';
-import { state, entityFor, recordsFor, storageKey, entityById, writeRoute, uniquePageId } from '../app.js';
+import { state, entityFor, recordsFor, storageKey, entityById, writeRoute, uniquePageId } from '../app-context.js';
 import { toggleSidebarCollapsed } from './RuntimeFrame.js';
-import { loadCurrentPageRecords, renderRuntime, saveCurrentPackage } from './index.js';
+import { loadCurrentPageRecords, renderRuntime, saveCurrentPackage } from './runtime-actions.js';
 import { getViews, selectFromOptions } from './ViewBar.js';
 import { optionObject } from './FieldEditor.js';
 

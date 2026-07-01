@@ -14,6 +14,7 @@ import { PassThrough } from 'node:stream';
 import { readJson } from '../src/routes/_helpers.js';
 import { handleSettingsApi } from '../src/routes/settings.js';
 import { setSetting } from '../src/models/session.js';
+import { createAppServer } from '../src/server.js';
 
 await Promise.all([
   import('../src/ai/tools/update-record.js'),
@@ -64,7 +65,7 @@ test('record validation, ownership, transactions, pagination and persisted AI to
   await getTool('design_form').handler({ appId: first.id, entityId: 'task', fieldOrder: ['status', 'name'], columns: 3 });
   const saved = getApp(first.id);
   assert.ok(saved.ui.pages[0].views.some((view) => view.name === 'AI 视图'));
-  assert.deepEqual(saved.schema.entities.find((entity) => entity.id === 'task').formLayout, { columns: 3, order: ['status', 'name', 'owner'] });
+  assert.deepEqual(saved.schema.entities.find((entity) => entity.id === 'task').formLayout, { columns: 3, order: ['status', 'name', 'tags', 'owner'] });
 
   const stale = getApp(first.id);
   const pkg = getPackageFromApp(stale);
@@ -106,6 +107,7 @@ function testPackage(id) {
       { id: 'task', name: '任务', fields: [
         { id: 'name', label: '名称', type: 'text', required: true },
         { id: 'status', label: '状态', type: 'select', options: [{ id: 'todo', label: '待办', color: 'blue' }] },
+        { id: 'tags', label: '标签', type: 'multiSelect', options: [{ id: 'urgent', label: '紧急', color: 'red' }] },
         { id: 'owner', label: '负责人', type: 'relation', targetEntity: 'person', displayField: 'name' }
       ] },
       { id: 'person', name: '人员', fields: [{ id: 'name', label: '姓名', type: 'text', required: true }] }
@@ -114,3 +116,37 @@ function testPackage(id) {
     actions: { actions: [] }, prompts: { suggestedCommands: [] }
   };
 }
+
+test('record search matches select and multi-select display labels before pagination', () => {
+  const dbPath = join(process.cwd(), 'data', 'test-choice-label-search.sqlite');
+  rmSync(dbPath, { force: true });
+  resetDbForTests(dbPath);
+  const app = createAppFromPackage(testPackage('choice-search'));
+  createRecord(app.id, 'task', { name: '第一条', status: 'todo', tags: ['urgent'] });
+  createRecord(app.id, 'task', { name: '第二条', status: 'todo' });
+  assert.equal(listRecords(app.id, { entityId: 'task', q: '待办', limit: 1, offset: 0 }).length, 1);
+  assert.equal(listRecords(app.id, { entityId: 'task', q: '待办', limit: 1, offset: 1 }).length, 1);
+  assert.equal(listRecords(app.id, { entityId: 'task', q: '紧急' })[0].data.name, '第一条');
+});
+
+test('record HTTP search reports label-aware totals and pages', async () => {
+  const dbPath = join(process.cwd(), 'data', 'test-choice-label-search-http.sqlite');
+  rmSync(dbPath, { force: true });
+  resetDbForTests(dbPath);
+  const app = createAppFromPackage(testPackage('choice-search-http'));
+  createRecord(app.id, 'task', { name: '第一条', status: 'todo' });
+  createRecord(app.id, 'task', { name: '第二条', status: 'todo' });
+  const server = createAppServer();
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const { port } = server.address();
+    const response = await fetch(`http://127.0.0.1:${port}/api/apps/${app.id}/records?entity=task&q=${encodeURIComponent('待办')}&limit=1&offset=1`);
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.pagination.total, 2);
+    assert.equal(body.records.length, 1);
+    assert.equal(body.records[0].data.name, '第二条');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

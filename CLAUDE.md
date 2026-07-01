@@ -37,11 +37,10 @@ src/
     settings.js      — Settings API
   ai/
     service.js       — OpenAI streaming client, package generation from prompt
-    agent.js         — Planning prompts, intent understanding (legacy flow)
     registry.js      — Tool registration and discovery (auto-imports tools/)
-    samplePackages.js— 30+ offline fallback packages (keyword-matched)
-    mockPatch.js     — Mock AI patch generation (no-API-key mode)
     tools/           — Tool handlers (create-app, add-field, add-entity, etc.)
+  templates/
+    appTemplates.js  — Explicit sample/template catalog for initialization and tests
   core/
     packageProtocol.js — .sgpkg validation, patch application, field type defs
     ids.js           — UUID generation, slug/normalize helpers
@@ -114,17 +113,9 @@ A zip containing: `manifest.json`, `schema.json` (entities + fields), `ui.json` 
 
 ### AI System
 
-Two modes:
-- **OpenAI mode:** Configure API key in settings. Uses streaming chat completions with tool calls.
-  - `generatePackageFromPrompt()` sends prompt to OpenAI → returns generated package
-  - On API failure, throws error (no silent fallback) — the tool handler surfaces the error to the user
-- **Mock mode:** No API key = local fallback. `generatePackageFromPrompt()` immediately returns `pickSamplePackage()`, which keyword-matches against 30+ scenarios and falls back to `createBudgetPackage()` (家庭记账本).
-
-The `create_app` tool handler calls `generatePackageFromPrompt()` → validates result → creates app. When mock mode returns an unrelated sample, unrelated tables can appear. This is a known issue.
+Configure an API key in settings to use streaming chat completions and tool calls. `generatePackageFromPrompt()` never silently falls back: missing configuration or provider failures are surfaced to the user. Sample applications live in the explicit template catalog and are not part of production AI generation.
 
 AI tools: `create_app`, `add_entity`, `add_field`, `add_relation`, `add_page`, `add_view`, `create_view`, `add_record`, `add_action`, `update_entity`, `update_field`, `update_record`, `remove_entity`, `remove_field`, `remove_page`, `delete_record`, `design_form`, `query_data`, `clear_sessions`.
-
-Legacy planning: `src/ai/agent.js` contains `understandAgentRequest()` (intent detection) and `buildPlanningPrompt()` — used by the old generate-plan-then-execute flow. The current SSE chat flow (`handleAiApi` → `streamOpenAI`) replaces this.
 
 ### Database Schema (SQLite, WAL mode)
 
@@ -149,5 +140,3 @@ Legacy planning: `src/ai/agent.js` contains `understandAgentRequest()` (intent d
 - **Silent error handling:** `onSwitch` callback now shows `toast()` on HTTP/session errors instead of swallowing them.
 - **Tool log input mismatch:** `completedToolLogs()` now checks `hasOwnInput` before consuming the pending-input queue.
 - **FormulaError class missing:** `FormulaError` was used in `formula.js` but never defined, causing ReferenceErrors on invalid formula expressions. Now exported as a proper Error subclass.
-- **Unrelated table fallback:** When AI generation fails, `pickSamplePackage()` defaults to 家庭记账本 with no homework management keywords. To fix: add keywords to `samplePackages.js` or improve `generatePackageFromPrompt()` fallback logic in `create-app.js`.
-- **Record q-search limited for selects:** `listRecords({q})` uses SQL `LIKE` on `dataJson`, but select values are stored as option IDs (not labels). The JS post-filter resolves labels correctly but may miss records if SQL pre-filter strips them. To fix: add a label-aware SQL filter or remove the SQL pre-filter.

@@ -3243,9 +3243,6 @@ thead .frozen-column {
   .manual-rule-grid, .manual-rule-updated-fields { grid-template-columns: 1fr; }
 }
 
-.confirm-modal {
-  width: min(440px, calc(100vw - 36px));
-}
 
 .layout-editor {
   display: grid;
@@ -3757,13 +3754,6 @@ body.assistant-open #app {
   }
 }
 
-.assistant-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-bottom: 1px solid var(--line);
-  padding: 8px 10px;
-}
 
 .assistant-head h3 {
   margin: 0;
@@ -3814,62 +3804,13 @@ body.assistant-open #app {
   background: #f1f4f8;
 }
 
-.assistant-history-select {
-  flex: 1;
-  min-width: 60px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-}
 
-.assistant-messages {
-  min-height: 0;
-  overflow: auto;
-  padding: 16px 14px;
-  background: linear-gradient(180deg, #fbfcff, #fff);
-}
 
-.assistant-msg {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 14px;
-}
 
-.assistant-msg.user {
-  flex-direction: row-reverse;
-}
 
-.assistant-avatar {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 800;
-}
 
-.assistant-avatar.ai {
-  background: linear-gradient(135deg, var(--brand), #06b6d4);
-  color: #fff;
-}
 
-.assistant-avatar.user {
-  background: #111827;
-  color: #fff;
-}
 
-.assistant-bubble {
-  max-width: calc(100% - 40px);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel);
-  padding: 11px 12px;
-  line-height: 1.65;
-  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.05);
-}
 
 .assistant-msg.user .assistant-bubble {
   background: #dbeafe;
@@ -3886,28 +3827,12 @@ body.assistant-open #app {
   font-weight: 800;
 }
 
-.assistant-bubble.streaming::after {
-  content: "|";
-  color: var(--brand);
-  animation: caret-blink 0.8s infinite;
-}
 
 @keyframes caret-blink {
   50% { opacity: 0; }
 }
 
-.assistant-input {
-  border-top: 1px solid var(--line);
-  padding: 11px 12px 12px;
-  background: var(--panel);
-}
 
-.assistant-quick {
-  display: flex;
-  gap: 7px;
-  overflow: auto;
-  padding-bottom: 8px;
-}
 
 button.assistant-chip {
   flex: 0 0 auto;
@@ -3923,11 +3848,6 @@ button.assistant-chip:hover {
   background: #e8edf5;
 }
 
-.assistant-input-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
 
 .assistant-input-row textarea {
   min-height: 44px;

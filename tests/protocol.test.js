@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyPatch, preparePackage } from '../src/core/packageProtocol.js';
-import { generatePlanFromPrompt, planToPackage } from '../src/ai/service.js';
-import { createBudgetPackage } from '../src/ai/samplePackages.js';
+import { applyPatch, migratePackage, preparePackage } from '../src/core/packageProtocol.js';
+import { createBudgetPackage } from '../src/templates/appTemplates.js';
 import { packageToZipPayload, zipPayloadToPackage } from '../src/utils/zip.js';
 import { PAGE_TYPES } from '../src/core/contract.js';
 
@@ -11,6 +10,18 @@ test('validates and normalizes a software package', () => {
   assert.equal(pkg.manifest.name, '家庭记账本');
   assert.equal(pkg.schema.entities[0].id, 'transaction');
   assert.ok(pkg.ui.pages.some((page) => page.type === 'table'));
+});
+
+test('migrates versionless packages before normalization and remains idempotent', () => {
+  const legacy = createBudgetPackage();
+  delete legacy.manifest.packageVersion;
+  legacy.schema.entities[0].fields.push({ id: 'verified', label: '已核对', type: 'boolean', required: true });
+  const migrated = migratePackage(legacy);
+  assert.equal(migrated.manifest.packageVersion, '2.0');
+  assert.equal(migrated.schema.entities[0].fields.at(-1).type, 'select');
+  const once = preparePackage(legacy);
+  const twice = preparePackage(once);
+  assert.deepEqual(twice, once);
 });
 
 test('rejects unsupported field types', () => {
@@ -24,7 +35,7 @@ test('applies patch and keeps package valid', () => {
   const next = applyPatch(pkg, {
     summary: '增加旅游预算字段',
     operations: [
-      { op: 'addField', entity: 'transaction', field: { id: 'travel_budget', label: '是否计入旅游预算', type: 'boolean' } },
+      { op: 'addField', entity: 'transaction', field: { id: 'travel_budget', label: '是否计入旅游预算', type: 'select', options: ['否', '是'] } },
       { op: 'addSuggestedCommand', command: '查看旅游预算' }
     ]
   });
@@ -45,35 +56,6 @@ test('allows blank pages without bound table', () => {
   const blank = clean.ui.pages.find((page) => page.id === 'blank-board');
   assert.equal(blank.type, 'page');
   assert.equal(blank.entity, undefined);
-});
-
-test('converts multiple views for one table into unique pages', () => {
-  const pkg = planToPackage({
-    type: 'app_creation_plan',
-    appName: '客户工具',
-    tables: [
-      {
-        tempId: 'customer',
-        name: '客户',
-        fields: [{ tempId: 'name', name: '名称', type: 'text' }]
-      }
-    ],
-    relations: [],
-    views: [
-      { tableTempId: 'customer', name: '客户列表', type: 'grid' },
-      { tableTempId: 'customer', name: '重点客户列表', type: 'grid' }
-    ]
-  });
-  assert.equal(pkg.ui.pages.length, 2);
-  assert.equal(new Set(pkg.ui.pages.map((page) => page.id)).size, 2);
-  assert.ok(pkg.ui.pages.every((page) => page.entity === 'customer'));
-});
-
-test('mock AI modification can add a page for an existing table', async () => {
-  const pkg = preparePackage(createBudgetPackage());
-  const plan = await generatePlanFromPrompt('给交易表新增一个旅游统计页面', {}, pkg);
-  assert.equal(plan.type, 'app_modification_plan');
-  assert.ok(plan.operations.some((operation) => operation.op === 'addPage' && operation.page?.entity === 'transaction'));
 });
 
 test('exports and imports .sgpkg zip payload', () => {

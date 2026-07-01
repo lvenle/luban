@@ -8,9 +8,9 @@
  */
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
-import { state } from '../app.js';
-import { loadCurrentPageRecords, renderRuntime } from './index.js';
-import { resolveAiPrompt } from './CellEditor.js';
+import { state } from '../app-context.js';
+import { loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
+import { resolveAiPrompt } from './runtime-ports.js';
 
 const pendingTimers = new Map(); // recordId → timeoutId
 

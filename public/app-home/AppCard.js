@@ -2,7 +2,8 @@ import { h } from '../common/dom.js';
 import { bindFloatingMenu, openConfirmDialog } from '../common/modal.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
-import { state } from '../app.js';
+import { state } from '../app-context.js';
+import { loadApps, openApp } from './home-actions.js';
 
 export function appCard(app) {
   const menu = bindFloatingMenu(h('details', { class: 'card-menu', onclick: (event) => event.stopPropagation() }, [
@@ -21,7 +22,6 @@ export function appCard(app) {
             danger: true,
             onConfirm: async () => {
               await api(`/api/apps/${app.id}`, { method: 'DELETE' });
-              const { loadApps } = await import('./index.js');
               await loadApps();
               toast('软件已删除');
             }
@@ -46,8 +46,7 @@ export function appCard(app) {
 }
 
 async function openAppFromCard(appId) {
-  const { openApp } = await import('../app-runtime/index.js');
-  openApp(appId);
+  await openApp(appId);
 }
 
 export function appCategories() {

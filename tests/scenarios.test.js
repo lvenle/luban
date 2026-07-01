@@ -1,47 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generatePackageFromPrompt, generatePatchFromPrompt } from '../src/ai/service.js';
-import { applyPatch, preparePackage } from '../src/core/packageProtocol.js';
-import { allSamplePackages } from '../src/ai/samplePackages.js';
+import { generatePackageFromPrompt } from '../src/ai/service.js';
+import { preparePackage } from '../src/core/packageProtocol.js';
+import { allAppTemplates, pickAppTemplate } from '../src/templates/appTemplates.js';
 
-const GENERATION_SCENARIOS = allSamplePackages().map((pkg) => `帮我创建一个${pkg.manifest.name}，${pkg.manifest.description}`);
-
-test('generates valid runnable packages for at least 50 demand scenarios', async () => {
+test('explicit template catalog contains at least 50 valid runnable packages', () => {
+  const templates = allAppTemplates();
   const names = new Set();
-  for (const prompt of GENERATION_SCENARIOS) {
-    const pkg = preparePackage(await generatePackageFromPrompt(prompt, {}));
+  for (const template of templates) {
+    const pkg = preparePackage(template);
     names.add(pkg.manifest.name);
-    assert.ok(pkg.schema.entities.length >= 1, prompt);
-    assert.ok(pkg.schema.entities[0].fields.length >= 4, prompt);
-    assert.ok(pkg.ui.pages.some((page) => page.type === 'table' || (page.entity && page.type === 'page')), prompt);
-    assert.ok(pkg.actions.actions.length >= 1, prompt);
+    assert.ok(pkg.schema.entities.length >= 1);
+    assert.ok(pkg.ui.pages.some((page) => page.type === 'table' || (page.entity && page.type === 'page')));
   }
-  assert.ok(GENERATION_SCENARIOS.length >= 50);
+  assert.ok(templates.length >= 50);
   assert.ok(names.size >= 50);
+  assert.match(pickAppTemplate('创建项目跟踪器').manifest.name, /项目/);
 });
 
-test('fallback modifier supports common natural-language app changes', async () => {
-  const base = preparePackage(await generatePackageFromPrompt('帮我创建一个项目跟踪器', {}));
-  const changes = [
-    '增加负责人字段',
-    '增加优先级字段',
-    '增加金额字段',
-    '增加完成日期',
-    '增加备注字段',
-    '增加状态统计页面',
-    '增加导出功能',
-    '增加 AI 总结分析'
-  ];
-  let current = base;
-  for (const change of changes) {
-    const patch = await generatePatchFromPrompt(change, current, {});
-    current = applyPatch(current, patch);
-  }
-  const fields = current.schema.entities[0].fields.map((field) => field.id);
-  assert.ok(fields.includes('owner'));
-  assert.ok(fields.includes('priority'));
-  assert.ok(fields.includes('amount'));
-  assert.ok(current.ui.pages.some((page) => page.type === 'page' && page.chart));
-  assert.ok(current.actions.actions.some((action) => action.type === 'export.csv'));
-  assert.ok(current.actions.actions.some((action) => action.type === 'ai.generateText'));
+test('production AI generation never substitutes a template when unconfigured', async () => {
+  await assert.rejects(() => generatePackageFromPrompt('创建项目跟踪器', {}), /配置 AI API Key/);
 });

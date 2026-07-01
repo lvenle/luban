@@ -112,7 +112,6 @@
 | 配置 | `GET/PUT /api/settings` | AI 设置读写 |
 | Action | `POST /api/apps/:id/actions/:aid/run` | 执行 Action |
 | 文件 | `POST /api/apps/:id/uploads` | 上传文件 |
-| AI 修改 | `POST /api/apps/:id/modify` | AI 修改应用 |
 
 ---
 
@@ -272,33 +271,8 @@ applyPatch(pkg, patch)
 
 | 模式 | 条件 | 行为 |
 |------|------|------|
-| Mock AI | API Key 为空 | 关键词匹配 50+ 预定义场景 |
+| 未配置 API Key | 返回明确配置错误，不创建样例应用 |
 | OpenAI | API Key 已配置 | 调用 `/v1/chat/completions` |
-
-**Mock AI 匹配逻辑**：
-
-```
-generatePackageFromPrompt(prompt, settings)
-  → pickSamplePackage(prompt)
-    → 关键词匹配 (如 "记账"→budget, "待办"→todo)
-    → 遍历 scenarioDefinitions() 所有场景
-    → 返回匹配度最高的包
-```
-
-**Mock Patch 逻辑**：
-
-```
-generatePatchFromPrompt(prompt, currentPackage, settings)
-  → mockPatch(prompt, pkg)
-    → 分析关键词:
-      - "增加...字段/功能" → addField
-      - "页面/入口/列表页/统计页" → addPage(特定类型)
-      - "导出" → addAction(export.csv)
-      - "总结/分析" → addAction(ai.generateText)
-    → 智能推断字段类型 (从中文标签)
-    → 处理特殊场景: 旅游/今日/爆款/提醒等
-    → 始终有 fallback
-```
 
 **OpenAI 集成**：
 - `requestChatCompletion(settings, messages)` — POST 到 OpenAI-compatible API
@@ -306,28 +280,6 @@ generatePatchFromPrompt(prompt, currentPackage, settings)
 - 25s 超时，失败重试（移除 `response_format` 重试）
 - 支持 `response_format: { type: 'json_object' }`
 
-**Plan 生成**（V2）：
-- `generatePlanFromPrompt(prompt, settings, currentPackage)` — 生成结构化 Plan
-- `planToPackage(plan)` — Plan 转完整包
-- `validateAiPlan(plan)` — 限制检查（最多 20 表、每表 100 字段、100 关系）
-
----
-
-### 5. `src/agent.js` — 遗留意图识别（旧 planning flow）
-
-**注意：** 当前主要 AI 入口是 `POST /api/ai/chat`（SSE 流式对话），agent.js 是旧规划执行流程的遗留模块，保留用于兼容。
-
-**意图类型**（10 种）：
-
-`CreateApp`, `CreateTable`, `CreatePage`, `AddField`, `CreateRelation`, `ModifySchema`, `DeleteSchema`, `QuerySchema`, `AnalyzeData`, `GeneralChat`
-
-**接口**：
-
-- `understandAgentRequest(prompt, { app, session })` — 正则匹配中文意图，返回 `CLARIFY` / `PLAN` 状态
-- `buildPlanningPrompt(prompt, opts)` — 构建 AI 规划提示词
-- `describePlan(plan)` — 生成 Plan 的人类可读摘要
-
----
 
 ### 6. `src/actions.js` — Action 执行器（系统内置 Action）
 
@@ -380,7 +332,7 @@ runAction(app, actionId)
 
 ---
 
-### 10. `src/samplePackages.js` — 50+ 样本包定义
+### 10. `src/templates/appTemplates.js` — 50+ 显式模板定义
 
 **预定义模板**（4 个）：
 - 家庭记账本（`createBudgetPackage`）— 收入/支出/分类/日期/备注 + 月度统计

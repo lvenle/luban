@@ -1,12 +1,12 @@
 import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
-import { state, recordsFor, currentPage, entityFor, pageEntityForRecordLoad } from '../app.js';
-import { loadCurrentPageRecords, renderRuntime } from './index.js';
-import { fieldTypeLabel } from './FieldEditor.js';
-import { closeContextMenu } from './TableHeader.js';
-import { defaultValueForField, fieldValuesEqual, relationDisplayValue, displayValue, hasDisplayValue } from './CellEditor.js';
+import { state, recordsFor, currentPage, entityFor, pageEntityForRecordLoad } from '../app-context.js';
+import { loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
+import { fieldTypeLabel, closeContextMenu, defaultValueForField, fieldValuesEqual, relationDisplayValue, displayValue, hasDisplayValue, configureRuntimePorts } from './runtime-ports.js';
 import { storedNumberValue } from './NumberValues.js';
+
+configureRuntimePorts({ clearActiveTableSelection });
 
 let cellSelectionEventsBound = false;
 

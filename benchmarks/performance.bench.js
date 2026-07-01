@@ -6,7 +6,8 @@ import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { resetDbForTests, getDb } from '../src/storage/db.js';
 import { createAppFromPackage } from '../src/models/app.js';
-import { createBudgetPackage } from '../src/ai/samplePackages.js';
+import { listRecords } from '../src/models/record.js';
+import { createBudgetPackage } from '../src/templates/appTemplates.js';
 import { toCsv } from '../src/utils/export.js';
 import { recordsToXlsx } from '../src/utils/xlsx.js';
 
@@ -94,11 +95,10 @@ function benchListRecords(app, count) {
 }
 
 function benchSearch(app, count) {
-  const db = getDb();
   const entity = app.schema.entities[0];
-  const sql = db.prepare("SELECT id, dataJson FROM records WHERE appId = ? AND entityId = ? AND dataJson LIKE ?");
-  benchRepeated(`搜索 (LIKE 匹配)`, count, () => {
-    sql.all(app.id, entity.id, `%500%`);
+  const choiceLabel = entity.fields.find((field) => field.type === 'select')?.options?.[0]?.label || '500';
+  benchRepeated('搜索（含选项标签解析）', count, () => {
+    listRecords(app.id, { entityId: entity.id, q: choiceLabel, limit: 50, offset: 0 });
   });
 }
 

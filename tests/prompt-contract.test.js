@@ -19,10 +19,6 @@ test('formatPageTypesForPrompt is exported', () => {
   assert.match(serviceJs, /export function formatPageTypesForPrompt/);
 });
 
-test('formatPatchOpsForPrompt is exported', () => {
-  assert.match(serviceJs, /export function formatPatchOpsForPrompt/);
-});
-
 // ── Helper references contract constants ─────────────────────────────────
 
 test('formatFieldTypesForPrompt reads FIELD_TYPES[id]?.label', () => {
@@ -35,10 +31,6 @@ test('formatActionTypesForPrompt reads ACTION_TYPES[id]?.label', () => {
 
 test('formatPageTypesForPrompt reads PAGE_TYPES[id]?.label', () => {
   assert.match(serviceJs, /PAGE_TYPES\[id\]\?\.label/);
-});
-
-test('formatPatchOpsForPrompt reads PATCH_OPS[id]?.label', () => {
-  assert.match(serviceJs, /PATCH_OPS\[id\]\?\.label/);
 });
 
 // ── Runtime output verification ──────────────────────────────────────────
@@ -69,15 +61,6 @@ test('formatPageTypesForPrompt produces page/table/link/dashboard', async () => 
   assert.match(result, /看板\(dashboard\)/);
 });
 
-test('formatPatchOpsForPrompt produces label(id) for patch ops', async () => {
-  const { formatPatchOpsForPrompt } = await import('../src/ai/service.js');
-  const ops = ['addEntity', 'addField', 'addPage', 'addAction', 'addSuggestedCommand'];
-  const result = formatPatchOpsForPrompt(ops);
-  assert.match(result, /添加表\(addEntity\)/);
-  assert.match(result, /添加字段\(addField\)/);
-  assert.match(result, /添加页面\(addPage\)/);
-});
-
 // ── Prompt source does NOT contain unsupported ops ───────────────────────
 
 test('patch prompt does NOT contain updateEntity or removeEntity', () => {
@@ -88,18 +71,6 @@ test('patch prompt does NOT contain updateEntity or removeEntity', () => {
 test('create prompt references PROMPT_PAGE_TYPES_STR for page types', () => {
   assert.match(serviceJs, /PROMPT_PAGE_TYPES_STR/);
   assert.match(serviceJs, /每张表至少生成一个 table 类型的数据页面/);
-});
-
-test('patch prompt references PROMPT_PAGE_TYPES_STR', () => {
-  assert.match(serviceJs, /页面类型支持：' \+ PROMPT_PAGE_TYPES_STR/);
-});
-
-test('V2 plan prompt references PROMPT_PAGE_TYPES_STR', () => {
-  assert.match(serviceJs, /PROMPT_PAGE_TYPES_STR/);
-});
-
-test('V2 plan prompt uses formatFieldTypesForPrompt helper', () => {
-  assert.match(serviceJs, /formatFieldTypesForPrompt\(V2_PLAN_TYPES\)/);
 });
 
 // ── Contract metadata completeness ───────────────────────────────────────
@@ -127,8 +98,4 @@ test('create prompt uses PROMPT_ACTION_TYPES_STR', () => {
 
 test('create prompt uses PROMPT_PAGE_TYPES_STR', () => {
   assert.match(serviceJs, /页面类型支持：' \+ PROMPT_PAGE_TYPES_STR/);
-});
-
-test('patch prompt uses PROMPT_PATCH_OPS_STR', () => {
-  assert.match(serviceJs, /支持操作：' \+ PROMPT_PATCH_OPS_STR/);
 });

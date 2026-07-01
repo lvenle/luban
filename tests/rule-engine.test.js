@@ -7,7 +7,7 @@ import { createAppFromPackage } from '../src/models/app.js';
 import { createRecord, getRecord } from '../src/models/record.js';
 import { executeRuleEvent } from '../src/services/rule-engine.js';
 import { listRuleRuns } from '../src/models/rule-run.js';
-import { createBudgetPackage } from '../src/ai/samplePackages.js';
+import { createBudgetPackage } from '../src/templates/appTemplates.js';
 import { createAppServer } from '../src/server.js';
 
 function inventoryPackage() {

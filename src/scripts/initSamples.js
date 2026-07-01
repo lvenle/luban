@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createAppFromPackage, listApps } from '../models/app.js';
-import { allSamplePackages } from '../ai/samplePackages.js';
+import { allAppTemplates } from '../templates/appTemplates.js';
 import { packageToZipPayload } from '../utils/zip.js';
 
 const SAMPLE_DIR = join(process.cwd(), 'samples');
@@ -9,12 +9,12 @@ const SAMPLE_DIR = join(process.cwd(), 'samples');
 if (!existsSync(SAMPLE_DIR)) mkdirSync(SAMPLE_DIR, { recursive: true });
 
 if (listApps().length === 0) {
-  for (const pkg of allSamplePackages()) {
+  for (const pkg of allAppTemplates()) {
     createAppFromPackage(pkg);
   }
 }
 
-for (const pkg of allSamplePackages()) {
+for (const pkg of allAppTemplates()) {
   const slug = pkg.manifest.id;
   writeFileSync(join(SAMPLE_DIR, `${slug}.json`), JSON.stringify(pkg, null, 2));
   writeFileSync(join(SAMPLE_DIR, `${slug}.sgpkg`), Buffer.from(packageToZipPayload(pkg)));

@@ -1,6 +1,6 @@
 import { readStorage, writeStorage, globalStorageKey, clampSidebarWidth } from '../common/storage.js';
-import { state } from '../app.js';
-import { renderRuntime } from './index.js';
+import { state } from '../app-context.js';
+import { renderRuntime } from './runtime-actions.js';
 
 export function toggleSidebarCollapsed() {
   state.sidebarCollapsed = !state.sidebarCollapsed;

@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 
 const indexHtml = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const appShellJs = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+const appContextJs = readFileSync(new URL('../public/app-context.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const assistantCss = readFileSync(new URL('../public/ai-assistant/style.css', import.meta.url), 'utf8');
 const serverJs = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
@@ -36,6 +37,7 @@ const runtimeFrameJs = readFileSync(new URL('../public/app-runtime/RuntimeFrame.
 const pageTypesJs = readFileSync(new URL('../public/app-runtime/PageTypes.js', import.meta.url), 'utf8');
 const appJs = [
   appShellJs,
+  appContextJs,
   commonDomJs,
   commonApiJs,
   commonModalJs,
@@ -92,7 +94,6 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /currentRoute/);
   assert.match(appJs, /writeRoute/);
   assert.match(appJs, /URLSearchParams/);
-  assert.match(homeIndexJs, /export async function createAppFromPrompt/);
   assert.match(appJs, /AI 助理/);
   assert.match(appJs, /saveAppMetadata/);
   assert.match(appJs, /topbar-app-info/);
@@ -309,7 +310,7 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.doesNotMatch(css, /\.preview-input/);
   assert.match(css, /\.select-cell/);
   assert.match(css, /\.selection-label/);
-  assert.match(css, /\.confirm-modal/);
+  assert.match(assistantCss, /\.confirm-modal/);
   assert.match(css, /\.select-tag/);
   assert.match(css, /\.relation-tag/);
   assert.match(css, /\.ai-status-card/);

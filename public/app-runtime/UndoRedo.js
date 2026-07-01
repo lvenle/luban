@@ -9,8 +9,8 @@
  */
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
-import { state } from '../app.js';
-import { loadCurrentPageRecords, renderRuntime } from './index.js';
+import { state } from '../app-context.js';
+import { loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
 import { undo, redo } from '../common/UndoStack.js';
 
 async function updateRecord(recordId, data) {

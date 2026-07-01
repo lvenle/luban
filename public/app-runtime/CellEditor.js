@@ -1,16 +1,17 @@
 import { h, svgIcon, svgPath } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
-import { state, recordsFor, dateKey } from '../app.js';
-import { loadCurrentPageRecords, renderRuntime } from './index.js';
-import { optionObject, effectiveFieldType } from './FieldEditor.js';
-import { clearActiveTableSelection } from './CellSelection.js';
+import { state, recordsFor, dateKey } from '../app-context.js';
+import { loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
+import { optionObject, effectiveFieldType, clearActiveTableSelection, configureRuntimePorts } from './runtime-ports.js';
 import { dateInputValue, dateInputLocale, formatDateFieldValue, bindDateTimePicker, showDateTimePicker } from './DateFormat.js';
 import { normalizeChoiceInitialValue, relationChoicesFromValue, mergeChoiceOptions, relationValueId } from './ChoiceValues.js';
 import { renderMarkdown } from './Markdown.js';
 import { numberInputValue, storedNumberValue } from './NumberValues.js';
 import { pushUndo } from '../common/UndoStack.js';
 import { notifyRuleResults } from './RuleFeedback.js';
+
+configureRuntimePorts({ defaultValueForField, fieldValuesEqual, relationDisplayValue, displayValue, hasDisplayValue, resolveAiPrompt });
 
 export function startCellEdit(cell, entity, record, field) {
   if (cell.classList.contains('cell-editing')) return;

@@ -12,15 +12,47 @@ import {
 // Re-export for backward compatibility
 export { FIELD_TYPES, TABLE_VIEW_TYPES, SELECT_COLORS, PAGE_TYPES, ACTION_TYPES };
 
+export const CURRENT_PACKAGE_VERSION = '2.0';
+
+export function migratePackage(pkg) {
+  const next = structuredClone(pkg || {});
+  next.manifest ||= {};
+  const sourceVersion = String(next.manifest.packageVersion || '0');
+  if (sourceVersion === '0') migrateLegacyPackage(next);
+  if (next.manifest.packageVersion === '1.0') next.manifest.packageVersion = '2.0';
+  if (next.manifest.packageVersion !== CURRENT_PACKAGE_VERSION) {
+    throw new Error(`软件包版本不支持：${next.manifest.packageVersion || sourceVersion}`);
+  }
+  return next;
+}
+
+function migrateLegacyPackage(pkg) {
+  pkg.schema = normalizeSchemaShape(pkg.schema || { entities: [] });
+  pkg.ui = normalizeUiShape(pkg.ui || { pages: [] }, pkg.schema);
+  pkg.actions = Array.isArray(pkg.actions) ? { actions: pkg.actions } : pkg.actions || { actions: [] };
+  pkg.prompts = Array.isArray(pkg.prompts) ? { suggestedCommands: pkg.prompts } : pkg.prompts || {};
+  for (const entity of pkg.schema.entities || []) {
+    for (const field of entity.fields || []) {
+      if (normalizeFieldType(field.type) === 'boolean') {
+        field.type = 'select';
+        field.options = normalizeOptions(['否', '是']);
+        field.config = { ...(field.config || {}), options: field.options };
+      }
+      delete field.required;
+    }
+  }
+  pkg.manifest.packageVersion = '1.0';
+}
+
 export function normalizePackage(pkg) {
   const next = structuredClone(pkg);
   next.manifest = next.manifest || {};
-  next.schema = normalizeSchemaShape(next.schema || { entities: [] });
-  next.ui = normalizeUiShape(next.ui || { pages: [] }, next.schema);
+  next.schema = next.schema || { entities: [] };
+  next.ui = next.ui || { pages: [] };
   next.actions = Array.isArray(next.actions) ? { actions: next.actions } : next.actions || { actions: [] };
   next.prompts = Array.isArray(next.prompts) ? { suggestedCommands: next.prompts } : next.prompts || {};
 
-  next.manifest.packageVersion ||= '1.0';
+  next.manifest.packageVersion = CURRENT_PACKAGE_VERSION;
   next.manifest.id = slugify(next.manifest.id || next.manifest.name || 'app');
   next.manifest.name = next.manifest.displayName || next.manifest.title || next.manifest.name || next.manifest.id;
   next.manifest.version ||= '1.0.0';
@@ -42,7 +74,7 @@ export function normalizePackage(pkg) {
       fieldIds.add(field.id);
       field.label = field.label || field.displayName || field.name || field.id;
       field.type = normalizeFieldType(field.type || 'text');
-      // Backward compat: convert any remaining boolean to select
+      // Boolean is an accepted input alias; the current Contract stores it as a yes/no select.
       if (field.type === 'boolean') {
         field.type = 'select';
         field.options = normalizeOptions(['否', '是']);
@@ -507,7 +539,7 @@ function isNumericField(field) {
 }
 
 export function preparePackage(pkg) {
-  const normalized = normalizePackage(pkg);
+  const normalized = normalizePackage(migratePackage(pkg));
   validatePackage(normalized);
   return normalized;
 }

@@ -1,11 +1,11 @@
 import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
-import { state } from '../app.js';
-import { loadCurrentPageRecords, renderRuntime } from './index.js';
+import { state } from '../app-context.js';
+import { loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
 import { renderMarkdown, stripLegacyMarkdownStyles } from './Markdown.js';
 import { wrapMarkdownSelection, applyMarkdownHeading } from './MarkdownFormatting.js';
-import { resolveAiPrompt } from './CellEditor.js';
+import { resolveAiPrompt } from './runtime-ports.js';
 
 export { renderMarkdown } from './Markdown.js';
 

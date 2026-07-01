@@ -1,13 +1,13 @@
 import { h } from '../common/dom.js';
 import { clamp } from '../common/storage.js';
-import { state, entityFor, entityById, recordsFor, formatFieldValue, dateKey } from '../app.js';
+import { state, entityFor, entityById, recordsFor, formatFieldValue, dateKey } from '../app-context.js';
 import { hasDisplayValue, matchesFilter } from './CellEditor.js';
 import { formatNumberSummary } from './TableRow.js';
 import { openRecordModal } from './RecordModal.js';
 import { renderListPage } from './DataTable.js';
 import { openConfirmDialog } from '../common/modal.js';
 import { toast } from '../common/toast.js';
-import { saveCurrentPackage, renderRuntime } from './index.js';
+import { saveCurrentPackage, renderRuntime } from './runtime-actions.js';
 
 export function renderPageCanvas(page) {
   // Dashboard is a first-class page type, rendered via independent entry

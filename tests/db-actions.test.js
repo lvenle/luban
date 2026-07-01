@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
 import { resetDbForTests } from '../src/storage/db.js';
-import { createAppFromPackage, exportAppPayload } from '../src/models/app.js';
+import { createAppFromPackage } from '../src/models/app.js';
+import { exportAppPayload } from '../src/services/package-transfer.js';
 import { createRecord, listRecords, updateRecord } from '../src/models/record.js';
 import { runAction } from '../src/services/actions.js';
-import { createBudgetPackage } from '../src/ai/samplePackages.js';
+import { createBudgetPackage } from '../src/templates/appTemplates.js';
 
 test('stores app package and records in SQLite', () => {
   const dbPath = join(process.cwd(), 'data', 'test-db-actions.sqlite');

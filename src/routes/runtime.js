@@ -1,9 +1,7 @@
-import { getPackageFromApp } from '../storage/db.js';
-import { getApp, updateAppMetadata, updateAppPackage, exportAppPayload } from '../models/app.js';
+import { getApp, updateAppMetadata, updateAppPackage } from '../models/app.js';
 import { clampPageLimit, countRecords, deleteRecordForApp, deleteRecordsForApp, getRecordRelations, listRecords, listRelationOptions, updateRecordRelations } from '../models/record.js';
 import { getSetting } from '../models/session.js';
-import { generatePatchFromPrompt, generateFieldContent } from '../ai/service.js';
-import { applyPatch } from '../core/packageProtocol.js';
+import { generateFieldContent } from '../ai/service.js';
 import { runAction } from '../services/actions.js';
 import { toCsv } from '../utils/export.js';
 import { packageToZipPayload } from '../utils/zip.js';
@@ -15,7 +13,8 @@ import { listRuleRecordStates } from '../models/rule-record-state.js';
 import { getRule, listRules, updateRuleStatus, deleteRule } from '../models/rule.js';
 import { createRecordWithRules, updateRecordWithRules } from '../services/rule-runtime.js';
 import { compileBusinessRule, updateCompiledRule } from '../services/rule-creation.js';
-import { sendJson, sendText, sendBinary, readJson, requireFields, notFound, badRequest, saveUploadedFile } from './_helpers.js';
+import { exportAppPayload } from '../services/package-transfer.js';
+import { sendJson, sendText, sendBinary, readJson, readBuffer, requireFields, notFound, badRequest, saveUploadedFile } from './_helpers.js';
 
 export async function handleRuntimeApi(req, res, method, url) {
   const parts = url.pathname.split('/').filter(Boolean);
@@ -95,21 +94,6 @@ export async function handleRuntimeApi(req, res, method, url) {
       sendJson(res, 200, { app: deleteFieldInApp(app, entityId, fieldId) });
       return;
     }
-  }
-
-  if (method === 'POST' && parts[3] === 'modify') {
-    const body = await readJson(req);
-    requireFields(body, ['prompt']);
-    const logs = ['收到修改需求', '读取当前软件包', '生成 Patch'];
-    const settings = getSetting('ai') || {};
-    const patch = await generatePatchFromPrompt(body.prompt, getPackageFromApp(app), settings);
-    logs.push(`Patch 包含 ${patch.operations?.length || 0} 个操作`);
-    const nextPackage = applyPatch(getPackageFromApp(app), patch);
-    logs.push('Patch 应用并重新校验通过');
-    const nextApp = updateAppPackage(appId, nextPackage);
-    logs.push('软件新版本已保存');
-    sendJson(res, 200, { summary: patch.summary || '已修改软件。', patch, app: nextApp, logs });
-    return;
   }
 
   if (method === 'POST' && parts[3] === 'rules' && parts[4] === 'execute') {
@@ -199,9 +183,8 @@ export async function handleRuntimeApi(req, res, method, url) {
     const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset'), 10) || 0);
     const options = { entityId: entityId || undefined };
     const query = url.searchParams.get('q') || '';
-    const matching = query ? listRecords(appId, { ...options, q: query }) : null;
-    const total = matching ? matching.length : countRecords(appId, options);
-    const records = matching ? matching.slice(offset, offset + limit) : listRecords(appId, { ...options, limit, offset });
+    const total = countRecords(appId, { ...options, q: query || undefined });
+    const records = listRecords(appId, { ...options, q: query || undefined, limit, offset });
     const nextOffset = offset + records.length;
     sendJson(res, 200, { records, pagination: { offset, limit, total, nextOffset, hasMore: nextOffset < total } });
     return;
@@ -292,7 +275,7 @@ async function handleTablesApi(req, res, method, parts, app, url) {
   }
   if (parts[5] === 'import' && method === 'POST') {
     const fileName = decodeURIComponent(url.searchParams.get('name') || req.headers['x-file-name'] || 'import.csv');
-    sendJson(res, 200, await importTableRecordsInApp(req, app, entityId, fileName));
+    sendJson(res, 200, await importTableRecordsInApp(await readBuffer(req), app, entityId, fileName));
     return;
   }
   if (method === 'PATCH') {

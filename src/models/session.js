@@ -1,6 +1,6 @@
 import { getDb } from '../storage/db.js';
 import { createId } from '../core/ids.js';
-import { notFound } from '../routes/_helpers.js';
+import { notFound } from '../core/errors.js';
 
 function now() {
   return new Date().toISOString();

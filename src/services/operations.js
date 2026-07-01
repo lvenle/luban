@@ -6,7 +6,7 @@ import { preparePackage } from '../core/packageProtocol.js';
 import { importRowsFromFile } from '../utils/importData.js';
 import { formulaDependents, renameFormulaBinding } from '../core/formula.js';
 import { isRelationField } from '../core/fieldTypeHelpers.js';
-import { notFound, badRequest, readBuffer } from '../routes/_helpers.js';
+import { notFound, badRequest } from '../core/errors.js';
 
 export function createTableInApp(app, body = {}) {
   const pkg = getPackageFromApp(app);
@@ -79,10 +79,9 @@ export function clearTableRecordsInApp(app, entityId) {
   return result;
 }
 
-export async function importTableRecordsInApp(req, app, entityId, fileName) {
+export async function importTableRecordsInApp(buffer, app, entityId, fileName) {
   const entity = app.schema.entities.find((item) => item.id === entityId);
   if (!entity) throw notFound('找不到表。');
-  const buffer = await readBuffer(req);
   if (!buffer.length) throw badRequest('导入文件不能为空。');
   const rows = importRowsFromFile(buffer, entity, fileName);
   if (!rows.length) throw badRequest('没有找到可导入的数据。请确认第一行是表头，且表头与字段名一致。');

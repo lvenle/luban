@@ -1,9 +1,9 @@
-import { getDb, rowToApp, getPackageFromApp, withTransaction, triggerBackup } from '../storage/db.js';
+import { getDb, rowToApp, triggerBackup } from '../storage/db.js';
 import { preparePackage } from '../core/packageProtocol.js';
 import { createId, slugify } from '../core/ids.js';
 import { formulaDependents } from '../core/formula.js';
 import { isFormulaField } from '../core/fieldTypeHelpers.js';
-import { notFound } from '../routes/_helpers.js';
+import { notFound } from '../core/errors.js';
 
 function now() {
   return new Date().toISOString();
@@ -136,28 +136,4 @@ export function getApp(id) {
 
 export function deleteApp(id) {
   return getDb().prepare('DELETE FROM apps WHERE id = ?').run(id).changes > 0;
-}
-
-export async function exportAppPayload(appId, dataMode = 'structure') {
-  const app = getApp(appId);
-  if (!app) throw new Error('找不到应用。');
-  const payload = { manifest: app.manifest, schema: app.schema, ui: app.ui, actions: app.actions, prompts: app.prompts || {} };
-  if (dataMode === 'sample' || dataMode === 'all') {
-    const { listRecords } = await import('./record.js');
-    payload.sampleData = listRecords(appId).map((record) => ({
-      entityId: record.entityId,
-      data: record.data
-    }));
-  }
-  return payload;
-}
-
-export async function importAppPayload(payload) {
-  const sampleData = Array.isArray(payload.sampleData) ? payload.sampleData : [];
-  const { createRecord } = await import('./record.js');
-  return withTransaction(() => {
-    const app = createAppFromPackage(payload);
-    for (const record of sampleData) createRecord(app.id, record.entityId, record.data);
-    return app;
-  });
 }

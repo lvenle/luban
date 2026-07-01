@@ -3,14 +3,12 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
 import { resetDbForTests } from '../src/storage/db.js';
-import { allSamplePackages } from '../src/ai/samplePackages.js';
+import { allAppTemplates } from '../src/templates/appTemplates.js';
 
 process.env.RATE_LIMIT_MAX = '1000';
 const { createAppServer } = await import('../src/server.js');
 
-const SCENARIOS = allSamplePackages()
-  .slice(0, 50)
-  .map((pkg) => `帮我创建一个${pkg.manifest.name}，${pkg.manifest.description}`);
+const TEMPLATES = allAppTemplates().slice(0, 50);
 
 async function withServer(fn) {
   const dbPath = join(process.cwd(), 'data', 'test-http-scenarios.sqlite');
@@ -26,11 +24,12 @@ async function withServer(fn) {
   }
 }
 
-test('50 generated app scenarios are usable through HTTP runtime APIs', async () => {
+test('50 explicit app templates are usable through HTTP runtime APIs', async () => {
   await withServer(async (base) => {
     const generatedNames = new Set();
-    for (const [index, prompt] of SCENARIOS.entries()) {
-      const created = await post(`${base}/api/apps/generate`, { prompt });
+    for (const [index, template] of TEMPLATES.entries()) {
+      const prompt = template.manifest.name;
+      const created = await post(`${base}/api/apps/import`, { package: template });
       const app = created.app;
       generatedNames.add(app.name);
       assert.ok(created.appId, prompt);
@@ -54,11 +53,11 @@ test('50 generated app scenarios are usable through HTTP runtime APIs', async ()
       assert.equal(csv.status, 200, prompt);
       assert.match(await csv.text(), new RegExp(marker), prompt);
 
-      const modified = await post(`${base}/api/apps/${app.id}/modify`, { prompt: '增加验收日期字段' });
+      const modified = await post(`${base}/api/apps/${app.id}/tables/${entity.id}/fields`, { id: 'acceptance_date', label: '验收日期', type: 'date' });
       const fields = modified.app.schema.entities[0].fields.map((field) => field.id);
       assert.ok(fields.includes('date_field') || fields.includes('acceptance_date'), prompt);
     }
-    assert.equal(SCENARIOS.length, 50);
+    assert.equal(TEMPLATES.length, 50);
     assert.ok(generatedNames.size >= 50);
   });
 });

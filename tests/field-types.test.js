@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { normalizeFieldType, preparePackage } from '../src/core/packageProtocol.js';
-import { normalizeAiCreatedPackage, normalizeAiPatch, planToPackage } from '../src/ai/service.js';
 import { numberInputValue, storedNumberValue } from '../public/app-runtime/NumberValues.js';
 
 test('percent fields edit whole percentages while storing fractions', () => {
@@ -30,20 +29,14 @@ test('url is a supported first-class field type', () => {
 });
 
 test('previously-created boolean fields are converted to yes-no selects', () => {
-  const normalized = normalizeAiCreatedPackage({
-    schema: { entities: [{ id: 'task', fields: [{ id: 'done', label: '完成', type: 'boolean' }] }] }
-  });
-  assert.equal(normalized.schema.entities[0].fields[0].type, 'boolean');
-
-  const patch = normalizeAiPatch({ operations: [{ op: 'addField', field: { label: '启用', type: 'boolean' } }] });
-  assert.equal(patch.operations[0].field.type, 'boolean');
-
-  const pkg = planToPackage({
-    type: 'app_creation_plan', appName: '任务', relations: [], views: [],
-    tables: [{ tempId: 'task', name: '任务', fields: [
-      { tempId: 'name', name: '名称', type: 'text' },
-      { tempId: 'done', name: '完成', type: 'boolean' }
-    ] }]
+  const pkg = preparePackage({
+    manifest: { name: '任务' },
+    schema: { entities: [{ id: 'task', name: '任务', fields: [
+      { id: 'name', label: '名称', type: 'text' },
+      { id: 'done', label: '完成', type: 'boolean' }
+    ] }] },
+    ui: { pages: [{ id: 'tasks', title: '任务', type: 'table', entity: 'task' }] },
+    actions: { actions: [] }
   });
   assert.equal(pkg.schema.entities[0].fields[1].type, 'select');
   assert.deepEqual(pkg.schema.entities[0].fields[1].options.map((option) => option.label), ['否', '是']);

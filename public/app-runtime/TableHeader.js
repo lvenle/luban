@@ -2,13 +2,16 @@ import { h } from '../common/dom.js';
 import { fieldIcon } from './FieldIcons.js';
 import { toast } from '../common/toast.js';
 import { api } from '../common/api.js';
-import { renderRuntime, loadCurrentPageRecords } from './index.js';
+import { renderRuntime, loadCurrentPageRecords } from './runtime-actions.js';
 import { updateField, duplicateField, deleteField, insertField, openFieldEditModal } from './FieldEditor.js';
 import { removeRecord } from './RecordModal.js';
 import { filterOperators, openFilterModal, setListConfig, getListConfig } from './ViewBar.js';
 import { selectColumnHeader, insertRowAround } from './CellSelection.js';
 import { reorderIds, frozenColumnMeta } from './Ordering.js';
-import { state } from '../app.js';
+import { state } from '../app-context.js';
+import { configureRuntimePorts } from './runtime-ports.js';
+
+configureRuntimePorts({ closeContextMenu });
 
 export function renderResizableHeader(entity, field, nextField, listConfig, visibleFields = [], fieldIndex = 0) {
   const width = Number(listConfig.columnWidths?.[field.id] || 160);

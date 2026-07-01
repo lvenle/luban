@@ -287,7 +287,7 @@ test('application rule APIs expose list, detail, runs, and status management', a
 });
 
 test('runtime uses an application-settings entry with rules and execution-log tabs', () => {
-  const appShell = readFileSync(join(process.cwd(), 'public/app.js'), 'utf8');
+  const appShell = `${readFileSync(join(process.cwd(), 'public/app.js'), 'utf8')}\n${readFileSync(join(process.cwd(), 'public/app-context.js'), 'utf8')}`;
   const settings = readFileSync(join(process.cwd(), 'public/app-runtime/SettingsModal.js'), 'utf8');
   const recordModal = readFileSync(join(process.cwd(), 'public/app-runtime/RecordModal.js'), 'utf8');
   const ruleFeedback = readFileSync(join(process.cwd(), 'public/app-runtime/RuleFeedback.js'), 'utf8');

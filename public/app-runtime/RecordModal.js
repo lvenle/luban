@@ -2,11 +2,11 @@ import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { openConfirmDialog, openTextModal } from '../common/modal.js';
-import { state, getFormLayout, getFormDesign } from '../app.js';
+import { state, getFormLayout, getFormDesign } from '../app-context.js';
 import { writeStorage } from '../common/storage.js';
 import { inputForField, valueFromInput, renderFormFieldBlock, defaultValueForField } from './CellEditor.js';
 import { getCurrentView, getListConfig, updateCurrentView } from './ViewBar.js';
-import { loadCurrentPageRecords, renderRuntime } from './index.js';
+import { loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
 import { pushUndo } from '../common/UndoStack.js';
 import { notifyRuleResults } from './RuleFeedback.js';
 

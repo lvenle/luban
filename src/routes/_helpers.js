@@ -1,20 +1,16 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname, join, relative, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { AppError, notFound, badRequest } from '../core/errors.js';
+
+export { notFound, badRequest } from '../core/errors.js';
 
 const PUBLIC_DIR = join(process.cwd(), 'public');
 const UPLOAD_DIR = join(process.cwd(), 'data', 'uploads');
 const JSON_LIMIT = 2 * 1024 * 1024;
 export const FILE_LIMIT = 20 * 1024 * 1024;
 
-export class HttpError extends Error {
-  constructor(status, message, details = undefined) {
-    super(message);
-    this.name = 'HttpError';
-    this.status = status;
-    this.details = details;
-  }
-}
+export class HttpError extends AppError {}
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -82,14 +78,6 @@ function payloadTooLarge(maxBytes) {
   const error = new Error(`请求内容过大，最大允许 ${Math.floor(maxBytes / 1024 / 1024)} MB。`);
   error.status = 413;
   return error;
-}
-
-export function notFound(message) {
-  return new HttpError(404, message);
-}
-
-export function badRequest(message) {
-  return new HttpError(400, message);
 }
 
 export function statusForError(error) {

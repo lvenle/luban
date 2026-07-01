@@ -2,7 +2,7 @@ import { getDb, rowToApp, withTransaction, triggerBackup } from '../storage/db.j
 import { getApp } from './app.js';
 import { createId } from '../core/ids.js';
 import { calculateFormulaFields } from '../core/formula.js';
-import { notFound, badRequest } from '../routes/_helpers.js';
+import { notFound, badRequest } from '../core/errors.js';
 import { isSingleChoiceField, isMultiChoiceField, isRelationField, isFormulaField, isTemporalField, isFileLikeField } from '../core/fieldTypeHelpers.js';
 
 function now() {
@@ -12,6 +12,7 @@ function now() {
 export function listRecords(appId, options = {}) {
   const conditions = ['appId = ?'];
   const params = [appId];
+  const app = getApp(appId);
   if (options.entityId) {
     conditions.push('entityId = ?');
     params.push(options.entityId);
@@ -19,11 +20,9 @@ export function listRecords(appId, options = {}) {
   const limit = options.limit === undefined ? null : clampPageLimit(options.limit);
   const offset = Math.max(0, Number.parseInt(options.offset, 10) || 0);
   if (options.q) {
-    // SQL LIKE 预过滤：对 dataJson 做全文模糊匹配，大幅减少从 SQLite 加载的行数。
-    // 纯 text 字段的值在 JSON 中可直接匹配；select 存储的是 ID 而非 label，
-    // 所以 JS 层的标签解析后处理仍然保留作为精确匹配。
-    conditions.push('dataJson LIKE ?');
-    params.push(`%${options.q}%`);
+    const search = recordSearchCondition(app, options.entityId, options.q);
+    conditions.push(search.sql);
+    params.push(...search.params);
   }
   const pagination = limit === null ? '' : ' LIMIT ? OFFSET ?';
   if (limit !== null) params.push(limit, offset);
@@ -42,7 +41,6 @@ export function listRecords(appId, options = {}) {
   records = records.map((record) => calculateRecordFormulas(record));
   if (options.q) {
     const q = String(options.q).toLowerCase();
-    const app = getApp(appId);
     records = records.filter((record) => recordSearchText(app, record).includes(q));
   }
   return records;
@@ -71,7 +69,37 @@ export function countRecords(appId, options = {}) {
   const conditions = ['appId = ?'];
   const params = [appId];
   if (options.entityId) { conditions.push('entityId = ?'); params.push(options.entityId); }
+  if (options.q) {
+    const search = recordSearchCondition(getApp(appId), options.entityId, options.q);
+    conditions.push(search.sql);
+    params.push(...search.params);
+  }
   return getDb().prepare(`SELECT COUNT(*) AS count FROM records WHERE ${conditions.join(' AND ')}`).get(...params).count;
+}
+
+function recordSearchCondition(app, entityId, query) {
+  const q = String(query || '').toLowerCase();
+  const patterns = [`%${escapeLike(q)}%`];
+  const entities = (app?.schema?.entities || []).filter((entity) => !entityId || entity.id === entityId);
+  for (const entity of entities) {
+    for (const field of entity.fields || []) {
+      if (!isSingleChoiceField(field) && !isMultiChoiceField(field)) continue;
+      for (const option of field.options || []) {
+        if (!String(option.label || '').toLowerCase().includes(q)) continue;
+        const fieldId = escapeLike(JSON.stringify(String(field.id)).slice(1, -1));
+        const optionId = escapeLike(JSON.stringify(String(option.id)).slice(1, -1));
+        patterns.push(`%"${fieldId}":%"${optionId}"%`);
+      }
+    }
+  }
+  return {
+    sql: `(${patterns.map(() => "LOWER(dataJson) LIKE ? ESCAPE '\\'").join(' OR ')})`,
+    params: [...new Set(patterns)]
+  };
+}
+
+function escapeLike(value) {
+  return String(value).replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
 }
 
 export function clampPageLimit(value, fallback = 100) {

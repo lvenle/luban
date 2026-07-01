@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { rmSync } from 'node:fs';
 import { resetDbForTests } from '../src/storage/db.js';
 import { createAppServer } from '../src/server.js';
+import { pickAppTemplate } from '../src/templates/appTemplates.js';
 
 async function withServer(fn) {
   const dbPath = join(process.cwd(), 'data', 'test-http.sqlite');
@@ -21,12 +22,9 @@ async function withServer(fn) {
 
 test('HTTP API creates, runs, modifies, exports, and imports an app', async () => {
   await withServer(async (base) => {
-    const created = await post(`${base}/api/apps/generate`, {
-      prompt: '帮我创建一个家庭记账本，可以记录收入、支出、分类、日期、备注，并统计每月支出。'
-    });
+    const created = await installTemplate(base, '帮我创建一个家庭记账本，可以记录收入、支出、分类、日期、备注，并统计每月支出。');
     assert.ok(created.appId);
     assert.equal(created.app.manifest.name, '家庭记账本');
-    assert.ok(created.logs.includes('软件包协议校验通过'));
 
     const renamed = await put(`${base}/api/apps/${created.appId}`, { name: '个人现金流', category: '财务' });
     assert.equal(renamed.app.name, '个人现金流');
@@ -81,9 +79,10 @@ test('HTTP API creates, runs, modifies, exports, and imports an app', async () =
     const importedRecords = await getJson(`${base}/api/apps/${created.appId}/records?entity=transaction`);
     assert.equal(importedRecords.records.length, 3);
 
-    const modified = await post(`${base}/api/apps/${created.appId}/modify`, { prompt: '增加旅游预算功能' });
+    const modified = await post(`${base}/api/apps/${created.appId}/tables/transaction/fields`, { id: 'travel_budget', label: '旅游预算', type: 'number' });
     assert.ok(modified.app.schema.entities[0].fields.some((field) => field.id === 'travel_budget'));
-    assert.ok(modified.logs.includes('Patch 应用并重新校验通过'));
+    const removedModify = await fetch(`${base}/api/apps/${created.appId}/modify`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    assert.equal(removedModify.status, 404);
 
     const exported = await fetch(`${base}/api/apps/${created.appId}/export`);
     assert.equal(exported.status, 200);
@@ -101,7 +100,7 @@ test('HTTP API creates, runs, modifies, exports, and imports an app', async () =
 
 test('HTTP API supports V2 tables, relation fields, colored options, and confirmed AI execution', async () => {
   await withServer(async (base) => {
-    const created = await post(`${base}/api/apps/generate`, { prompt: '帮我创建一个商品管理系统' });
+    const created = await installTemplate(base, '帮我创建一个商品管理系统');
     const appId = created.appId;
 
     const categoryTable = await post(`${base}/api/apps/${appId}/tables`, { name: '分类表' });
@@ -177,7 +176,7 @@ test('HTTP API supports V2 tables, relation fields, colored options, and confirm
 
 test('bidirectional relation fields stay synchronized from either table', async () => {
   await withServer(async (base) => {
-    const created = await post(`${base}/api/apps/generate`, { prompt: '帮我创建一个商品管理系统' });
+    const created = await installTemplate(base, '帮我创建一个商品管理系统');
     const appId = created.appId;
     const productEntity = created.app.schema.entities[0];
     const productDisplayField = productEntity.fields.find((field) => ['text', 'textarea', 'richText'].includes(field.type))
@@ -219,11 +218,11 @@ test('bidirectional relation fields stay synchronized from either table', async 
   });
 });
 
-test('AI session metadata is correctly recorded on app generation', async () => {
+test('AI generation without configuration is explicit', async () => {
   await withServer(async (base) => {
-    const created = await post(`${base}/api/apps/generate`, { prompt: '帮我创建一个客户管理系统' });
-    assert.ok(created.appId);
-    assert.ok(created.app.manifest.name.includes('客户管理'));
+    const response = await fetch(`${base}/api/apps/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: '帮我创建一个客户管理系统' }) });
+    assert.equal(response.status, 422);
+    assert.match((await response.json()).error, /配置 AI API Key/);
   });
 });
 
@@ -257,6 +256,10 @@ async function post(url, body) {
   });
   if (!response.ok) assert.fail(await response.text());
   return response.json();
+}
+
+async function installTemplate(base, prompt) {
+  return post(`${base}/api/apps/import`, { package: pickAppTemplate(prompt) });
 }
 
 async function put(url, body) {

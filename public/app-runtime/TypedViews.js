@@ -1,12 +1,12 @@
 import { h, buttonLabel } from '../common/dom.js';
-import { state, formatFieldValue, viewOrderedFields, applyViewFilters, sortRecords } from '../app.js';
+import { state, formatFieldValue, viewOrderedFields, applyViewFilters, sortRecords } from '../app-context.js';
 import { renderViewBar, openFilterModal, openSortModal, getCurrentView, updateCurrentView, selectFromOptions } from './ViewBar.js';
 import { openRecordModal } from './RecordModal.js';
 import { toast } from '../common/toast.js';
 import { openConfirmDialog } from '../common/modal.js';
 import { renderFieldValue, startCellEdit } from './CellEditor.js';
 import { optionObject } from './FieldEditor.js';
-import { renderRuntime, renderInfiniteLoadSentinel } from './index.js';
+import { renderRuntime, renderInfiniteLoadSentinel } from './runtime-actions.js';
 import { optionDisplayValue, orderSelectedOptions } from './Ordering.js';
 import { openMarkdownRecordEditor } from './MarkdownEditor.js';
 

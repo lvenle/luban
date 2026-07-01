@@ -198,7 +198,7 @@ export function createCrmPackage() {
   };
 }
 
-export function pickSamplePackage(prompt) {
+export function pickAppTemplate(prompt) {
   let text = String(prompt || '');
   let userText = text;
   // 提取实际用户输入：如果 prompt 是 JSON，只取 request 部分
@@ -274,7 +274,7 @@ function bestScenarioMatch(text) {
   return best;
 }
 
-export function allSamplePackages() {
+export function allAppTemplates() {
   return [createBudgetPackage(), createTodoPackage(), createArticlePackage(), createCrmPackage(), ...scenarioDefinitions().map(createScenarioPackage)];
 }
 
@@ -1453,3 +1453,4 @@ function dateField(id, label, required = false) {
 function selectField(id, label, options, required = false) {
   return { id, label, type: 'select', options, required };
 }
+

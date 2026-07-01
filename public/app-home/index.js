@@ -1,10 +1,13 @@
 import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
-import { state, root, topbar } from '../app.js';
+import { state, root, topbar } from '../app-context.js';
 import { setAssistantMode, renderAssistantDrawer, removeAssistantDrawer } from '../ai-assistant/index.js';
 import { appCard, appCategories, appCategory } from './AppCard.js';
 import { openImportModal } from './ImportModal.js';
+import { configureHomeActions } from './home-actions.js';
+
+configureHomeActions({ loadApps, openApp: (appId) => import('../app-runtime/index.js').then((runtime) => runtime.openApp(appId)) });
 
 export function renderHome() {
   setAssistantMode({ mode: 'create' });
@@ -84,15 +87,4 @@ export function goHome() {
   setAssistantMode({ mode: 'create' });
   window.history.pushState(null, '', '/');
   loadApps();
-}
-
-export async function createAppFromPrompt(prompt) {
-  try {
-    const body = await api('/api/apps/generate', { method: 'POST', body: JSON.stringify({ prompt }) });
-    const { openApp } = await import('../app-runtime/index.js');
-    await openApp(body.appId);
-    toast(`已创建 ${body.app?.name || '新软件'}`);
-  } catch (error) {
-    toast(error.message);
-  }
 }

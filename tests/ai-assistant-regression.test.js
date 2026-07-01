@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { resetDbForTests } from '../src/storage/db.js';
 import { createAppFromPackage } from '../src/models/app.js';
 import { createFieldsInApp } from '../src/services/operations.js';
-import { createBudgetPackage } from '../src/ai/samplePackages.js';
+import { createBudgetPackage } from '../src/templates/appTemplates.js';
 import { buildToolDisplayInfo, mergeBatchableToolCalls } from '../src/routes/ai.js';
 import { historyBusinessDetail } from '../public/ai-assistant/ToolDisplay.js';
 
