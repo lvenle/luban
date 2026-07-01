@@ -1,4 +1,5 @@
 import { h } from './dom.js';
+import { humanizeMessage } from './messages.js';
 
 let toastContainer = null;
 
@@ -14,6 +15,7 @@ function getContainer() {
 }
 
 export function toast(message, type, action) {
+  message = humanizeMessage(message);
   if (!type) {
     if (/^已|成功|完成|保存|更新|复制|创建|删除|导入|导出|生成|重命名/.test(message)) type = 'success';
     else if (/失败|错误|找不到|不能|已存在|无效|不支持|为空/.test(message)) type = 'error';

@@ -1,5 +1,5 @@
 import { register } from '../registry.js';
-import { createRecord } from '../../models/record.js';
+import { createRecordWithRules } from '../../services/rule-runtime.js';
 
 register({
   name: 'add_record',
@@ -22,6 +22,6 @@ register({
     }
   },
   handler: async (args) => {
-    return createRecord(args.appId, args.entityId, args.data);
+    return createRecordWithRules(args.appId, args.entityId, args.data).record;
   }
 });

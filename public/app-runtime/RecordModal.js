@@ -8,10 +8,21 @@ import { inputForField, valueFromInput, renderFormFieldBlock, defaultValueForFie
 import { getCurrentView, getListConfig, updateCurrentView } from './ViewBar.js';
 import { loadCurrentPageRecords, renderRuntime } from './index.js';
 import { pushUndo } from '../common/UndoStack.js';
+import { notifyRuleResults } from './RuleFeedback.js';
 
-export function openRecordModal(entity, record = null) {
+export async function openRecordModal(entity, record = null, options = {}) {
+  if (!record && !Object.prototype.hasOwnProperty.call(options, 'ruleDependencyFieldIds')) {
+    try {
+      const rulesBody = await api(`/api/apps/${state.currentApp.id}/rules`);
+      options = { ...options, ruleDependencyFieldIds: createdRuleDependencyFieldIds(rulesBody.rules || [], entity.id) };
+    } catch (error) {
+      toast(`无法读取业务规则：${error.message}`);
+      return null;
+    }
+  }
   const layout = getFormLayout(entity);
   const design = getFormDesign(entity);
+  const ruleDependencyFieldIds = new Set(options.ruleDependencyFieldIds || []);
   const form = h('form', { class: 'form-grid', style: `grid-template-columns: repeat(${layout.columns}, minmax(0, 1fr))` });
   const inputs = {};
   const formFields = layout.order.map((fieldId) => entity.fields.find((field) => field.id === fieldId)).filter(Boolean);
@@ -20,6 +31,12 @@ export function openRecordModal(entity, record = null) {
     const input = inputForField(field, value);
     inputs[field.id] = input;
     form.append(renderFormFieldBlock(field, input, design));
+    if (ruleDependencyFieldIds.has(field.id)) {
+      const label = form.lastElementChild?.querySelector('label');
+      if (label) label.append(h('span', {
+        class: 'rule-dependency-hint', text: '规则所需', title: '可以暂存为空；填写后将自动执行等待中的业务规则'
+      }));
+    }
   }
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal' }, [
@@ -57,6 +74,7 @@ export function openRecordModal(entity, record = null) {
               }
               await loadCurrentPageRecords();
               renderRuntime();
+              notifyRuleResults(body.ruleResults || [], state.currentApp);
             } catch (error) {
               button.disabled = false;
               button.textContent = saveBtnText;
@@ -68,6 +86,7 @@ export function openRecordModal(entity, record = null) {
     ])
   ]);
   document.body.append(backdrop);
+  return backdrop;
 }
 
 export async function removeRecord(recordId, entityId) {
@@ -127,6 +146,7 @@ export async function quickAddRecord(entity) {
     } else {
       toast(`已新增 1 行，可直接双击单元格编辑。`);
     }
+    notifyRuleResults(body.ruleResults || [], state.currentApp);
 
     return body.record;
   } catch (error) {
@@ -134,6 +154,17 @@ export async function quickAddRecord(entity) {
     console.error('新增行错误：', error);
     throw error;
   }
+}
+
+export function createdRuleDependencyFieldIds(rules, entityId) {
+  const fieldIds = new Set();
+  for (const rule of rules || []) {
+    if (rule.status !== 'active' || rule.contractJson?.trigger?.type !== 'record.created' || rule.contractJson.trigger.entity !== entityId) continue;
+    const intent = rule.businessIntentJson || {};
+    if (intent.target?.relationField) fieldIds.add(intent.target.relationField);
+    if (intent.action?.value?.type === 'trigger.field' && intent.action.value.field) fieldIds.add(intent.action.value.field);
+  }
+  return [...fieldIds];
 }
 
 export async function bulkDeleteRecords(entity, selectedIds, selectionKey) {

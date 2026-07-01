@@ -91,6 +91,11 @@
 | | `GET /api/apps/:id/export.xlsx` | 导出 XLSX |
 | 记录 CRUD | `GET/POST /api/apps/:id/records` | 列表 / 创建 |
 | | `PUT/DELETE /api/apps/:id/records/:rid` | 更新 / 删除 |
+| 业务规则 | `GET /api/apps/:id/rules` | 规则列表 |
+| | `GET/PATCH/DELETE /api/apps/:id/rules/:ruleId` | 详情 / 修改或启禁用 / 删除 |
+| | `GET /api/apps/:id/rules/:ruleId/runs` | 单条规则执行日志 |
+| | `GET /api/apps/:id/rules/:ruleId/states` | 等待条件与一次性成功状态 |
+| | `GET /api/apps/:id/rule-runs` | 当前应用全部规则执行日志 |
 | 关系处理 | `GET/PUT /api/apps/:id/records/:rid/relations/:fid` | 关系读写 |
 | | `GET /api/apps/:id/fields/:eid/:fid/relation-options` | 关系选项 |
 | 字段/表管理 | `PATCH/DELETE /api/apps/:id/fields/:eid/:fid` | 更新/删除字段 |
@@ -126,6 +131,9 @@
 | `ai_messages` | 对话消息 | id, sessionId, role(user/assistant), content, structuredContentJson, createdAt |
 | `ai_execution_logs` | 执行日志 | id, sessionId, stepName, toolName, status, inputJson, outputJson, error, createdAt |
 | `settings` | KV 配置 | key, value |
+| `rules` | 应用业务规则 | id, appId, status, businessIntentJson, schemaMappingJson, contractJson |
+| `rule_runs` | 规则执行日志 | ruleId, sourceRecordId, status, stepsJson, idempotencyKey |
+| `rule_record_states` | 新增规则的一次性执行状态 | ruleId, sourceRecordId, state(waiting/success), missingFieldsJson |
 
 **核心功能**：
 
@@ -144,6 +152,62 @@
 - `normalizeTargetIds()` — 处理多种 ID 输入格式（数组、字符串、数字）
 - `hydrateRelationValues()` — 记录查询时填充关联记录的显示值
 - `getRecordRelations()` / `updateRecordRelations()` — 关系 CRUD
+
+### 2.1 业务规则运行时 — 事件执行模型
+
+业务规则由以下模块协作完成：
+
+- `src/services/rule-creation.js`：将 Business Intent 编译为通用 Contract
+- `src/services/rule-runtime.js`：把记录 CRUD 事件交给规则运行时，并维护等待/成功状态
+- `src/services/rule-engine.js`：解释执行 Contract，事务内更新目标字段并写入执行日志
+- `src/models/rule.js`：规则定义、启禁用和修改
+- `src/models/rule-run.js`：不可变执行日志与幂等检查
+- `src/models/rule-record-state.js`：记录“新增规则”对某条来源记录是等待还是已经成功
+
+“新增记录时”规则的状态流如下：
+
+```text
+record.created
+      │
+      ├─ 依赖字段不完整 ─→ rule_record_states.waiting
+      │                           │
+      │                    后续 record.updated
+      │                           │
+      │                    再次检查规则依赖
+      │                           │
+      └─ 依赖字段完整 ────────────┴─→ Contract 执行
+                                          │
+                                          ├─ 失败：来源修改与目标修改整体回滚
+                                          └─ 成功：state=success + rule_runs.success
+```
+
+关键约束：
+
+- 只有在创建事件发生时登记过 `waiting` 的记录，后续编辑才会继续检查；因此不会追溯执行历史记录。
+- `(appId, ruleId, sourceRecordId)` 是一次性状态键；成功后后续编辑不会重复执行。
+- Contract 的幂等键继续作为第二层防重复保护。
+- 等待状态不是失败，不写失败执行日志，也不阻止空白记录保存。
+- 来源记录后续修改或删除不撤销、不修正历史影响。
+- 规则修改、禁用或删除不撤销、不重算历史影响；规则修改沿用同一 ID 时，已经成功的来源记录仍视为已执行。
+- 删除规则或已执行的来源记录时保留执行日志和 `success` 状态作为历史事实，不设置指向二者的级联外键；删除尚未执行的来源记录时清理其 `waiting` 状态，避免留下无效等待项。
+
+事务边界：来源记录写入、Contract 目标更新、成功执行日志和 `success` 状态在同一 SQLite 事务中提交。业务步骤失败时整体回滚，避免只写入一半。
+
+UI 语义：
+
+- Schema 必填与规则依赖分离。
+- 规则依赖字段显示“规则所需”提示，但允许暂存为空。
+- 应用设置中的规则详情可以查看等待条件记录和最近执行日志。
+- 成功结果返回结构化 `changes`（目标表、记录、字段、操作、原值、新值）；Runtime 提示和执行日志共用该结构展示“原值 → 新值”。
+- `GET /api/apps/:id/rules/:ruleId/states` 提供规则等待/成功状态查询。
+
+用户消息分层：
+
+- `public/common/messages.js` 是统一的用户语言转换层，将 Contract、Step、SQL、网络异常等技术信息转换成可理解的业务提示。
+- `public/common/api.js` 在错误对象中保留 `technicalMessage` 供诊断，同时把人性化后的 `message` 提供给界面。
+- `public/common/toast.js` 对所有系统提示再次做统一兜底，避免其他模块直接暴露技术语言。
+- 业务规则成功提示和执行日志使用结构化 `changes` 生成业务描述，例如“商品信息的‘当前库存’已由 100 调整为 90”。
+- 原始 Contract、步骤输入输出和技术错误仍保留在高级信息或开发者诊断数据中，不作为普通用户的首要提示。
 
 ---
 

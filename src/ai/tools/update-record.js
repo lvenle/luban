@@ -1,5 +1,6 @@
 import { register } from '../registry.js';
-import { updateRecordForApp, getRecordForApp } from '../../models/record.js';
+import { getRecordForApp } from '../../models/record.js';
+import { updateRecordWithRules } from '../../services/rule-runtime.js';
 
 register({
   name: 'update_record',
@@ -25,6 +26,6 @@ register({
     const record = getRecordForApp(args.appId, args.recordId);
     if (!record) throw new Error('Record not found');
     const merged = { ...record.data, ...args.data };
-    return updateRecordForApp(args.appId, args.recordId, merged);
+    return updateRecordWithRules(args.appId, args.recordId, merged).record;
   }
 });

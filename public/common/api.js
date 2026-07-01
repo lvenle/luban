@@ -1,3 +1,5 @@
+import { humanizeMessage } from './messages.js';
+
 export async function api(path, options = {}) {
   const response = await fetch(path, {
     ...options,
@@ -5,7 +7,9 @@ export async function api(path, options = {}) {
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({ error: response.statusText }));
-    const error = new Error(body.error || '请求失败');
+    const technicalMessage = body.error || '请求失败';
+    const error = new Error(humanizeMessage(technicalMessage));
+    error.technicalMessage = technicalMessage;
     error.status = response.status;
     error.details = body.details;
     throw error;

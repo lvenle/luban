@@ -1,0 +1,28 @@
+.simulator-panel { display: grid; gap: 18px; }
+.simulator-summary { display: grid; grid-template-columns: 210px 1fr 230px; align-items: center; gap: 22px; padding: 22px; border: 1px solid #e4e8ed; border-radius: 12px; }
+.simulator-summary.success .simulation-verdict { background: #eaf8f0; color: #147542; }
+.simulator-summary.blocked .simulation-verdict { background: #fff0ef; color: #b33934; }
+.simulator-step-area { padding: 20px; border: 1px solid #e6e9ee; border-radius: 12px; background: #fbfcfd; }
+.simulator-step-area h3 { margin: 0 0 16px; font-size: 15px; }
+.simulator-steps { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; counter-reset: simulator-step; }
+.simulator-steps li { position: relative; display: grid; grid-template-columns: 30px 1fr; gap: 10px; min-height: 54px; counter-increment: simulator-step; }
+.simulator-steps li:not(:last-child)::after { position: absolute; top: 28px; bottom: 2px; left: 13px; width: 1px; background: #dce2e9; content: ''; }
+.simulator-step-marker { z-index: 1; display: grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; background: #e7f6ed; color: #177546; font-size: 12px; font-weight: 800; }
+.simulator-steps li.blocked .simulator-step-marker, .simulator-steps li.error .simulator-step-marker { background: #ffedeb; color: #ad3a34; }
+.simulator-steps li > div { display: grid; align-content: start; gap: 4px; padding-top: 3px; }
+.simulator-steps li strong { font-size: 13px; }
+.simulator-steps li div span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.simulator-comparison { overflow: hidden; border: 1px solid #e4e8ed; border-radius: 11px; background: #fff; }
+.simulator-comparison summary { padding: 14px 18px; color: #42516a; font-size: 13px; font-weight: 700; cursor: pointer; }
+.simulator-comparison > div { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 16px 16px; }
+.simulator-comparison h4 { margin: 0 0 8px; color: var(--muted); font-size: 11px; text-transform: uppercase; }
+.simulator-comparison pre { max-height: 330px; overflow: auto; margin: 0; padding: 14px; border-radius: 9px; background: #131b2a; color: #d9e4f5; font-size: 11px; line-height: 1.55; }
+.simulator-error { display: grid; gap: 5px; padding: 18px; border: 1px solid #efc3bf; border-radius: 11px; background: #fff3f2; color: #a43832; }
+.simulator-error span { font-size: 13px; }
+@media (max-width: 820px) {
+  .simulator-summary { grid-template-columns: 1fr; }
+  .simulator-summary .simulation-metrics { justify-content: flex-start; }
+}
+@media (max-width: 620px) {
+  .simulator-comparison > div { grid-template-columns: 1fr; }
+}

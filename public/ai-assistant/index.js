@@ -5,6 +5,7 @@ import ToolDisplay from './ToolDisplay.js';
 import ChatView from './ChatView.js';
 import SessionManager from './SessionManager.js';
 import { toast } from '../common/toast.js';
+import { humanizeMessage } from '../common/messages.js';
 
 let chatView;
 let streamRenderer;
@@ -26,13 +27,14 @@ export function init() {
 
   streamRenderer = new StreamRenderer(chatView.getMessageContainer());
 
-  toolDisplay = new ToolDisplay(async (confirmId, confirmed) => {
+  toolDisplay = new ToolDisplay(async (confirmId, confirmed, data = null) => {
     try {
       await fetch('/api/ai/chat/confirm', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ confirmId, confirmed })
       });
+      if (!confirmed && ['create_rule', 'update_rule'].includes(data?.name)) chatView.setInput(data.arguments?.intent || '');
     } catch { /* ignore */ }
   });
 
@@ -184,6 +186,11 @@ export function setAppContext(context) {
   currentContext = context || '';
 }
 
+export function setAssistantDraft(text) {
+  if (!chatView) init();
+  chatView.setInput(String(text || ''));
+}
+
 export function setAssistantMode({ mode = 'create', appId = '', appName = '', context = '', pageId = '' } = {}) {
   const nextMode = mode === 'modify' && appId ? 'modify' : 'create';
   const nextAppId = nextMode === 'modify' ? appId : '';
@@ -222,7 +229,7 @@ async function handleSend(text) {
       pageId: currentPageId || undefined
     });
   } catch (error) {
-    streamRenderer.finishMessage(`连接失败: ${error.message}`);
+    streamRenderer.finishMessage(humanizeMessage(error.message, '暂时无法连接 AI 助理，请稍后重试。'));
     chatView.setStreaming(false);
   }
 }

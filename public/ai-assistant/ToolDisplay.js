@@ -1,4 +1,5 @@
 import h from './dom.js';
+import { humanizeMessage } from '../common/messages.js';
 
 export default class ToolDisplay {
   constructor(onConfirm) {
@@ -64,7 +65,7 @@ export default class ToolDisplay {
       add_page: '添加页面', add_view: '添加视图', add_record: '添加记录', add_action: '添加操作', update_entity: '修改表',
       update_field: '修改字段', update_record: '修改记录', remove_entity: '删除表',
       remove_field: '删除字段', remove_page: '删除页面', delete_record: '删除记录',
-      query_data: '查询数据', design_form: '设计表单', create_view: '创建视图'
+      query_data: '查询数据', design_form: '设计表单', create_view: '创建视图', create_rule: '创建业务规则', update_rule: '修改业务规则'
     };
     const status = log.status === 'success' ? 'success' : log.status === 'cancelled' ? 'rejected' : 'error';
     const statusIcon = status === 'success' ? '✅' : status === 'rejected' ? '⏭️' : '❌';
@@ -87,13 +88,13 @@ export default class ToolDisplay {
       entityId: '表', fieldId: '字段', name: '名称', label: '显示名',
       type: '类型', description: '说明', sourceEntityId: '源表',
       targetEntityId: '目标表', recordId: '记录', multiple: '允许多选',
-      pageId: '页面', title: '标题', value: '值'
+      pageId: '页面', title: '标题', value: '值', intent: '业务规则', ruleId: '规则'
     };
     const TITLES = {
       add_entity: '创建表', add_field: '添加字段', add_relation: '添加关联',
       remove_entity: '删除表', remove_field: '删除字段', delete_record: '删除记录',
       update_entity: '修改表', update_field: '修改字段', add_page: '添加页面', add_view: '添加视图',
-      remove_page: '删除页面', add_record: '添加记录', update_record: '修改记录'
+      remove_page: '删除页面', add_record: '添加记录', update_record: '修改记录', create_rule: '创建业务规则', update_rule: '修改业务规则'
     };
     const args = data.friendlyArgs || data.arguments || {};
     const entries = Object.entries(args).filter(([k]) => k !== 'appId');
@@ -105,7 +106,7 @@ export default class ToolDisplay {
     }
     const title = data.display?.title || TITLES[data.name] || '执行操作';
     const confirmBtn = h('button', { class: 'tool-confirm-btn', text: '确认' });
-    const rejectBtn = h('button', { class: 'tool-reject-btn', text: '拒绝' });
+    const rejectBtn = h('button', { class: 'tool-reject-btn', text: ['create_rule', 'update_rule'].includes(data.name) ? '修改' : '拒绝' });
     const card = h('div', { class: 'tool-card tool-confirm-card' }, [
       h('div', { class: 'tool-card-header' }, [
         h('span', { class: 'tool-card-icon', text: '📋' }),
@@ -116,7 +117,7 @@ export default class ToolDisplay {
       h('div', { class: 'tool-confirm-actions' }, [rejectBtn, confirmBtn])
     ]);
     confirmBtn.onclick = () => { this.onConfirm(data.confirmId, true); card.remove(); };
-    rejectBtn.onclick = () => { this.onConfirm(data.confirmId, false); card.remove(); };
+    rejectBtn.onclick = () => { this.onConfirm(data.confirmId, false, data); card.remove(); };
     return card;
   }
 
@@ -152,8 +153,14 @@ function findEntityName(output, entityId) {
  * add_page, etc.), we resolve entity/field IDs to names from the output.
  * For tools with structured output, we use their specific result fields.
  */
-function historyBusinessDetail(log) {
-  const { toolName, input = {}, output = {} } = log;
+export function historyBusinessDetail(log = {}) {
+  const toolName = log?.toolName || '';
+  // Failed/cancelled tool logs legitimately persist null input/output values.
+  // Destructuring defaults only apply to undefined, so normalize null (and
+  // other non-object legacy values) before the tool-specific renderers read
+  // properties such as output.name or input.label.
+  const input = log?.input && typeof log.input === 'object' ? log.input : {};
+  const output = log?.output && typeof log.output === 'object' ? log.output : {};
 
   switch (toolName) {
     case 'create_app': {
@@ -250,6 +257,10 @@ function historyBusinessDetail(log) {
         output.formLayout?.columns ? `${output.formLayout.columns}列布局` : ''
       ].filter(Boolean).join(' · ');
 
+    case 'create_rule':
+    case 'update_rule':
+      return output.ruleName || input.intent || '';
+
     default:
       return input.label || input.title || input.name || output.name || input.entityId || '';
   }
@@ -261,6 +272,17 @@ function historyBusinessDetail(log) {
  */
 function appendOperationDetails(card, output, input, toolName) {
   if (!output || !toolName) return;
+
+  if (['create_rule', 'update_rule'].includes(toolName) && output.success) {
+    card.append(h('div', { class: 'tool-card-operation-list' }, [
+      h('div', { class: 'tool-card-operation' }, [
+        h('span', { class: 'tool-card-operation-label', text: '已启用' }),
+        h('span', { class: 'tool-card-operation-entity', text: output.ruleName || '' }),
+        h('button', { class: 'ghost', text: '查看业务规则', onclick: () => import('../app-runtime/SettingsModal.js').then((module) => module.openSettingsModal(output.appId, 'rules')) })
+      ])
+    ]));
+    return;
+  }
 
   // ── create_app: show every table and its fields ──
   if (toolName === 'create_app' && Array.isArray(output.entities) && output.entities.length > 0) {
@@ -417,8 +439,8 @@ function appendToolError(card, error) {
 }
 
 function toolErrorMessage(error) {
-  if (typeof error === 'string') return error.trim();
-  if (error?.message) return String(error.message).trim();
+  if (typeof error === 'string') return humanizeMessage(error);
+  if (error?.message) return humanizeMessage(error.message);
   if (error && typeof error === 'object') {
     try { return JSON.stringify(error); } catch { return String(error); }
   }

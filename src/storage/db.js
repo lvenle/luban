@@ -250,7 +250,7 @@ export function withTransaction(callback) {
   }
 }
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 5;
 
 /*
  * Migration strategy:
@@ -365,6 +365,75 @@ function migrate(database) {
     } catch {
       // Column may already exist on re-run; ignore
     }
+  }
+
+  if (currentVersion < 3) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS rule_runs (
+        id TEXT PRIMARY KEY,
+        appId TEXT NOT NULL,
+        ruleId TEXT NOT NULL,
+        sourceEntity TEXT NOT NULL,
+        sourceRecordId TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('success', 'blocked', 'failed', 'skipped')),
+        stepsJson TEXT NOT NULL,
+        inputSnapshotJson TEXT,
+        outputSnapshotJson TEXT,
+        errorMessage TEXT,
+        idempotencyKey TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_rule_runs_app_created ON rule_runs(appId, createdAt DESC);
+      CREATE INDEX IF NOT EXISTS idx_rule_runs_rule_created ON rule_runs(ruleId, createdAt DESC);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_rule_runs_success_idempotency
+        ON rule_runs(appId, idempotencyKey) WHERE status = 'success';
+    `);
+  }
+
+  if (currentVersion < 4) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS rules (
+        id TEXT PRIMARY KEY,
+        appId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        status TEXT NOT NULL CHECK(status IN ('draft', 'active', 'disabled')),
+        sourceText TEXT NOT NULL,
+        businessIntentJson TEXT NOT NULL,
+        schemaMappingJson TEXT NOT NULL,
+        contractJson TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_rules_app_updated ON rules(appId, updatedAt DESC);
+      CREATE INDEX IF NOT EXISTS idx_rules_app_status ON rules(appId, status);
+    `);
+  }
+
+  if (currentVersion < 5) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS rule_record_states (
+        appId TEXT NOT NULL,
+        ruleId TEXT NOT NULL,
+        sourceEntity TEXT NOT NULL,
+        sourceRecordId TEXT NOT NULL,
+        state TEXT NOT NULL CHECK(state IN ('waiting', 'success')),
+        missingFieldsJson TEXT NOT NULL DEFAULT '[]',
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        PRIMARY KEY (appId, ruleId, sourceRecordId),
+        FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_rule_record_states_rule_state
+        ON rule_record_states(appId, ruleId, state, updatedAt DESC);
+      CREATE INDEX IF NOT EXISTS idx_rule_record_states_record
+        ON rule_record_states(appId, sourceRecordId, state);
+    `);
   }
 
   if (currentVersion < SCHEMA_VERSION) {

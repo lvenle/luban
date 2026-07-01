@@ -1,6 +1,6 @@
 import { getPackageFromApp } from '../storage/db.js';
 import { getApp, updateAppMetadata, updateAppPackage, exportAppPayload } from '../models/app.js';
-import { clampPageLimit, countRecords, createRecord, deleteRecordForApp, deleteRecordsForApp, getRecordRelations, listRecords, listRelationOptions, updateRecordForApp, updateRecordRelations } from '../models/record.js';
+import { clampPageLimit, countRecords, deleteRecordForApp, deleteRecordsForApp, getRecordRelations, listRecords, listRelationOptions, updateRecordRelations } from '../models/record.js';
 import { getSetting } from '../models/session.js';
 import { generatePatchFromPrompt, generateFieldContent } from '../ai/service.js';
 import { applyPatch } from '../core/packageProtocol.js';
@@ -9,6 +9,12 @@ import { toCsv } from '../utils/export.js';
 import { packageToZipPayload } from '../utils/zip.js';
 import { recordsToXlsx } from '../utils/xlsx.js';
 import { createTableInApp, updateTableInApp, deleteTableInApp, clearTableRecordsInApp, importTableRecordsInApp, createFieldInApp, updateFieldInApp, deleteFieldInApp } from '../services/operations.js';
+import { executeRuleEvent } from '../services/rule-engine.js';
+import { listRuleRuns } from '../models/rule-run.js';
+import { listRuleRecordStates } from '../models/rule-record-state.js';
+import { getRule, listRules, updateRuleStatus, deleteRule } from '../models/rule.js';
+import { createRecordWithRules, updateRecordWithRules } from '../services/rule-runtime.js';
+import { compileBusinessRule, updateCompiledRule } from '../services/rule-creation.js';
 import { sendJson, sendText, sendBinary, readJson, requireFields, notFound, badRequest, saveUploadedFile } from './_helpers.js';
 
 export async function handleRuntimeApi(req, res, method, url) {
@@ -62,7 +68,7 @@ export async function handleRuntimeApi(req, res, method, url) {
     if (body.fieldId) {
       const record = { appId, id: body.recordId };
       const data = { [body.fieldId]: result };
-      updateRecordForApp(appId, body.recordId, data);
+      updateRecordWithRules(appId, body.recordId, data);
     }
     sendJson(res, 200, { result });
     return;
@@ -106,6 +112,75 @@ export async function handleRuntimeApi(req, res, method, url) {
     return;
   }
 
+  if (method === 'POST' && parts[3] === 'rules' && parts[4] === 'execute') {
+    const body = await readJson(req);
+    requireFields(body, ['rule', 'event']);
+    sendJson(res, 200, executeRuleEvent({ appId, rule: body.rule, event: body.event }));
+    return;
+  }
+
+  if (parts[3] === 'rules' && parts.length === 4 && method === 'GET') {
+    sendJson(res, 200, { rules: listRules(appId) });
+    return;
+  }
+
+  if (parts[3] === 'rules' && parts[4] && parts.length === 5) {
+    const ruleId = parts[4];
+    if (method === 'GET') {
+      const rule = getRule(appId, ruleId);
+      if (!rule) throw notFound('找不到业务规则。');
+      sendJson(res, 200, { rule });
+      return;
+    }
+    if (method === 'PATCH') {
+      const body = await readJson(req);
+      let rule;
+      if (body.businessIntentJson) {
+        const sourceText = String(body.sourceText || '手动修改业务规则').trim();
+        const compiled = compileBusinessRule(app, sourceText, body.businessIntentJson);
+        rule = updateCompiledRule(appId, ruleId, sourceText, compiled);
+      } else {
+        rule = updateRuleStatus(appId, ruleId, body.status);
+      }
+      if (!rule) throw notFound('找不到业务规则。');
+      sendJson(res, 200, { rule });
+      return;
+    }
+    if (method === 'DELETE') {
+      if (!deleteRule(appId, ruleId)) throw notFound('找不到业务规则。');
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+  }
+
+  if (parts[3] === 'rules' && parts[4] && parts[5] === 'runs' && method === 'GET') {
+    if (!getRule(appId, parts[4])) throw notFound('找不到业务规则。');
+    sendJson(res, 200, { runs: listRuleRuns(appId, { ruleId: parts[4], limit: url.searchParams.get('limit') || 50 }) });
+    return;
+  }
+
+  if (parts[3] === 'rules' && parts[4] && parts[5] === 'states' && method === 'GET') {
+    if (!getRule(appId, parts[4])) throw notFound('找不到业务规则。');
+    sendJson(res, 200, {
+      states: listRuleRecordStates(appId, {
+        ruleId: parts[4],
+        state: url.searchParams.get('state') || undefined,
+        limit: url.searchParams.get('limit') || 100
+      })
+    });
+    return;
+  }
+
+  if (method === 'GET' && parts[3] === 'rule-runs') {
+    sendJson(res, 200, {
+      runs: listRuleRuns(appId, {
+        ruleId: url.searchParams.get('ruleId') || undefined,
+        limit: url.searchParams.get('limit') || 50
+      })
+    });
+    return;
+  }
+
   if (parts[3] === 'records' && parts[4] && parts[5] === 'relations' && parts[6]) {
     if (method === 'GET') {
       sendJson(res, 200, { relations: getRecordRelations(parts[4], parts[6], appId) });
@@ -143,13 +218,13 @@ export async function handleRuntimeApi(req, res, method, url) {
     const entityId = body.entityId || app.schema.entities[0]?.id;
     if (!entityId) throw badRequest('请求缺少 entityId 且应用没有默认实体。');
     if (!app.schema.entities.some((entity) => entity.id === entityId)) throw notFound(`实体不存在：${entityId}`);
-    sendJson(res, 201, { record: createRecord(appId, entityId, body.data || {}, body._createdAt) });
+    sendJson(res, 201, createRecordWithRules(appId, entityId, body.data || {}, body._createdAt));
     return;
   }
 
   if (method === 'PUT' && parts[3] === 'records' && parts[4] && parts.length === 5) {
     const body = await readJson(req);
-    sendJson(res, 200, { record: updateRecordForApp(appId, parts[4], body.data || {}) });
+    sendJson(res, 200, updateRecordWithRules(appId, parts[4], body.data || {}));
     return;
   }
 

@@ -19,6 +19,15 @@ export const state = {
 export const root = document.querySelector('#app');
 export const APP_VERSION = '2026.06.27';
 
+document.addEventListener('open-ai-rule-edit', async (event) => {
+  if (!state.currentApp) return;
+  state.assistantOpen = true;
+  const runtime = await import('./app-runtime/index.js');
+  runtime.renderRuntime();
+  const assistant = await import('./ai-assistant/index.js');
+  assistant.setAssistantDraft(event.detail?.text || '请修改这条业务规则');
+});
+
 // Reactive mobile detection
 const mobileMq = window.matchMedia('(max-width: 767px)');
 mobileMq.addEventListener('change', (e) => {
@@ -64,6 +73,24 @@ async function boot() {
     if (e.target.closest('.context-menu, .page-menu-popover, .view-menu-popover, .mobile-card-menu, .page-menu, .view-menu-trigger, .card-menu-popover, .export-menu-trigger')) return;
     document.querySelectorAll('.context-menu, .page-menu-popover.fixed-menu, .view-menu-popover, .mobile-card-menu').forEach((el) => el.remove());
   });
+  if (location.pathname === '/rules/ai-config' || location.pathname === '/rules/ai-config/') {
+    state.currentApp = null;
+    state.currentPageId = null;
+    state.currentViewId = '';
+    (await import('./rules/ai-config.js')).renderAiRuleConfig(root);
+    return;
+  }
+  if (location.pathname === '/rules' || location.pathname === '/rules/') {
+    state.currentApp = null;
+    (await import('./rules/pages.js')).renderRuleList(root);
+    return;
+  }
+  const ruleDetailMatch = location.pathname.match(/^\/rules\/([^/]+)\/?$/);
+  if (ruleDetailMatch) {
+    state.currentApp = null;
+    (await import('./rules/pages.js')).renderRuleDetail(root, decodeURIComponent(ruleDetailMatch[1]));
+    return;
+  }
   state.apps = (await api('/api/apps')).apps;
   const route = currentRoute();
   if (route.appId) {
@@ -119,7 +146,9 @@ export function topbar() {
         class: `secondary icon-label-button assistant-topbar-button ${state.assistantOpen ? 'active' : ''}`,
         onclick: () => { state.assistantOpen = !state.assistantOpen; if (state.currentApp) { (async () => { const rt = await import('./app-runtime/index.js'); rt.renderRuntime(); })(); } else renderHome(); }
       }, buttonLabel('assistant', 'AI 助理')),
-      h('button', { class: 'secondary icon-label-button', title: '设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal()) }, buttonLabel('settings', '设置'))
+      inRuntime
+        ? h('button', { class: 'secondary icon-label-button app-settings-button', title: '应用设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal(state.currentApp.id, 'rules')) }, buttonLabel('settings', '应用设置'))
+        : h('button', { class: 'secondary icon-label-button system-settings-button', title: '系统设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal()) }, buttonLabel('settings', '系统设置'))
     ])
   ]);
 }

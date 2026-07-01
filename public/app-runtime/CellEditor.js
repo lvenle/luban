@@ -10,6 +10,7 @@ import { normalizeChoiceInitialValue, relationChoicesFromValue, mergeChoiceOptio
 import { renderMarkdown } from './Markdown.js';
 import { numberInputValue, storedNumberValue } from './NumberValues.js';
 import { pushUndo } from '../common/UndoStack.js';
+import { notifyRuleResults } from './RuleFeedback.js';
 
 export function startCellEdit(cell, entity, record, field) {
   if (cell.classList.contains('cell-editing')) return;
@@ -27,12 +28,13 @@ export function startCellEdit(cell, entity, record, field) {
       const oldData = { ...record.data };
       const data = { ...record.data, [field.id]: newValue };
       try {
-        await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
+        const body = await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
         pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
         record.data = data; // update local ref for AI trigger
         import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch((err) => console.error('[AI Trigger]', err));
         await loadCurrentPageRecords();
         renderRuntime();
+        notifyRuleResults(body.ruleResults || [], state.currentApp);
       } catch (error) {
         toast(error.message);
         renderRuntime();
@@ -73,13 +75,14 @@ export function startCellEdit(cell, entity, record, field) {
     const data = { ...record.data, [field.id]: nextValue };
     cell.classList.add('saving-cell');
     try {
-      await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
+      const body = await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
       pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
       record.data = data;
       import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch((err) => console.error('[AI Trigger]', err));
       // Local update only — avoid full re-render flash
       cell.classList.remove('cell-editing', 'saving-cell');
       cell.replaceChildren(renderFieldValue(record.data[field.id], field));
+      notifyRuleResults(body.ruleResults || [], state.currentApp);
     } catch (error) {
       toast(error.message);
       cell.classList.remove('saving-cell');

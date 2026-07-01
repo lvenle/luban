@@ -382,6 +382,33 @@ export async function generateOptions(prompt, settings = {}) {
   }
 }
 
+export async function generateBusinessRuleIntent(intent, app, settings = {}, existingRule = null) {
+  if (!settings?.apiKey) throw new Error('创建业务规则需要先配置 AI API Key。');
+  const schema = (app?.schema?.entities || []).map((entity) => ({
+    id: entity.id,
+    name: entity.name,
+    fields: (entity.fields || []).map((field) => ({
+      id: field.id,
+      label: field.label,
+      type: field.type,
+      targetEntity: field.targetEntity || null,
+      options: (field.options || []).map((option) => ({ id: option.id, label: option.label }))
+    }))
+  }));
+  const body = await requestChatCompletion(settings, [
+    {
+      role: 'system',
+      content: `你是业务规则意图分析器。只输出 JSON，不要 Markdown。只能引用给定 Schema 中真实存在的 ID。
+支持的规则：新增记录，或某条记录字段从 from 变为 to 后，设置、增加或减少当前记录或其 relation 关联记录的一个字段。
+输出结构：
+{"supported":true,"name":"规则名","summary":"摘要","trigger":{"event":"record.created|record.updated","entity":"实体ID","field":"updated 时必填","from":"updated 时必填的内部值","to":"updated 时必填的内部值"},"target":{"entity":"目标实体ID","relationField":"触发实体上的 relation 字段ID；更新当前记录时为 null","field":"目标字段ID"},"action":{"operation":"set|increment|decrement","value":{"type":"trigger.field|literal","field":"来源字段ID","value":0}},"display":{"when":"何时执行","then":"执行什么"}}
+如果当前能力或 Schema 无法实现，输出 {"supported":false,"reason":"具体原因"}。select 字段 from/to 必须使用 option.id，不使用显示 label。不要猜测缺失字段或关联。`
+    },
+    { role: 'user', content: JSON.stringify({ intent: String(intent || '').trim(), existingRule, schema }) }
+  ]);
+  return parseJsonContent(body.choices?.[0]?.message?.content || '{}');
+}
+
 function mockOptions(prompt) {
   const lower = String(prompt || '').toLowerCase();
   if (/性别|gender/.test(lower)) return [{ label: '男', color: 'blue' }, { label: '女', color: 'pink' }];

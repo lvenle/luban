@@ -172,14 +172,19 @@ function safeExtension(name, mimeType) {
 }
 
 export function serveStatic(res, pathname) {
+  const isRuleSpaRoute = pathname === '/rules'
+    || pathname === '/rules/'
+    || pathname === '/rules/ai-config'
+    || pathname === '/rules/ai-config/'
+    || /^\/rules\/[^/.]+\/?$/.test(pathname);
+  if (pathname.startsWith('/app/') || isRuleSpaRoute) {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(readFileSync(join(PUBLIC_DIR, 'index.html')));
+    return;
+  }
   const requested = pathname === '/' ? '/index.html' : pathname;
   const filePath = resolve(PUBLIC_DIR, `.${requested}`);
   if (!isInside(PUBLIC_DIR, filePath) || !existsSync(filePath)) {
-    if (pathname.startsWith('/app/')) {
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-      res.end(readFileSync(join(PUBLIC_DIR, 'index.html')));
-      return;
-    }
     sendText(res, 404, 'Not found', 'text/plain; charset=utf-8');
     return;
   }

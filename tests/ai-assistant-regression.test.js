@@ -7,6 +7,7 @@ import { createAppFromPackage } from '../src/models/app.js';
 import { createFieldsInApp } from '../src/services/operations.js';
 import { createBudgetPackage } from '../src/ai/samplePackages.js';
 import { buildToolDisplayInfo, mergeBatchableToolCalls } from '../src/routes/ai.js';
+import { historyBusinessDetail } from '../public/ai-assistant/ToolDisplay.js';
 
 const appShellJs = source('../public/app.js');
 const assistantIndexJs = source('../public/ai-assistant/index.js');
@@ -113,6 +114,27 @@ test('failed tool cards show detailed live and historical errors', () => {
   assert.match(toolDisplayJs, /appendToolError\(card, log\.error \|\| log\.output\)/);
   assert.match(toolDisplayJs, /class: 'tool-card-error-detail'/);
   assert.match(assistantCss, /\.tool-card-error-detail[\s\S]*overflow-wrap: anywhere/);
+});
+
+test('historical failed tool logs tolerate null input and output', () => {
+  assert.doesNotThrow(() => historyBusinessDetail({
+    toolName: 'create_app',
+    status: 'failed',
+    input: null,
+    output: null
+  }));
+  assert.equal(historyBusinessDetail({
+    toolName: 'create_app',
+    status: 'failed',
+    input: null,
+    output: null
+  }), '');
+  assert.equal(historyBusinessDetail({
+    toolName: 'query_data',
+    status: 'failed',
+    input: null,
+    output: null
+  }), '查询到 0 条');
 });
 
 test('create_app tool cards disclose all fields created inside the operation', () => {

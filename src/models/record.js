@@ -79,7 +79,7 @@ export function clampPageLimit(value, fallback = 100) {
   return Math.max(1, Math.min(1000, Number.isFinite(parsed) ? parsed : fallback));
 }
 
-export function createRecord(appId, entityId, data, customCreatedAt) {
+export function createRecord(appId, entityId, data, customCreatedAt, options = {}) {
   const app = getApp(appId);
   if (!app) throw notFound('找不到应用。');
   if (!app.schema.entities.some((entity) => entity.id === entityId)) throw badRequest(`实体不存在：${entityId}`);
@@ -93,7 +93,7 @@ export function createRecord(appId, entityId, data, customCreatedAt) {
       .run(id, appId, entityId, JSON.stringify(cleanData || {}), createdAt, createdAt);
     setRecordRelationValues(appId, entityId, id, relations);
   });
-  triggerBackup();
+  if (!options.skipBackup) triggerBackup();
   return calculateRecordFormulas(getRecord(id));
 }
 
@@ -116,7 +116,7 @@ export function getRecordForApp(appId, recordId) {
   return record;
 }
 
-export function updateRecord(recordId, data) {
+export function updateRecord(recordId, data, options = {}) {
   const existing = getRecord(recordId);
   if (!existing) return null;
   const app = getApp(existing.appId);
@@ -131,13 +131,13 @@ export function updateRecord(recordId, data) {
     if (dataChanged) database.prepare('UPDATE records SET dataJson = ?, updatedAt = ? WHERE id = ?').run(nextJson, now(), recordId);
     if (relationsChanged) setRecordRelationValues(existing.appId, existing.entityId, recordId, relations);
   });
-  triggerBackup();
+  if (!options.skipBackup) triggerBackup();
   return calculateRecordFormulas(getRecord(recordId));
 }
 
-export function updateRecordForApp(appId, recordId, data) {
+export function updateRecordForApp(appId, recordId, data, options = {}) {
   if (!getRecordForApp(appId, recordId)) throw notFound('找不到记录。');
-  return updateRecord(recordId, data);
+  return updateRecord(recordId, data, options);
 }
 
 function relationsChangedSince(recordId, relations) {
@@ -160,6 +160,7 @@ export function deleteRecord(recordId, options = {}) {
     throw error;
   }
   const result = withTransaction(() => {
+    database.prepare("DELETE FROM rule_record_states WHERE sourceRecordId = ? AND state = 'waiting'").run(recordId);
     database.prepare('DELETE FROM record_relations WHERE sourceRecordId = ? OR targetRecordId = ?').run(recordId, recordId);
     return database.prepare('DELETE FROM records WHERE id = ?').run(recordId).changes > 0;
   });
