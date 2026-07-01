@@ -19,8 +19,9 @@ export function formatRuleChanges(result, app) {
     const entity = app?.schema?.entities?.find((item) => item.id === entityId);
     const field = entity?.fields?.find((item) => item.id === changedFieldId);
     const entityName = entity?.name || '相关数据';
+    const businessObject = change.recordLabel ? `${entityName}“${change.recordLabel}”` : entityName;
     const fieldName = field?.label || '目标字段';
-    return `${entityName}的“${fieldName}”已由 ${displayValue(beforeValue)} 调整为 ${displayValue(afterValue)}`;
+    return `${businessObject}的“${fieldName}”已由 ${displayValue(beforeValue)} 调整为 ${displayValue(afterValue)}`;
   });
 }
 

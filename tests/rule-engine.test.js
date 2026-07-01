@@ -79,6 +79,7 @@ test('generic update.field decrements 10 to 8 and writes a success run', () => {
   assert.equal(result.status, 'success');
   assert.equal(result.changes[0].beforeValue, 10);
   assert.equal(result.changes[0].afterValue, 8);
+  assert.equal(result.changes[0].recordLabel, 'iPhone 15');
   assert.equal(getRecord(data.product.id).data.stock, 8);
   assert.deepEqual(result.steps.map((step) => step.type), ['record.updated', 'read.records', 'aggregate.sum', 'condition', 'update.field', 'log.run']);
   assert.match(result.steps[0].message, /触发字段已由 draft 变为 confirmed/);
@@ -90,6 +91,7 @@ test('generic update.field decrements 10 to 8 and writes a success run', () => {
   assert.equal(runs[0].idempotencyKey, `rule_acceptance:stock_out:${data.stockOut.id}`);
   assert.equal(runs[0].outputSnapshotJson.updates[0].before.data.stock, 10);
   assert.equal(runs[0].outputSnapshotJson.updates[0].after.data.stock, 8);
+  assert.equal(runs[0].outputSnapshotJson.updates[0].recordLabel, 'iPhone 15');
 });
 
 test('block rolls back all updates and writes the reason', () => {

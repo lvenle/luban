@@ -321,5 +321,9 @@ test('runtime uses an application-settings entry with rules and execution-log ta
   assert.match(ruleFeedback, /afterValue/);
   assert.match(ruleFeedback, /已完成/);
   assert.match(ruleFeedback, /formatRuleChanges/);
+  assert.match(ruleFeedback, /recordLabel/);
   assert.match(settings, /business-rule-change-detail/);
+  assert.match(settings, /resultSummary/);
+  assert.match(settings, /business-rule-run-result/);
+  assert.match(styles, /\.business-rule-run-result/);
 });

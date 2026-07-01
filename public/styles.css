@@ -3209,7 +3209,11 @@ thead .frozen-column {
 .business-rule-mapping { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 12px; border-radius: 9px; background: #f6f8fb; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .business-rule-runs { display: grid; gap: 8px; margin-top: 10px; }
 .business-rule-run { border: 1px solid var(--line); border-radius: 9px; }
-.business-rule-run summary { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; }
+.business-rule-run > summary { display: grid; gap: 7px; padding: 10px 12px; cursor: pointer; }
+.business-rule-run-summary-main { display: flex; align-items: center; gap: 10px; }
+.business-rule-run-result { color: var(--muted); font-size: 13px; line-height: 1.45; }
+.run-success > summary .business-rule-run-result { color: #195f3a; }
+.run-failed > summary .business-rule-run-result { color: var(--danger); }
 .business-rule-run-body { padding: 0 14px 14px; }
 .business-rule-run-body p { margin: 7px 0; }
 .business-rule-error { color: var(--danger); }

@@ -73,6 +73,18 @@ function readStoredRecord(database, appId, entityId, recordId) {
   return { id: row.id, appId: row.appId, entityId: row.entityId, data: JSON.parse(row.dataJson), createdAt: row.createdAt, updatedAt: row.updatedAt };
 }
 
+function recordBusinessLabel(database, appId, entityId, data) {
+  const appRow = database.prepare('SELECT schemaJson FROM apps WHERE id = ?').get(appId);
+  if (!appRow) return '';
+  let schema;
+  try { schema = JSON.parse(appRow.schemaJson); } catch { return ''; }
+  const entity = schema?.entities?.find((item) => item.id === entityId);
+  const fields = entity?.fields || [];
+  const preferred = fields.find((field) => /(名称|姓名|标题|编号|单号|name|title|code)/i.test(`${field.label || ''} ${field.id || ''}`) && data?.[field.id] !== undefined && data?.[field.id] !== '')
+    || fields.find((field) => ['text', 'select'].includes(field.type) && data?.[field.id] !== undefined && data?.[field.id] !== '');
+  return preferred ? String(data[preferred.id]) : '';
+}
+
 function contextValue(path, state) {
   const parts = String(path || '').split('.');
   if (parts[0] === 'rule' && parts[1] === 'id') return state.ruleId;
@@ -272,6 +284,7 @@ export class ContractInterpreter {
       recordId,
       fieldId: step.field,
       operation: step.operation,
+      recordLabel: recordBusinessLabel(this.database, this.appId, step.entity, record.data),
       beforeValue: rawBeforeValue,
       afterValue,
       before,
