@@ -16,6 +16,7 @@ configureRuntimePorts({ defaultValueForField, fieldValuesEqual, relationDisplayV
 export function startCellEdit(cell, entity, record, field) {
   if (cell.classList.contains('cell-editing')) return;
   if (field.type === 'formula') return toast('公式字段由系统实时计算，不能直接编辑。');
+  if (field.type === 'autoNumber') return toast('自增序号由系统自动生成，不能手动修改。');
   if (field.type === 'ai') {
     import('./MarkdownEditor.js').then((m) => m.openMarkdownRecordEditor(entity, record, field)).catch((err) => console.error('[AI Trigger]', err));
     return;
@@ -123,6 +124,7 @@ export function startCellEdit(cell, entity, record, field) {
 
 export function inputForField(field, value) {
   if (field.type === 'formula') return h('input', { value: formatFieldValue(value, field), readonly: 'readonly', class: 'formula-readonly-input', title: '公式字段由系统实时计算' });
+  if (field.type === 'autoNumber') return h('input', { value: value ?? '', readonly: 'readonly', class: 'formula-readonly-input', placeholder: '保存后自动生成', title: '自增序号由系统自动生成' });
   if (field.type === 'textarea' || field.type === 'richText') return h('textarea', { value: value ?? '', placeholder: field.placeholder || '' });
   if (field.type === 'image' || field.type === 'file') {
     const input = h('input', { type: 'file', accept: field.type === 'image' ? 'image/*' : '' });
@@ -589,6 +591,7 @@ export function disablePreviewInput(input) {
 }
 
 export function sampleFieldValue(field) {
+  if (field.type === 'autoNumber') return `${field.autoNumber?.prefix || ''}${field.autoNumber?.start ?? 1}`;
   if (field.type === 'number') return '123';
   if (field.type === 'date') return '2026-06-12';
   if (field.type === 'datetime') return '2026-06-12 09:00';
@@ -619,6 +622,7 @@ export function formatFieldValue(value, field) {
 }
 
 export function defaultValueForField(field) {
+  if (field.type === 'autoNumber') return '';
   if (field.type === 'number') return null;
   if (field.type === 'boolean') return false;
   if (field.type === 'multiSelect') return [];

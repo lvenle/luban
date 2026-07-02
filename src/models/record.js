@@ -4,6 +4,7 @@ import { createId } from '../core/ids.js';
 import { calculateFormulaFields } from '../core/formula.js';
 import { notFound, badRequest } from '../core/errors.js';
 import { isSingleChoiceField, isMultiChoiceField, isRelationField, isFormulaField, isTemporalField, isFileLikeField } from '../core/fieldTypeHelpers.js';
+import { allocateAutoNumberValues } from './auto-number.js';
 
 function now() {
   return new Date().toISOString();
@@ -117,8 +118,9 @@ export function createRecord(appId, entityId, data, customCreatedAt, options = {
   const id = createId('rec');
   const createdAt = validTimestamp(customCreatedAt) || now();
   withTransaction((database) => {
+    const numberedData = allocateAutoNumberValues(database, appId, entity, cleanData);
     database.prepare('INSERT INTO records (id, appId, entityId, dataJson, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, appId, entityId, JSON.stringify(cleanData || {}), createdAt, createdAt);
+      .run(id, appId, entityId, JSON.stringify(numberedData || {}), createdAt, createdAt);
     setRecordRelationValues(appId, entityId, id, relations);
   });
   if (!options.skipBackup) triggerBackup();
@@ -150,6 +152,11 @@ export function updateRecord(recordId, data, options = {}) {
   const app = getApp(existing.appId);
   const entity = app?.schema?.entities?.find((item) => item.id === existing.entityId);
   const validated = validateRecordData(entity, data, { mode: 'update' });
+  for (const field of entity?.fields || []) {
+    if (field.type === 'autoNumber' && Object.prototype.hasOwnProperty.call(existing.data || {}, field.id)) {
+      validated[field.id] = existing.data[field.id];
+    }
+  }
   const { data: cleanData, relations } = splitRelationData(app, existing.entityId, validated);
   const nextJson = JSON.stringify(cleanData || {});
   const dataChanged = JSON.stringify(existing.data || {}) !== nextJson;
@@ -261,7 +268,7 @@ export function validateRecordData(entity, data = {}, options = {}) {
   const fields = new Map((entity.fields || []).map((field) => [field.id, field]));
   const normalized = {};
   for (const field of entity.fields || []) {
-    if (isFormulaField(field)) continue;
+    if (isFormulaField(field) || field.type === 'autoNumber') continue;
     const present = Object.prototype.hasOwnProperty.call(data, field.id);
     const value = present ? data[field.id] : undefined;
     if (!present) continue;

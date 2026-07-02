@@ -250,7 +250,7 @@ export function withTransaction(callback) {
   }
 }
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 /*
  * Migration strategy:
@@ -433,6 +433,19 @@ function migrate(database) {
         ON rule_record_states(appId, ruleId, state, updatedAt DESC);
       CREATE INDEX IF NOT EXISTS idx_rule_record_states_record
         ON rule_record_states(appId, sourceRecordId, state);
+    `);
+  }
+
+  if (currentVersion < 6) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS auto_number_sequences (
+        appId TEXT NOT NULL,
+        entityId TEXT NOT NULL,
+        fieldId TEXT NOT NULL,
+        nextValue INTEGER NOT NULL,
+        PRIMARY KEY (appId, entityId, fieldId),
+        FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE
+      );
     `);
   }
 

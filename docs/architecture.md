@@ -133,13 +133,14 @@
 | `rules` | 应用业务规则 | id, appId, status, businessIntentJson, schemaMappingJson, contractJson |
 | `rule_runs` | 规则执行日志 | ruleId, sourceRecordId, status, stepsJson, idempotencyKey |
 | `rule_record_states` | 新增规则的一次性执行状态 | ruleId, sourceRecordId, state(waiting/success), missingFieldsJson |
+| `auto_number_sequences` | 自增序号游标 | appId, entityId, fieldId, nextValue |
 
 **核心功能**：
 
 - `createAppFromPackage(pkg)` — 规范化 + 校验 + 插入数据库
 - `updateAppPackage(appId, pkg)` — 重新规范化校验后更新
 - `listRecords(appId, { entityId, q, limit, offset })` — 支持搜索、关系水合和最多 1000 条的分页读取
-- `createRecord(appId, entityId, data)` — 自动拆分关系字段写入 `record_relations`
+- `createRecord(appId, entityId, data)` — 自动拆分关系字段，并在同一事务中分配自增序号
 - `updateRecord(recordId, data)` — No-op 检测（相同数据不更新 updatedAt）
 - `deleteRecord(recordId, { force })` — 检查引用约束，force=true 时级联删除
 - `listRelationOptions(appId, entityId, fieldId, keyword)` — 关系字段选项搜索
@@ -225,9 +226,11 @@ app.sgpkg
 └── sample-data.json    # 可选样本数据
 ```
 
-**字段类型**（14 种）：
+**字段类型**（15 种）：
 
-`text`, `textarea`, `number`, `date`, `datetime`, `url`, `select`, `multiSelect`, `relation`, `image`, `file`, `richText`, `formula`, `ai`
+`text`, `textarea`, `number`, `autoNumber`, `date`, `datetime`, `url`, `select`, `multiSelect`, `relation`, `image`, `file`, `richText`, `formula`, `ai`
+
+`autoNumber` 是系统只读字段，配置保存在 `field.autoNumber = { start, step, prefix }`。`auto_number_sequences` 表持久化每个应用、数据表和字段的下一个数值；记录创建与序列推进处于同一事务，删除记录不会回退序列。给已有数据表新增该字段时，按记录创建顺序补齐历史编号；之后修改配置只影响新记录。
 
 **页面类型**（4 种）：
 

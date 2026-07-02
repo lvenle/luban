@@ -27,6 +27,7 @@ export function fieldTypes() {
     ['textarea', '长文本'],
     ['url', '链接'],
     ['number', '数字'],
+    ['autoNumber', '自增序号'],
     ['select', '单选'],
     ['multiSelect', '多选'],
     ['relation', '关联记录'],
@@ -103,6 +104,22 @@ export function openFieldEditModal(entity, field = null, options = {}) {
       advanced.append(h('div', { class: 'field-setting-list' }, [
         h('label', { class: 'field-setting-row' }, [h('span', { text: '数字格式' }), format])
       ]));
+      return;
+    }
+    if (type === 'autoNumber') {
+      const config = draft.autoNumber || { start: 1, step: 1, prefix: '' };
+      const start = h('input', { type: 'number', min: '0', step: '1', value: String(config.start ?? 1), 'data-field-editor': 'autoNumberStart' });
+      const step = h('input', { type: 'number', min: '1', step: '1', value: String(config.step ?? 1), 'data-field-editor': 'autoNumberStep' });
+      const prefix = h('input', { value: config.prefix || '', placeholder: '例如：RK-（默认无前缀）', 'data-field-editor': 'autoNumberPrefix' });
+      advanced.append(
+        h('div', { class: 'field-popover-subtitle', text: '序号设置' }),
+        h('div', { class: 'field-setting-list' }, [
+          h('label', { class: 'field-setting-row' }, [h('span', { text: '开始序号' }), start]),
+          h('label', { class: 'field-setting-row' }, [h('span', { text: '步长' }), step]),
+          h('label', { class: 'field-setting-row' }, [h('span', { text: '固定前缀' }), prefix])
+        ]),
+        h('p', { class: 'field-help', text: '保存记录时由系统自动生成。删除记录不会复用旧序号；修改设置只影响之后新增的记录。' })
+      );
       return;
     }
     if (type === 'formula') {
@@ -252,6 +269,15 @@ export function fieldPatchFromEditor(label, type, advanced) {
     if (rt !== 'text' && /["']/.test(expr)) {
       toast(`公式中包含文本字符串，但结果类型为「${rt === 'number' ? '数字' : '日期'}」。如公式返回的是文本值，请将结果类型改为「文本」。`);
     }
+  }
+  if (type === 'autoNumber') {
+    const start = Number.parseInt(advanced.querySelector('[data-field-editor="autoNumberStart"]')?.value, 10);
+    const step = Number.parseInt(advanced.querySelector('[data-field-editor="autoNumberStep"]')?.value, 10);
+    patch.autoNumber = {
+      start: Number.isInteger(start) && start >= 0 ? start : 1,
+      step: Number.isInteger(step) && step > 0 ? step : 1,
+      prefix: advanced.querySelector('[data-field-editor="autoNumberPrefix"]')?.value || ''
+    };
   }
   if (type === 'ai') {
     const promptEl = advanced.querySelector('[data-field-editor="aiPrompt"]');

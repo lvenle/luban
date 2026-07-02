@@ -88,6 +88,7 @@ export function normalizePackage(pkg) {
       if (FIELD_TYPES[field.type]?.isRelationType) {
         normalizeRelationField(field, next.schema.entities);
       }
+      if (FIELD_TYPES[field.type]?.isAutoNumberType) normalizeAutoNumberField(field);
     }
     for (const field of entity.fields) {
       if (FIELD_TYPES[field.type]?.isFormulaType && field.formula?.expression && Object.keys(idMapping).length) {
@@ -251,9 +252,24 @@ export function normalizeFieldType(type) {
     created_at: 'datetime',
     updated_at: 'datetime',
     richtext: 'richText',
-    RichText: 'richText'
+    RichText: 'richText',
+    auto_number: 'autoNumber',
+    autonumber: 'autoNumber',
+    serial: 'autoNumber'
   };
   return map[value] || value;
+}
+
+function normalizeAutoNumberField(field) {
+  const config = field.autoNumber || field.config?.autoNumber || {};
+  const start = Number.parseInt(config.start, 10);
+  const step = Number.parseInt(config.step, 10);
+  field.autoNumber = {
+    start: Number.isInteger(start) && start >= 0 ? start : 1,
+    step: Number.isInteger(step) && step > 0 ? step : 1,
+    prefix: String(config.prefix || '')
+  };
+  field.config = { ...(field.config || {}), autoNumber: field.autoNumber };
 }
 
 function normalizePageType(type) {
@@ -482,6 +498,13 @@ export function validatePackage(pkg) {
           errors.push(`AI 字段 ${field.id} 引用了不存在的触发字段。`);
         }
       }
+      if (FIELD_TYPES[field.type]?.isAutoNumberType) {
+        const start = Number(field.autoNumber?.start);
+        const step = Number(field.autoNumber?.step);
+        if (!Number.isInteger(start) || start < 0) errors.push(`自增序号字段 ${field.id} 的开始序号必须是大于或等于 0 的整数。`);
+        if (!Number.isInteger(step) || step <= 0) errors.push(`自增序号字段 ${field.id} 的步长必须是大于 0 的整数。`);
+        if (typeof field.autoNumber?.prefix !== 'string') errors.push(`自增序号字段 ${field.id} 的固定前缀必须是文本。`);
+      }
     }
   }
   for (const entity of entities) {
@@ -671,6 +694,7 @@ function normalizePatchPayload(operation) {
       next.field.options = normalizeOptions(next.field.options || next.field.values || []);
     }
     if (FIELD_TYPES[next.field.type]?.isRelationType) normalizeRelationField(next.field);
+    if (FIELD_TYPES[next.field.type]?.isAutoNumberType) normalizeAutoNumberField(next.field);
   }
   if (next.fieldId) next.fieldId = normalizeFieldId(next.fieldId, 'field');
 
@@ -684,6 +708,7 @@ function normalizePatchPayload(operation) {
         field.label ||= field.displayName || field.name || field.id;
         field.type = normalizeFieldType(field.type || 'text');
         if (FIELD_TYPES[field.type]?.isRelationType) normalizeRelationField(field);
+        if (FIELD_TYPES[field.type]?.isAutoNumberType) normalizeAutoNumberField(field);
         if (FIELD_TYPES[field.type]?.isChoiceType) {
           field.options = normalizeOptions(field.options || field.values || []);
         }

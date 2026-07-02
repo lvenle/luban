@@ -30,7 +30,7 @@ export function renderRecordRow(entity, visibleFields, record, listConfig, rowNu
     h('td', { class: `index-cell ${frozenUtilityClass(listConfig, visibleFields)}`.trim(), style: frozenUtilityStyle(listConfig, visibleFields, 42), text: rowNumber }),
     ...visibleFields.map((field, colIndex) => {
       const cell = h('td', {
-        class: `editable-cell ${field.type === 'formula' ? 'formula-readonly-cell' : ''} ${frozenFieldClass(listConfig, visibleFields, colIndex)}`.trim(),
+        class: `editable-cell ${['formula', 'autoNumber'].includes(field.type) ? 'formula-readonly-cell' : ''} ${frozenFieldClass(listConfig, visibleFields, colIndex)}`.trim(),
         style: `${columnWidthStyle(listConfig, field)};${frozenFieldStyle(listConfig, visibleFields, colIndex)}`,
         'data-row-index': rowIndex,
         'data-col-index': colIndex,

@@ -28,6 +28,21 @@ test('url is a supported first-class field type', () => {
   assert.equal(pkg.schema.entities[0].fields[1].type, 'url');
 });
 
+test('auto number is normalized with safe defaults and keeps custom settings', () => {
+  assert.equal(normalizeFieldType('auto_number'), 'autoNumber');
+  const pkg = preparePackage({
+    manifest: { id: 'serials', name: '序号' },
+    schema: { entities: [{ id: 'item', name: '项目', fields: [
+      { id: 'serial', label: '序号', type: 'autoNumber' },
+      { id: 'custom', label: '自定义编号', type: 'autoNumber', autoNumber: { start: 100, step: 10, prefix: 'NO-' } }
+    ] }] },
+    ui: { pages: [{ id: 'items', title: '项目', type: 'table', entity: 'item' }] },
+    actions: { actions: [] }
+  });
+  assert.deepEqual(pkg.schema.entities[0].fields[0].autoNumber, { start: 1, step: 1, prefix: '' });
+  assert.deepEqual(pkg.schema.entities[0].fields[1].autoNumber, { start: 100, step: 10, prefix: 'NO-' });
+});
+
 test('previously-created boolean fields are converted to yes-no selects', () => {
   const pkg = preparePackage({
     manifest: { name: '任务' },
@@ -48,10 +63,13 @@ test('new field UI and AI tools expose url but not boolean', () => {
   const addField = source('../src/ai/tools/add-field.js');
   const updateField = source('../src/ai/tools/update-field.js');
   assert.match(fieldEditor, /\['url', '链接'\]/);
+  assert.match(fieldEditor, /\['autoNumber', '自增序号'\]/);
+  assert.match(fieldEditor, /autoNumberStart/);
   assert.doesNotMatch(fieldEditor, /\['boolean'\]/);
   assert.doesNotMatch(fieldEditor, /includeLegacyBoolean/);
   assert.match(cellEditor, /field\.type === 'url'/);
   assert.match(cellEditor, /class: 'cell-link url-link'/);
+  assert.match(cellEditor, /自增序号由系统自动生成/);
   assert.doesNotMatch(addField, /t !== 'boolean'/);
   assert.doesNotMatch(updateField, /t !== 'boolean'/);
 });

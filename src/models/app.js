@@ -1,9 +1,10 @@
-import { getDb, rowToApp, triggerBackup } from '../storage/db.js';
+import { getDb, rowToApp, withTransaction, triggerBackup } from '../storage/db.js';
 import { preparePackage } from '../core/packageProtocol.js';
 import { createId, slugify } from '../core/ids.js';
 import { formulaDependents } from '../core/formula.js';
 import { isFormulaField } from '../core/fieldTypeHelpers.js';
 import { notFound } from '../core/errors.js';
+import { syncAutoNumberFields } from './auto-number.js';
 
 function now() {
   return new Date().toISOString();
@@ -64,25 +65,28 @@ export function updateAppPackage(appId, pkg, options = {}) {
   if (existing) validateFormulaDependencyChanges(existing, pkg);
   const clean = preparePackage(pkg);
   const updatedAt = nextTimestamp(existing.updatedAt);
-  database.prepare(`
-    UPDATE apps SET
-      name = ?, description = ?, icon = ?, manifestJson = ?, schemaJson = ?,
-      uiJson = ?, actionsJson = ?, promptsJson = ?, version = ?, updatedAt = ?
-    WHERE id = ?
-  `).run(
-    clean.manifest.name,
-    clean.manifest.description || '',
-    clean.manifest.icon || '',
-    JSON.stringify(clean.manifest),
-    JSON.stringify(clean.schema),
-    JSON.stringify(clean.ui),
-    JSON.stringify(clean.actions),
-    JSON.stringify(clean.prompts || {}),
-    clean.manifest.version || '1.0.0',
-    updatedAt,
-    appId
-  );
-  return getApp(appId);
+  return withTransaction(() => {
+    database.prepare(`
+      UPDATE apps SET
+        name = ?, description = ?, icon = ?, manifestJson = ?, schemaJson = ?,
+        uiJson = ?, actionsJson = ?, promptsJson = ?, version = ?, updatedAt = ?
+      WHERE id = ?
+    `).run(
+      clean.manifest.name,
+      clean.manifest.description || '',
+      clean.manifest.icon || '',
+      JSON.stringify(clean.manifest),
+      JSON.stringify(clean.schema),
+      JSON.stringify(clean.ui),
+      JSON.stringify(clean.actions),
+      JSON.stringify(clean.prompts || {}),
+      clean.manifest.version || '1.0.0',
+      updatedAt,
+      appId
+    );
+    syncAutoNumberFields(database, appId, clean.schema, existing.schema);
+    return getApp(appId);
+  });
 }
 
 function nextTimestamp(previous) {

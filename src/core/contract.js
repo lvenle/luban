@@ -22,6 +22,7 @@ const FIELD_TYPES_RECORD = [
   { id: 'text',       label: '文本',     category: 'basic',    supportsDefault: true,  supportsFormula: false, toolAllowed: true, isTextLikeType: true,                 description: '单行文本' },
   { id: 'textarea',   label: '多行文本',   category: 'basic',    supportsDefault: true,  supportsFormula: false, toolAllowed: true, isTextLikeType: true,                 description: '多行文本' },
   { id: 'number',     label: '数字',     category: 'basic',    supportsDefault: true,  supportsFormula: true,  toolAllowed: true, isNumericType: true,                  description: '数值' },
+  { id: 'autoNumber', label: '自增序号', category: 'computed', supportsDefault: false, supportsFormula: false, toolAllowed: true, isAutoNumberType: true,               description: '系统自动生成且不会重复使用的递增序号' },
   { id: 'date',       label: '日期',     category: 'basic',    supportsDefault: true,  supportsFormula: true,  toolAllowed: true, isDateType: true, isTemporalType: true,   description: '日期（不含时间）' },
   { id: 'datetime',   label: '日期时间',   category: 'basic',    supportsDefault: true,  supportsFormula: false, toolAllowed: true, isDateType: true, isDateTimeType: true, isTemporalType: true, description: '日期和时间' },
   { id: 'url',        label: '链接',     category: 'basic',    supportsDefault: false, supportsFormula: false, toolAllowed: true,                               description: '超链接' },
@@ -137,4 +138,3 @@ const PATCH_OPS_RECORD = [
 
 export const PATCH_OPS = createRegistry(PATCH_OPS_RECORD);
 export const PATCH_OP_IDS = PATCH_OPS_RECORD.map((e) => e.id);
-

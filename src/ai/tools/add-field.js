@@ -19,6 +19,14 @@ const FIELD_SCHEMA = {
         resultType: { type: 'string', enum: ['number', 'date', 'text'] }
       },
       required: ['expression', 'resultType']
+    },
+    autoNumber: {
+      type: 'object',
+      properties: {
+        start: { type: 'number', description: 'Starting integer, default 1' },
+        step: { type: 'number', description: 'Positive increment, default 1' },
+        prefix: { type: 'string', description: 'Optional fixed prefix' }
+      }
     }
   },
   required: ['label', 'type']
@@ -42,7 +50,8 @@ register({
           label: { type: 'string', description: 'Field display name' },
           type: { type: 'string', enum: TOOL_FIELD_TYPES, description: 'Legacy single-field type' },
           options: { type: 'array', items: { type: 'string' }, description: 'Options for select/multiSelect fields' },
-          formula: { type: 'object', description: 'Formula definition for formula fields' }
+          formula: { type: 'object', description: 'Formula definition for formula fields' },
+          autoNumber: { type: 'object', description: 'Auto-number settings: start, step, prefix' }
         },
         required: ['appId', 'entityId']
       }
@@ -53,7 +62,7 @@ register({
     if (!app) throw new Error('App not found');
     const requestedFields = Array.isArray(args.fields) && args.fields.length
       ? args.fields
-      : [{ id: args.id, label: args.label, type: args.type, options: args.options, formula: args.formula }];
+      : [{ id: args.id, label: args.label, type: args.type, options: args.options, formula: args.formula, autoNumber: args.autoNumber }];
     const fields = requestedFields.map(normalizeToolField);
     const beforeIds = new Set(app.schema.entities.find((entity) => entity.id === args.entityId)?.fields.map((field) => field.id) || []);
     const nextApp = createFieldsInApp(app, args.entityId, fields);
@@ -67,5 +76,6 @@ function normalizeToolField(field) {
   const normalized = { id: field.id, label: field.label, type: field.type };
   if (field.options) normalized.options = field.options.map((option) => typeof option === 'string' ? { id: option, label: option } : option);
   if (isFormulaField(field)) normalized.formula = field.formula;
+  if (field.type === 'autoNumber') normalized.autoNumber = field.autoNumber || field.config?.autoNumber;
   return normalized;
 }

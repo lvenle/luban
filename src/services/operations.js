@@ -151,7 +151,7 @@ export function updateFieldInApp(app, entityId, fieldId, patch = {}) {
   if (patch.label && patch.label !== field.label) {
     for (const formulaField of entity.fields) renameFormulaBinding(formulaField, fieldId, String(patch.label).trim());
   }
-  const allowed = ['label', 'type', 'options', 'format', 'formula', 'placeholder', 'targetEntity', 'displayField', 'multiple', 'allowCreateTargetRecord', 'enableSearch'];
+  const allowed = ['label', 'type', 'options', 'format', 'formula', 'autoNumber', 'placeholder', 'targetEntity', 'displayField', 'multiple', 'allowCreateTargetRecord', 'enableSearch'];
   Object.assign(field, Object.fromEntries(Object.entries(patch).filter(([key]) => allowed.includes(key))));
   return updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
 }
