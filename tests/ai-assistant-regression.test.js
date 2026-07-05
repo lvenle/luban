@@ -87,6 +87,14 @@ test('assistant is docked without a backdrop and resizes the main page', () => {
   assert.match(mainCss, /@media \(max-width: 760px\)[\s\S]*height: 52vh/);
 });
 
+test('assistant header keeps its close action aligned and history controls constrained', () => {
+  assert.match(assistantIndexJs, /class: 'assistant-head-copy'[\s\S]*class: 'assistant-close'/);
+  assert.match(assistantIndexJs, /'aria-label': '关闭 AI 助理'/);
+  assert.match(mainCss, /\.assistant-head \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto/);
+  assert.match(mainCss, /\.assistant-head-actions \{[\s\S]*grid-template-columns: auto minmax\(0, 1fr\) auto/);
+  assert.match(assistantCss, /\.assistant-close \{[\s\S]*width: 30px;[\s\S]*height: 30px/);
+});
+
 test('assistant mode follows home and app-detail navigation', () => {
   assert.match(appHomeJs, /setAssistantMode\(\{ mode: 'create' \}\)/);
   assert.match(runtimeIndexJs, /setAssistantMode\(\{ mode: 'modify', appId: app\.id, appName: app\.name/);

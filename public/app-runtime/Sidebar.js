@@ -53,6 +53,14 @@ export function pageTypeIcon(navKind) {
       svgPath('M9 10a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5Z')
     ], 'page-type-svg');
   }
+  if (navKind === 'markdown') {
+    return svgIcon('0 0 18 18', [
+      svgPath('M4 2.5h6l4 4V15a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z'),
+      svgPath('M10 2.5V7h4'),
+      svgPath('M5 12V9l1.5 1.7L8 9v3'),
+      svgPath('m10 10 1.5 2 1.5-2')
+    ], 'page-type-svg');
+  }
   return svgIcon('0 0 18 18', [
     svgLine(5, 13, 13, 5),
     svgLine(9, 5, 13, 5),
@@ -64,6 +72,7 @@ export function pageTypeLabel(page, navKind = 'page') {
   if (navKind === 'table') return '数据表';
   if (navKind === 'link') return '链接';
   if (navKind === 'dashboard') return '看板';
+  if (navKind === 'markdown') return 'Markdown 文件';
   return '页面';
 }
 
@@ -102,6 +111,7 @@ export function renderMobileSidebar(app, page) {
     h('div', { class: 'mobile-drawer-actions' }, [
       h('button', { class: 'secondary', text: '+ 新建表', onclick: () => { state.mobileDrawerOpen = false; openCreateTableModal(); } }),
       h('button', { class: 'secondary', text: '+ 新建页面', onclick: () => { state.mobileDrawerOpen = false; openCreatePageModal(page); } }),
+      h('button', { class: 'secondary', text: '+ 新建文档', onclick: () => { state.mobileDrawerOpen = false; openAddMarkdownFile(); } }),
       h('button', { class: 'secondary', text: '+ 新建看板', onclick: () => { state.mobileDrawerOpen = false; openCreateDashboardModal(); } }),
       h('button', { class: 'secondary', text: '+ 新增链接', onclick: () => { state.mobileDrawerOpen = false; openCreateLinkModal(); } })
     ])
@@ -132,6 +142,10 @@ export function renderSidebarContent(app, page) {
     h('button', { class: 'page-button create-page-button', onclick: () => openCreatePageModal(page) }, [
       h('span', { class: 'button-icon page-icon' }, [pageTypeIcon('page')]),
       h('span', { text: '+ 新建页面' })
+    ]),
+    h('button', { class: 'page-button add-markdown-button', onclick: openAddMarkdownFile }, [
+      h('span', { class: 'button-icon markdown-icon' }, [pageTypeIcon('markdown')]),
+      h('span', { text: '+ 新建文档' })
     ]),
     h('button', { class: 'page-button create-dashboard-button', onclick: openCreateDashboardModal }, [
       h('span', { class: 'button-icon dashboard-icon' }, [pageTypeIcon('dashboard')]),
@@ -436,6 +450,32 @@ export function buildBlankPage(title, navKind = 'page') {
     navKind,
     cards: []
   };
+}
+
+export function buildMarkdownPage(fileName, content = '') {
+  const normalizedName = fileName.trim() || '未命名文档';
+  return {
+    id: uniquePageId(normalizedName, 'markdown'),
+    title: normalizedName,
+    type: 'page',
+    navKind: 'markdown',
+    fileName: normalizedName,
+    content
+  };
+}
+
+export async function openAddMarkdownFile() {
+  const page = buildMarkdownPage('未命名文档');
+  try {
+    await saveCurrentPackage((pkg) => { pkg.ui.pages.push(page); });
+    state.currentPageId = page.id;
+    state.currentViewId = '';
+    writeRoute(state.currentApp.id, page.id, false, '');
+    renderRuntime();
+    toast('Markdown 文件已创建');
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
 export function buildPageForEntity({ entity, title, view }) {

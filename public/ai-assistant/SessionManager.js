@@ -47,7 +47,8 @@ export default class SessionManager {
     this.selectEl = select;
 
     const newBtn = h('button', {
-      class: 'ghost',
+      class: 'assistant-new-session',
+      type: 'button',
       text: '新会话',
       onclick: () => this.onNew()
     });

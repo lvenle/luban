@@ -10,6 +10,7 @@ const APP_VERSION = '2026.06.25';
 const PORT = Number(process.env.PORT || 5173);
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 100);
 const RATE_LIMIT_WINDOW = 60_000;
+const DESKTOP_TOKEN = process.env.LUBAN_DESKTOP_TOKEN || '';
 
 // Simple in-memory sliding-window rate limiter (per IP)
 const rateBuckets = new Map();
@@ -77,6 +78,14 @@ export function createAppServer() {
       // 静态资源和上传不走 API 异常日志
       if (url.pathname.startsWith('/api/') || url.pathname === '/') {
         securityHeaders(res);
+      }
+
+      if (DESKTOP_TOKEN && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/uploads/'))) {
+        if (req.headers['x-luban-desktop-token'] !== DESKTOP_TOKEN) {
+          status = 403;
+          sendJson(res, 403, { error: '无权访问本地应用服务。' });
+          return;
+        }
       }
 
       // Rate limit for API routes (health check exempt)

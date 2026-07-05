@@ -5,16 +5,59 @@
   "description": "Luban AI System MVP: AI-generated structured personal apps with a SQLite-backed runtime.",
   "license": "AGPL-3.0-only",
   "type": "module",
+  "main": "desktop/main.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "desktop": "electron .",
+    "desktop:pack": "electron-builder --mac dir --arm64",
+    "desktop:dmg": "electron-builder --mac dmg --arm64",
     "test": "node --test tests/*.test.js",
     "bench": "node benchmarks/performance.bench.js"
   },
   "engines": {
-    "node": ">=25.0.0"
+    "node": ">=22.12.0"
   },
   "devDependencies": {
+    "electron": "43.0.0",
+    "electron-builder": "26.15.3",
     "playwright": "^1.60.0"
+  },
+  "build": {
+    "appId": "ai.luban.desktop",
+    "productName": "鲁班",
+    "asar": true,
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "desktop/**/*",
+      "public/**/*",
+      "src/**/*",
+      "package.json",
+      "LICENSE"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64"]
+        }
+      ]
+    },
+    "dmg": {
+      "title": "鲁班 ${version}",
+      "artifactName": "Luban-${version}-${arch}.${ext}",
+      "window": { "width": 540, "height": 380 },
+      "contents": [
+        { "x": 150, "y": 190, "type": "file" },
+        { "x": 390, "y": 190, "type": "link", "path": "/Applications" }
+      ]
+    }
   }
 }

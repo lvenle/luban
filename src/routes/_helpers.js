@@ -5,8 +5,9 @@ import { AppError, notFound, badRequest } from '../core/errors.js';
 
 export { notFound, badRequest } from '../core/errors.js';
 
-const PUBLIC_DIR = join(process.cwd(), 'public');
-const UPLOAD_DIR = join(process.cwd(), 'data', 'uploads');
+const PUBLIC_DIR = process.env.LUBAN_PUBLIC_DIR || join(process.cwd(), 'public');
+const DATA_DIR = process.env.LUBAN_DATA_DIR || join(process.cwd(), 'data');
+const UPLOAD_DIR = join(DATA_DIR, 'uploads');
 const JSON_LIMIT = 2 * 1024 * 1024;
 export const FILE_LIMIT = 20 * 1024 * 1024;
 
@@ -14,6 +15,7 @@ export class HttpError extends AppError {}
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
+  '.htm': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
@@ -24,6 +26,14 @@ const MIME_TYPES = {
   '.gif': 'image/gif',
   '.webp': 'image/webp',
   '.pdf': 'application/pdf',
+  '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/plain; charset=utf-8',
+  '.csv': 'text/csv; charset=utf-8',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
   '.ico': 'image/x-icon'
 };
 
@@ -191,11 +201,14 @@ export function serveUpload(res, pathname) {
     sendText(res, 404, 'Not found', 'text/plain; charset=utf-8');
     return;
   }
+  const extension = extname(filePath).toLowerCase();
+  const isHtml = ['.html', '.htm'].includes(extension);
   res.writeHead(200, {
-    'content-type': MIME_TYPES[extname(filePath)] || 'application/octet-stream',
+    'content-type': MIME_TYPES[extension] || 'application/octet-stream',
     'cache-control': 'public, max-age=31536000, immutable',
     'x-content-type-options': 'nosniff',
-    ...(safeInlineExtension(extname(filePath)) ? {} : { 'content-disposition': `attachment; filename="${basename(filePath)}"` })
+    ...(isHtml ? { 'content-security-policy': "sandbox; default-src 'none'; img-src data: blob: http: https:; style-src 'unsafe-inline'" } : {}),
+    ...(safeInlineExtension(extension) ? {} : { 'content-disposition': `attachment; filename="${basename(filePath)}"` })
   });
   res.end(readFileSync(filePath));
 }
@@ -206,7 +219,11 @@ function isInside(root, filePath) {
 }
 
 function safeInlineExtension(extension) {
-  return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf'].includes(String(extension).toLowerCase());
+  return [
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf',
+    '.txt', '.md', '.csv', '.mp3', '.wav', '.ogg', '.mp4', '.webm',
+    '.html', '.htm'
+  ].includes(String(extension).toLowerCase());
 }
 
 export function serveIndexHtml(res) {

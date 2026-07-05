@@ -13,6 +13,15 @@ test('markdown renderer escapes HTML and renders common markdown syntax', () => 
   assert.match(html, /&lt;script&gt;/);
   assert.match(renderMarkdown('> 引用内容'), /<blockquote>引用内容<\/blockquote>/);
   assert.equal(renderMarkdown('1. 第一项\n2. 第二项'), '<ol><li>第一项</li><li>第二项</li></ol>');
+  assert.match(renderMarkdown('![截图](/uploads/app/image.png)'), /<img src="\/uploads\/app\/image\.png" alt="截图" loading="lazy">/);
+  assert.match(renderMarkdown('[需求文档](/uploads/app/spec.pdf)'), /<a href="\/uploads\/app\/spec\.pdf"[^>]*>需求文档<\/a>/);
+  assert.doesNotMatch(renderMarkdown('[需求文档](/uploads/app/spec.pdf)'), /download=/);
+  assert.match(renderMarkdown('[说明](/uploads/app/readme.txt)'), /target="_blank"/);
+  assert.match(renderMarkdown('[网页](/uploads/app/report.html)'), /target="_blank"/);
+  assert.doesNotMatch(renderMarkdown('[网页](/uploads/app/report.html)'), /download=/);
+  assert.match(renderMarkdown('[数据包](/uploads/app/archive.zip)'), /download="数据包"/);
+  assert.doesNotMatch(renderMarkdown('[数据包](/uploads/app/archive.zip)'), /target="_blank"/);
+  assert.doesNotMatch(renderMarkdown('![\" onerror=\"x](/uploads/app/image.png)'), /" onerror=/);
 });
 
 test('markdown formatting helpers support bold, italic, and heading levels 1 through 6', () => {
@@ -39,10 +48,14 @@ test('long text cells use click preview and double-click markdown editor', () =>
   assert.match(cellEditor, /field\.type === 'textarea' \|\| field\.type === 'richText'[\s\S]*markdown-cell-content[\s\S]*renderMarkdown\(value\)/);
   assert.match(styles, /\.markdown-cell-content[\s\S]*text-overflow: ellipsis;[\s\S]*white-space: nowrap;/);
   const editor = readFileSync(new URL('../public/app-runtime/MarkdownEditor.js', import.meta.url), 'utf8');
+  assert.match(editor, /createMarkdownCodeEditor\(textarea\)/);
+  assert.match(editor, /createMarkdownUploadButtons\(textarea/);
   assert.match(editor, /openMarkdownPreview\(entity, record, field\)[\s\S]*class: 'modal-footer'[\s\S]*text: '编辑'[\s\S]*openMarkdownRecordEditor\(entity, record, field\)/);
-  assert.match(editor, /text: '编辑'/);
-  assert.match(editor, /text: '预览'/);
-  assert.match(editor, /markdown-editor-layout[\s\S]*markdown-preview-pane[\s\S]*markdown-editor-pane/);
+  assert.match(editor, /markdown-mode-button active', text: '编辑'/);
+  assert.match(editor, /markdown-mode-button', text: '预览'/);
+  assert.match(editor, /switchMode\('edit'\)/);
+  assert.match(editor, /switchMode\('preview'\)/);
+  assert.match(editor, /markdown-editor-layout markdown-modal-layout/);
   assert.match(editor, /一级标题/);
   assert.match(editor, /六级标题/);
   assert.match(editor, /title: '加粗'/);
@@ -61,8 +74,10 @@ test('long text cells use click preview and double-click markdown editor', () =>
   assert.doesNotMatch(editor, /title: '任务列表'/);
   assert.doesNotMatch(editor, /title: '链接'/);
   assert.doesNotMatch(editor, /title: '分割线'/);
-  assert.match(editor, /markdown-pane-title', text: '编辑'[\s\S]*tools/);
-  assert.match(styles, /\.markdown-pane-header[\s\S]*min-height: 36px;[\s\S]*align-items: center/);
+  assert.match(editor, /tools\.hidden = isPreview/);
+  assert.match(editor, /markdown-modal-mode-switch markdown-mode-switch/);
+  assert.match(styles, /\.markdown-modal-modebar[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\)/);
+  assert.match(styles, /\.markdown-modal-mode-switch[\s\S]*grid-column: 2;[\s\S]*justify-self: center/);
 });
 
 test('all modal action footers align to the bottom right', () => {
@@ -76,4 +91,53 @@ test('all modal close buttons stay in the top-right with a distinct background',
   assert.match(css, /\.modal > \.toolbar > button:last-child,[\s\S]*margin-left: auto;[\s\S]*background: #f1f5f9;/);
   assert.match(css, /\.modal > \.toolbar > button:last-child:hover,[\s\S]*background: #e2e8f0;/);
   assert.match(markdown, /Markdown 编辑器[\s\S]*text: '关闭'/);
+});
+
+test('sidebar creates an editable markdown file without opening a file picker', () => {
+  const sidebar = readFileSync(new URL('../public/app-runtime/Sidebar.js', import.meta.url), 'utf8');
+  const page = readFileSync(new URL('../public/app-runtime/MarkdownPage.js', import.meta.url), 'utf8');
+  const pageTypes = readFileSync(new URL('../public/app-runtime/PageTypes.js', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  assert.match(sidebar, /text: '\+ 新建文档'/);
+  assert.doesNotMatch(sidebar, /text: '\+ 添加文件'/);
+  assert.match(sidebar, /buildMarkdownPage\('未命名文档'\)/);
+  assert.doesNotMatch(sidebar, /`\$\{fileName\}\.md`/);
+  assert.doesNotMatch(sidebar, /type: 'file'/);
+  assert.match(sidebar, /navKind: 'markdown'/);
+  assert.match(pageTypes, /page\.navKind === 'markdown'/);
+  assert.match(page, /renderMarkdown\(textarea\.value\)/);
+  assert.match(page, /createMarkdownCodeEditor\(textarea\)/);
+  assert.match(page, /createMarkdownUploadButtons\(textarea/);
+  assert.match(page, /target\.content = content/);
+  assert.match(page, /event\.metaKey \|\| event\.ctrlKey/);
+  assert.match(page, /setTimeout\(\(\) => save\(\{ silent: true \}\), 800\)/);
+  assert.match(page, /saveAgain \|\| \(succeeded && textarea\.value !== savedValue\)/);
+  assert.match(page, /text: '编辑'/);
+  assert.match(page, /text: '预览'/);
+  assert.match(page, /markdown-mode-button active', text: '预览'/);
+  assert.match(page, /markdown-editor-pane markdown-file-pane', hidden: 'hidden'/);
+  assert.match(page, /markdown-format-toolbar', hidden: 'hidden'/);
+  assert.match(page, /switchMode\('edit'\)/);
+  assert.match(page, /switchMode\('preview'\)/);
+  assert.match(page, /previewPane\.hidden = !isPreview/);
+  assert.match(page, /fileNameLabel\.addEventListener\('dblclick'/);
+  assert.match(page, /target\.fileName = fileName/);
+  assert.match(page, /target\.title = fileName/);
+  assert.match(page, /const fileName = rawName/);
+  assert.doesNotMatch(page, /`\$\{rawName\}\.md`/);
+  assert.match(page, /class: 'markdown-file-mode-switch markdown-mode-switch'/);
+  assert.match(styles, /\.markdown-file-topbar[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\)/);
+  assert.match(styles, /\.markdown-file-mode-switch[\s\S]*justify-self: center/);
+  const lineNumbers = readFileSync(new URL('../public/app-runtime/MarkdownLineNumbers.js', import.meta.url), 'utf8');
+  assert.match(lineNumbers, /textarea\.value\.split\('\\n'\)\.length/);
+  assert.match(lineNumbers, /textarea\.setAttribute\('wrap', 'off'\)/);
+  assert.match(lineNumbers, /numbers\.scrollTop = textarea\.scrollTop/);
+  assert.match(styles, /\.markdown-line-numbers[\s\S]*text-align: right/);
+  const uploads = readFileSync(new URL('../public/app-runtime/MarkdownUploads.js', import.meta.url), 'utf8');
+  assert.match(uploads, /text: isImage \? '图片' : '附件'/);
+  assert.match(uploads, /\/uploads\?\$\{params\.toString\(\)\}/);
+  assert.match(uploads, /kind === 'image' \? `!\[/);
+  const routeHelpers = readFileSync(new URL('../src/routes/_helpers.js', import.meta.url), 'utf8');
+  assert.match(routeHelpers, /'\.html', '\.htm'/);
+  assert.match(routeHelpers, /content-security-policy'[\s\S]*sandbox; default-src 'none'/);
 });

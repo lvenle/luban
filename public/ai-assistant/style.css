@@ -370,14 +370,14 @@
   background: #1d4ed8;
 }
 
-.assistant-head .ghost {
-  width: 28px;
-  height: 28px;
+.assistant-close {
+  width: 30px;
+  height: 30px;
   border: 0;
-  border-radius: 6px;
-  background: #e2e8f0;
+  border-radius: 8px;
+  background: #f1f5f9;
   color: #475569;
-  font-size: 16px;
+  font-size: 20px;
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -385,11 +385,15 @@
   line-height: 1;
 }
 
-.assistant-head .ghost:hover {
+.assistant-close:hover {
   background: #cbd5e1;
+  color: #1e293b;
 }
 
 .assistant-history-select {
+  min-width: 0;
+  width: 100%;
+  height: 32px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   background: #fff;

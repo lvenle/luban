@@ -6,6 +6,8 @@ import { loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
 import { renderMarkdown, stripLegacyMarkdownStyles } from './Markdown.js';
 import { wrapMarkdownSelection, applyMarkdownHeading } from './MarkdownFormatting.js';
 import { resolveAiPrompt } from './runtime-ports.js';
+import { createMarkdownCodeEditor } from './MarkdownLineNumbers.js';
+import { createMarkdownUploadButtons } from './MarkdownUploads.js';
 
 export { renderMarkdown } from './Markdown.js';
 
@@ -51,8 +53,9 @@ export function openMarkdownPreview(entity, record, field) {
 
 export function openMarkdownRecordEditor(entity, record, field) {
   const textarea = h('textarea', { class: 'markdown-editor-input', value: stripLegacyMarkdownStyles(record.data[field.id]), placeholder: field.placeholder || '输入 Markdown 内容' });
+  const codeEditor = createMarkdownCodeEditor(textarea);
   const preview = h('article', { class: 'markdown-preview' });
-  const refreshPreview = () => { preview.innerHTML = renderMarkdown(textarea.value); };
+  const refreshPreview = () => { preview.innerHTML = renderMarkdown(textarea.value); codeEditor.refresh(); };
   const undoStack = [];
   let previousValue = textarea.value;
   let undoButton = null;
@@ -139,29 +142,40 @@ export function openMarkdownRecordEditor(entity, record, field) {
     h('button', { type: 'button', class: 'secondary markdown-tool-button', text: 'B', title: '加粗', onclick: () => wrapSelection('**', '**', '加粗文本') }),
     h('button', { type: 'button', class: 'secondary markdown-tool-button italic', text: 'I', title: '斜体', onclick: () => wrapSelection('*', '*', '斜体文本') }),
     h('button', { type: 'button', class: 'secondary markdown-tool-button strike', text: 'S', title: '删除线', onclick: () => wrapSelection('~~', '~~', '删除线文本') }),
+    ...createMarkdownUploadButtons(textarea, (previous) => {
+      rememberUndo(previous);
+      previousValue = textarea.value;
+      refreshPreview();
+    }),
     ...(aiButton ? [aiButton] : [])
   ]);
+  const editButton = h('button', { type: 'button', class: 'secondary markdown-mode-button active', text: '编辑' });
+  const previewButton = h('button', { type: 'button', class: 'secondary markdown-mode-button', text: '预览' });
+  const editPane = h('section', { class: 'markdown-editor-pane markdown-modal-pane' }, [codeEditor.element]);
+  const previewPane = h('section', { class: 'markdown-preview-pane markdown-modal-pane', hidden: 'hidden' }, [preview]);
+  const switchMode = (mode) => {
+    const isPreview = mode === 'preview';
+    editPane.hidden = isPreview;
+    previewPane.hidden = !isPreview;
+    editButton.classList.toggle('active', !isPreview);
+    previewButton.classList.toggle('active', isPreview);
+    tools.hidden = isPreview;
+    if (isPreview) refreshPreview();
+    else requestAnimationFrame(() => textarea.focus());
+  };
+  editButton.addEventListener('click', () => switchMode('edit'));
+  previewButton.addEventListener('click', () => switchMode('preview'));
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal wide-modal markdown-modal' }, [
       h('div', { class: 'toolbar' }, [
         h('h3', { text: `${field.label} · Markdown 编辑器` }),
         h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
       ]),
-      h('div', { class: 'markdown-editor-layout' }, [
-        h('section', { class: 'markdown-preview-pane' }, [
-          h('div', { class: 'markdown-pane-header' }, [
-            h('div', { class: 'markdown-pane-title', text: '预览' })
-          ]),
-          preview
-        ]),
-        h('section', { class: 'markdown-editor-pane' }, [
-          h('div', { class: 'markdown-pane-header' }, [
-            h('div', { class: 'markdown-pane-title', text: '编辑' }),
-            tools
-          ]),
-          textarea
-        ])
+      h('div', { class: 'markdown-modal-modebar' }, [
+        h('div', { class: 'markdown-modal-mode-switch markdown-mode-switch', role: 'group', 'aria-label': 'Markdown 显示模式' }, [editButton, previewButton]),
+        tools
       ]),
+      h('div', { class: 'markdown-editor-layout markdown-modal-layout' }, [editPane, previewPane]),
       h('div', { class: 'modal-footer' }, [
         h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
         h('button', { text: '保存', onclick: async (event) => {

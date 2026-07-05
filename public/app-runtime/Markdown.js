@@ -16,7 +16,13 @@ export function renderMarkdown(text) {
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+  const markdownUrl = '((?:https?:\\/\\/|\\/uploads\\/)[^\\s)"\\\']+)';
+  html = html.replace(new RegExp(`!\\[([^\\]]*)\\]\\(${markdownUrl}\\)`, 'g'), (_, alt, url) =>
+    `<img src="${url}" alt="${escapeMarkdownAttribute(alt)}" loading="lazy">`
+  );
+  html = html.replace(new RegExp(`\\[([^\\]]+)\\]\\(${markdownUrl}\\)`, 'g'), (_, label, url) =>
+    renderMarkdownLink(label, url)
+  );
   // 保护 <pre><code> 块内的换行不被后续 <br> 替换破坏
   const preBlocks = [];
   html = html.replace(/<pre><code>[\s\S]*?<\/code><\/pre>/g, (match) => {
@@ -26,6 +32,25 @@ export function renderMarkdown(text) {
   html = html.replace(/\n/g, '<br>');
   html = html.replace(/\x00PREBLOCK(\d+)\x00/g, (_, i) => preBlocks[Number(i)]);
   return html;
+}
+
+function escapeMarkdownAttribute(value) {
+  return String(value || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+const BROWSER_PREVIEW_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf',
+  'txt', 'md', 'csv', 'mp3', 'wav', 'ogg', 'mp4', 'webm',
+  'html', 'htm'
+]);
+
+function renderMarkdownLink(label, url) {
+  if (!url.startsWith('/uploads/')) return `<a href="${url}" target="_blank" rel="noreferrer">${label}</a>`;
+  const extension = url.split(/[?#]/)[0].split('.').pop()?.toLowerCase() || '';
+  if (BROWSER_PREVIEW_EXTENSIONS.has(extension)) {
+    return `<a href="${url}" target="_blank" rel="noreferrer">${label}</a>`;
+  }
+  return `<a href="${url}" download="${escapeMarkdownAttribute(label)}">${label}</a>`;
 }
 
 export function stripLegacyMarkdownStyles(text) {

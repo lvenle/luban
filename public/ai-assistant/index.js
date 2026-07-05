@@ -249,7 +249,6 @@ export function renderAssistantDrawer(onClose) {
   const chatEl = chatView.render();
   streamRenderer.container = chatView.getMessageContainer();
   const headActions = sessionManager.render();
-  const sessionBar = h('div', { class: 'assistant-history-bar', text: '帮助你快速创建表，添加字段，修改字段，分析数据' });
 
   const close = () => {
     sseClient.disconnect();
@@ -260,9 +259,18 @@ export function renderAssistantDrawer(onClose) {
 
   const drawer = h('div', { class: 'assistant drawer' }, [
     h('div', { class: 'assistant-head' }, [
-      h('h3', { class: 'assistant-mode-title' }),
-      h('span', { class: 'assistant-head-tip assistant-mode-tip' }),
-      h('button', { class: 'ghost', text: '×', onclick: () => close() })
+      h('div', { class: 'assistant-head-copy' }, [
+        h('h3', { class: 'assistant-mode-title' }),
+        h('span', { class: 'assistant-head-tip assistant-mode-tip' })
+      ]),
+      h('button', {
+        class: 'assistant-close',
+        type: 'button',
+        text: '×',
+        title: '关闭 AI 助理',
+        'aria-label': '关闭 AI 助理',
+        onclick: () => close()
+      })
     ]),
     headActions,
     chatEl

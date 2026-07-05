@@ -18,6 +18,7 @@ coverage/
 *.lcov
 .nyc_output
 dist/
+release/
 build/Release
 out
 
