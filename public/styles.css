@@ -1832,6 +1832,11 @@ textarea {
   display: none;
 }
 
+.table-panel .structure-config-group {
+  padding-right: 11px;
+  margin-right: 10px;
+}
+
 .table-panel .structure-config-group::after {
   display: block;
 }
@@ -3247,12 +3252,12 @@ thead .frozen-column {
   width: min(980px, calc(100vw - 36px));
 }
 
-.compact-modal {
-  width: min(520px, calc(100vw - 36px));
+.modal.compact-modal {
+  width: min(504px, calc(100vw - 36px));
 }
 
-.field-settings-modal {
-  width: min(430px, calc(100vw - 28px));
+.modal.field-settings-modal {
+  width: min(468px, calc(100vw - 28px));
   border-radius: var(--radius-md);
   padding: 0;
   overflow: hidden;

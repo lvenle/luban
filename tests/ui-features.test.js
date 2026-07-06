@@ -248,6 +248,9 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.clickable-card/);
   assert.match(css, /\.card-menu/);
   assert.match(css, /\.card-menu-popover \.ghost-menu\.danger:hover,[\s\S]*background: #fee2e2/);
+  assert.match(css, /\.modal\.compact-modal \{\n  width: min\(504px, calc\(100vw - 36px\)\);/);
+  assert.match(css, /\.modal\.field-settings-modal \{\n  width: min\(468px, calc\(100vw - 28px\)\);/);
+  assert.doesNotMatch(css, /(?<!\.modal)\.compact-modal \{\n  width: min\(/);
   assert.match(css, /\.card-menu summary:hover,[\s\S]*\.page-menu:hover,[\s\S]*\.view-menu-trigger:hover[\s\S]*background: #e2e8f0/);
   assert.match(css, /\.page-menu-popover \.ghost-menu\.danger:hover,[\s\S]*\.view-menu-popover \.ghost-menu\.danger-text:hover[\s\S]*background: #fee2e2/);
   assert.match(css, /\.menu-item/);
@@ -258,6 +261,7 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.assistant-topbar-button\.active/);
   assert.match(css, /\.table-action-groups/);
   assert.match(css, /\.toolbar-action-group::after/);
+  assert.match(css, /\.table-panel \.structure-config-group \{\n  padding-right: 11px;\n  margin-right: 10px;/);
   assert.match(css, /\.table-panel \.structure-config-group::after \{\n  display: block;/);
   assert.match(css, /\.export-menu summary \{\n  display: inline-flex;/);
   assert.match(assistantCss, /\.assistant-history-select/);

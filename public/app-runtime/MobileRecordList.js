@@ -139,7 +139,7 @@ export function renderMobileRecordList(page) {
 
     h('div', { class: 'mobile-search-bar' }, [
       h('input', {
-        class: 'mobile-search-input', placeholder: '搜索全部记录...',
+        class: 'mobile-search-input', placeholder: '输入关键词搜索',
         value: mobileSearchQuery,
         oninput: (e) => {
           mobileSearchQuery = e.currentTarget.value;
