@@ -222,7 +222,7 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /context\.scale\(pixelRatio, pixelRatio\)/);
   assert.doesNotMatch(appJs, /label \|\| '未选择'/);
   assert.match(appJs, /openCreateTableModal/);
-  assert.match(appJs, /新建表/);
+  assert.match(appJs, /新建表格/);
   assert.match(appJs, /deleteField/);
   assert.match(appJs, /loadCurrentPageRecords/);
   assert.match(appJs, /pageEntityForRecordLoad/);

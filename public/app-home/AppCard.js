@@ -113,10 +113,13 @@ export function appCard(app) {
     }
   }, [
     h('div', { class: 'app-card-top' }, [
-      h('span', { class: 'category-pill', text: appCategory(app) }),
+      h('div', { class: 'app-card-title' }, [
+        h('h3', { text: app.name }),
+        h('span', { class: 'category-pill', text: appCategory(app) })
+      ]),
       menu
     ]),
-    h('div', {}, [h('h3', { text: app.name }), h('p', { class: 'muted', text: app.description || '无描述' })]),
+    h('p', { class: 'muted app-card-description', text: app.description || '无描述' }),
     h('div', { class: 'app-card-footer' }, [
       h('span', { class: `app-status ${app.enabled === false ? 'disabled' : 'enabled'}`, text: app.enabled === false ? '已禁用' : '已启用' }),
       h('small', { class: 'muted', text: `更新于 ${new Date(app.updatedAt).toLocaleString()}` })

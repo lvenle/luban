@@ -337,7 +337,7 @@ function appendOperationDetails(card, output, input, toolName) {
   if (toolName === 'add_entity' && input?.name) {
     const list = h('div', { class: 'tool-card-operation-list' });
     list.append(h('div', { class: 'tool-card-operation' }, [
-      h('span', { class: 'tool-card-operation-label', text: '新建表' }),
+      h('span', { class: 'tool-card-operation-label', text: '新建表格' }),
       h('span', { class: 'tool-card-operation-entity', text: input.name }),
       h('span', { class: 'tool-card-operation-fields', text: input.description || '' })
     ]));

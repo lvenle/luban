@@ -609,8 +609,30 @@ textarea {
 .app-card-top {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
+}
+
+.app-card-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-card-title h3 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-card-title .category-pill {
+  flex: 0 0 auto;
+}
+
+.app-card-description {
+  margin: 0;
 }
 
 .app-card-footer {

@@ -196,7 +196,7 @@ test('sidebar restores explicit view creation and keeps page names when collapse
   const sidebar = readFileSync(new URL('../public/app-runtime/Sidebar.js', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   const runtimeFrame = readFileSync(new URL('../public/app-runtime/RuntimeFrame.js', import.meta.url), 'utf8');
-  assert.match(sidebar, /item\('新增视图', 'page'/);
+  assert.match(sidebar, /item\('新建视图', 'page'/);
   assert.match(sidebar, /\['', '— 请选择视图 —'\]/);
   assert.match(sidebar, /createButton\.disabled = !entityId \|\| !type/);
   assert.match(sidebar, /state\.sidebarCollapsed[\s\S]*collapsed-page-list[\s\S]*renderPageNavItem/);

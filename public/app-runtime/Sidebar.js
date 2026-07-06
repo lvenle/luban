@@ -118,12 +118,12 @@ export function renderMobileSidebar(app, page) {
     drawerHead,
     pageList,
     h('div', { class: 'mobile-drawer-actions' }, [
-      h('button', { class: 'secondary', text: '+ 新建表', onclick: () => { state.mobileDrawerOpen = false; openCreateTableModal(); } }),
-      h('button', { class: 'secondary', text: '+ 新增视图', onclick: () => { state.mobileDrawerOpen = false; openCreatePageModal(page); } }),
+      h('button', { class: 'secondary', text: '+ 新建表格', onclick: () => { state.mobileDrawerOpen = false; openCreateTableModal(); } }),
+      h('button', { class: 'secondary', text: '+ 新建视图', onclick: () => { state.mobileDrawerOpen = false; openCreatePageModal(page); } }),
       h('button', { class: 'secondary', text: '+ 新建文档', onclick: () => { state.mobileDrawerOpen = false; openAddMarkdownFile(); } }),
       h('button', { class: 'secondary', text: '+ 新建看板', onclick: () => { state.mobileDrawerOpen = false; openCreateDashboardModal(); } }),
       h('button', { class: 'secondary', text: '+ 新建网页', onclick: () => { state.mobileDrawerOpen = false; openAddHtmlPage(); } }),
-      h('button', { class: 'secondary', text: '+ 新增链接', onclick: () => { state.mobileDrawerOpen = false; openCreateLinkModal(); } })
+      h('button', { class: 'secondary', text: '+ 新建外链', onclick: () => { state.mobileDrawerOpen = false; openCreateLinkModal(); } })
     ])
   ];
 }
@@ -160,12 +160,12 @@ function openSidebarCreateMenu(event, page) {
     h('span', { text: label })
   ]);
   const menu = h('div', { class: 'sidebar-create-dropdown', role: 'menu' }, [
-    item('新建表', 'table', openCreateTableModal),
-    item('新增视图', 'page', () => openCreatePageModal(page)),
+    item('新建表格', 'table', openCreateTableModal),
+    item('新建视图', 'page', () => openCreatePageModal(page)),
     item('新建看板', 'dashboard', openCreateDashboardModal),
     item('新建文档', 'markdown', openAddMarkdownFile),
     item('新建网页', 'webpage', openAddHtmlPage),
-    item('新增链接', 'link', openCreateLinkModal)
+    item('新建外链', 'link', openCreateLinkModal)
   ]);
   document.body.append(menu);
 
@@ -704,7 +704,7 @@ export function openCreatePageModal(sourcePage = null) {
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal compact-modal' }, [
       h('div', { class: 'toolbar' }, [
-        h('h3', { text: '新增视图' }),
+        h('h3', { text: '新建视图' }),
         h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
       ]),
       h('div', { class: 'field' }, [h('label', { text: '视图名称' }), nameInput]),
@@ -804,7 +804,7 @@ export function openCreateTableModal() {
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal compact-modal' }, [
       h('div', { class: 'toolbar' }, [
-        h('h3', { text: '新建表' }),
+        h('h3', { text: '新建表格' }),
         h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
       ]),
       h('div', { class: 'field' }, [h('label', { text: '表名' }), nameInput]),
@@ -843,7 +843,7 @@ export function openCreateLinkModal() {
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal compact-modal' }, [
       h('div', { class: 'toolbar' }, [
-        h('h3', { text: '新增链接' }),
+        h('h3', { text: '新建外链' }),
         h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
       ]),
       h('div', { class: 'field' }, [h('label', { text: '链接名称' }), titleInput]),
