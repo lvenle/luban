@@ -42,5 +42,5 @@ test('AI tools create complete HTML pages and update HTML or Markdown source', a
   assert.equal(response.status, 200);
   assert.equal(response.body, secondHtml);
   assert.equal(response.headers['cache-control'], 'no-store');
-  assert.match(response.headers['content-security-policy'], /sandbox allow-scripts/);
+  assert.match(response.headers['content-security-policy'], /sandbox allow-scripts allow-same-origin/);
 });

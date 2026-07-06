@@ -173,7 +173,7 @@ test('sidebar creates standalone HTML pages with preview-first source editing', 
   assert.doesNotMatch(sidebar, /text: '\+ 新建页面'/);
   assert.match(sidebar, /navKind: 'webpage'/);
   assert.match(pageTypes, /page\.navKind === 'webpage'/);
-  assert.match(htmlPage, /sandbox: 'allow-scripts allow-forms allow-modals allow-popups'/);
+  assert.match(htmlPage, /sandbox: 'allow-scripts allow-same-origin allow-forms allow-modals allow-popups'/);
   assert.match(htmlPage, /markdown-mode-button active', text: '预览'/);
   assert.match(htmlPage, /createPreviewFrame\(true\)[\s\S]*nextPreview\.addEventListener\('load'/);
   assert.match(htmlPage, /activePreview\.remove\(\)[\s\S]*activePreview = nextPreview/);

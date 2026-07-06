@@ -77,7 +77,7 @@ export function serveHtmlPreview(req, res, pathname) {
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
     'referrer-policy': 'no-referrer',
-    'content-security-policy': "sandbox allow-scripts allow-forms allow-modals allow-popups; default-src http: https: data: blob:; script-src http: https: 'unsafe-inline' 'unsafe-eval' blob:; style-src http: https: 'unsafe-inline'; img-src http: https: data: blob:; font-src http: https: data:; connect-src http: https:"
+    'content-security-policy': "sandbox allow-scripts allow-same-origin allow-forms allow-modals allow-popups; default-src http: https: data: blob:; script-src http: https: 'unsafe-inline' 'unsafe-eval' blob:; style-src http: https: 'unsafe-inline'; img-src http: https: data: blob:; font-src http: https: data:; connect-src http: https:"
   });
   res.end(String(page.content || ''));
 }

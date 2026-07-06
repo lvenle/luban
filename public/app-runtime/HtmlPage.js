@@ -101,7 +101,7 @@ export function renderHtmlPage(page) {
   const createPreviewFrame = (pending = false) => h('iframe', {
     class: `html-file-preview${pending ? ' is-pending' : ''}`,
     title: `${page.title || '网页'}预览`,
-    sandbox: 'allow-scripts allow-forms allow-modals allow-popups'
+    sandbox: 'allow-scripts allow-same-origin allow-forms allow-modals allow-popups'
   });
   let activePreview = createPreviewFrame();
   const previewPane = h('section', { class: 'html-preview-pane' }, [activePreview]);
