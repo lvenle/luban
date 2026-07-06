@@ -102,9 +102,9 @@ export function renderRuntime() {
     } else {
       root.append(h('div', { class: 'shell' }, [
         topbar(),
-        h('main', { class: `runtime ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`, style: `--sidebar-width:${state.sidebarWidth}px` }, [
+        h('main', { class: `runtime ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`, style: `--sidebar-width:${state.sidebarWidth}px;--sidebar-collapsed-width:${state.sidebarCollapsedWidth}px` }, [
           h('aside', { class: 'sidebar' }, renderSidebarContent(app, page)),
-          h('div', { class: 'sidebar-resizer', title: state.sidebarCollapsed ? '展开页面列表' : '拖动调整页面列表宽度', onpointerdown: startSidebarResize, ondblclick: toggleSidebarCollapsed }),
+          h('div', { class: 'sidebar-resizer', title: state.sidebarCollapsed ? '拖动调整折叠列表宽度，双击展开' : '拖动调整页面列表宽度，双击折叠', onpointerdown: startSidebarResize, ondblclick: toggleSidebarCollapsed }),
           h('section', { class: 'workspace' }, [renderPage(page)])
         ])
       ]));

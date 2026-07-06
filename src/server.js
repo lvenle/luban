@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { sendJson, statusForError, serveStatic, serveUpload, HttpError } from './routes/_helpers.js';
 import { handleAiApi } from './routes/ai.js';
-import { handleAppApi, handleGenerateApp, handleImportApp } from './routes/app.js';
+import { handleAppApi, handleAppOrder, handleGenerateApp, handleImportApp } from './routes/app.js';
 import { handleRuntimeApi } from './routes/runtime.js';
 import { handleSettingsApi } from './routes/settings.js';
 import { initDb, closeDb } from './storage/db.js';
@@ -194,6 +194,11 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/apps/import') {
     if (method !== 'POST') throw new HttpError(404, 'API 不存在。');
     await handleImportApp(req, res);
+    return;
+  }
+
+  if (url.pathname === '/api/apps/order') {
+    await handleAppOrder(req, res, method);
     return;
   }
 

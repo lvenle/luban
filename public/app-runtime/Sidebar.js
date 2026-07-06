@@ -187,19 +187,19 @@ function openSidebarCreateMenu(event, page) {
 }
 
 export function renderSidebarContent(app, page) {
+  const toggleIcon = state.sidebarCollapsed
+    ? [svgLine(4, 3, 4, 15), svgPath('m8 5 4 4-4 4')]
+    : [svgLine(14, 3, 14, 15), svgPath('m10 5-4 4 4 4')];
   const toggle = h('button', {
-    class: 'sidebar-toggle ghost icon-button',
+    class: 'sidebar-toggle ghost',
     title: state.sidebarCollapsed ? '展开页面列表' : '折叠页面列表',
     'aria-label': state.sidebarCollapsed ? '展开页面列表' : '折叠页面列表',
     onclick: toggleSidebarCollapsed
-  }, [svgIcon('0 0 18 18', [svgPath(state.sidebarCollapsed ? 'm7 4 5 5-5 5' : 'm11 4-5 5 5 5')], 'sidebar-toggle-icon')]);
+  }, [
+    svgIcon('0 0 18 18', toggleIcon, 'sidebar-toggle-icon'),
+    h('span', { class: 'sidebar-toggle-label', text: state.sidebarCollapsed ? '展开' : '收起' })
+  ]);
   const footer = h('div', { class: 'sidebar-footer' }, [toggle]);
-  if (state.sidebarCollapsed) {
-    return [
-      h('div', { class: 'page-list collapsed-page-list' }, app.ui.pages.map((item) => renderPageNavItem(app, page, item))),
-      footer
-    ];
-  }
   const createMenu = h('button', {
     class: 'sidebar-create-trigger',
     title: '新建',
@@ -209,6 +209,13 @@ export function renderSidebarContent(app, page) {
     text: '+',
     onclick: (event) => openSidebarCreateMenu(event, page)
   });
+  if (state.sidebarCollapsed) {
+    return [
+      h('div', { class: 'sidebar-collapsed-head' }, [createMenu]),
+      h('div', { class: 'page-list collapsed-page-list' }, app.ui.pages.map((item) => renderPageNavItem(app, page, item))),
+      footer
+    ];
+  }
   return [
     h('div', { class: 'sidebar-head' }, [
       h('div', { class: 'sidebar-label', text: '数据与页面' }),
@@ -223,6 +230,8 @@ export function renderPageNavItem(app, activePage, item) {
   const entity = item.entity ? app.schema.entities.find((candidate) => candidate.id === item.entity) : null;
   const navKind = pageNavKind(app, item);
   const isTablePage = navKind === 'table';
+  const fullTitle = String(item.title || '');
+  const visibleTitle = state.sidebarCollapsed ? Array.from(fullTitle).slice(0, 4).join('') : fullTitle;
   const btn = h('button', {
     class: 'page-menu ghost', title: '页面操作', text: '⋮',
     onclick: (event) => {
@@ -315,7 +324,8 @@ export function renderPageNavItem(app, activePage, item) {
     h('span', { class: `page-type-icon ${navKind}`, title: `${pageTypeLabel(item, navKind)} · 拖动排序` }, [pageTypeIcon(navKind)]),
     h('button', {
       class: `menu-item ${item.id === activePage?.id ? 'active' : ''}`,
-      text: item.title,
+      text: visibleTitle,
+      title: state.sidebarCollapsed ? fullTitle : undefined,
       onclick: async () => {
         if (navKind === 'link' && item.url) {
           if (item.target !== '_self') { window.open(item.url, '_blank', 'noopener'); return; }

@@ -1,7 +1,7 @@
 import { getSetting } from '../models/session.js';
 import { generatePackageFromPrompt } from '../ai/service.js';
 import { preparePackage } from '../core/packageProtocol.js';
-import { createAppFromPackage, listApps } from '../models/app.js';
+import { createAppFromPackage, listApps, moveApp } from '../models/app.js';
 import { importAppPayload } from '../services/package-transfer.js';
 import { zipPayloadToPackage } from '../utils/zip.js';
 import { sendJson, readJson, readBuffer, requireFields, notFound } from './_helpers.js';
@@ -12,6 +12,13 @@ export async function handleAppApi(req, res, method) {
     return;
   }
   throw notFound('API 不存在。');
+}
+
+export async function handleAppOrder(req, res, method) {
+  if (method !== 'PUT') throw notFound('API 不存在。');
+  const body = await readJson(req);
+  requireFields(body, ['appId', 'targetId']);
+  sendJson(res, 200, { apps: moveApp(body.appId, body.targetId, body.position === 'after' ? 'after' : 'before') });
 }
 
 export async function handleGenerateApp(req, res) {

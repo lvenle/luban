@@ -195,11 +195,20 @@ test('sidebar creates standalone HTML pages with preview-first source editing', 
 test('sidebar restores explicit view creation and keeps page names when collapsed', () => {
   const sidebar = readFileSync(new URL('../public/app-runtime/Sidebar.js', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const runtimeFrame = readFileSync(new URL('../public/app-runtime/RuntimeFrame.js', import.meta.url), 'utf8');
   assert.match(sidebar, /item\('新增视图', 'page'/);
   assert.match(sidebar, /\['', '— 请选择视图 —'\]/);
   assert.match(sidebar, /createButton\.disabled = !entityId \|\| !type/);
   assert.match(sidebar, /state\.sidebarCollapsed[\s\S]*collapsed-page-list[\s\S]*renderPageNavItem/);
+  assert.match(sidebar, /sidebar-collapsed-head[\s\S]*createMenu/);
+  assert.match(sidebar, /Array\.from\(fullTitle\)\.slice\(0, 4\)\.join/);
+  assert.match(sidebar, /svgLine\(4, 3, 4, 15\)[\s\S]*svgLine\(14, 3, 14, 15\)/);
   assert.match(styles, /\.runtime\.sidebar-collapsed \.page-nav-item[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(styles, /var\(--sidebar-collapsed-width, 112px\)/);
+  assert.match(runtimeFrame, /state\.sidebarCollapsedWidth = clampCollapsedSidebarWidth/);
+  assert.match(runtimeFrame, /--sidebar-collapsed-width/);
+  assert.match(runtimeFrame, /state\.currentApp\?\.id[\s\S]*sidebarLayoutKey\('sidebar-collapsed'\)/);
+  assert.doesNotMatch(runtimeFrame, /globalStorageKey\('sidebar-collapsed'\)/);
   assert.match(sidebar, /document\.addEventListener\('pointerdown'[\s\S]*closePageMenus/);
   assert.match(sidebar, /pageMenuController\?\.abort\(\)/);
   assert.match(styles, /\.page-nav-item:hover,[\s\S]*background: #e4e9f0/);

@@ -4,12 +4,13 @@ import { toast } from './common/toast.js';
 import { openConfirmDialog, openTextModal, floatingMenus, closeFloatingMenus, bindFloatingMenu, setupModalAccessibility } from './common/modal.js';
 import { readStorage, writeStorage, globalStorageKey, clampSidebarWidth } from './common/storage.js';
 import { formatDateFieldValue } from './app-runtime/DateFormat.js';
+import { appCategory } from './common/app-metadata.js';
 
 export const state = {
   apps: [], currentApp: null, currentPageId: null, records: [],
-  inlineEditId: null, loading: false, appCategory: '全部', currentViewId: '',
+  inlineEditId: null, loading: false, appCategory: '全部', appSearch: '', appDragId: '', currentViewId: '',
   assistantOpen: false, pageDragId: '', cellSelection: null, cellClipboard: null,
-  sidebarCollapsed: false, sidebarWidth: 168, recordPagination: {}, loadingRecordPages: {},
+  sidebarCollapsed: false, sidebarWidth: 168, sidebarCollapsedWidth: 112, recordPagination: {}, loadingRecordPages: {},
   isMobile: window.innerWidth < 768, mobileDrawerOpen: false
 };
 
@@ -99,19 +100,21 @@ export function topbar() {
   ]);
 }
 
-function appCategoryValue(app) { return app?.manifest?.category || app?.category || '未分类'; }
-
 function renderTopbarAppInfo(app) {
   return h('div', { class: 'topbar-app-info' }, [
-    inlineEditableText({ className: 'topbar-app-name', value: app.name, title: '双击编辑软件名称', onSave: (v) => saveAppMetadata(v, appCategoryValue(app)) }),
-    h('span', { class: 'topbar-separator', text: '/' }),
-    inlineEditableText({ className: 'category-pill compact', value: appCategoryValue(app), title: '双击编辑分类', onSave: (v) => saveAppMetadata(app.name, v) }),
-    inlineEditableText({ className: 'topbar-app-desc muted', value: app.description || '双击添加介绍', title: '双击编辑介绍', onSave: (v) => saveAppMetadata(app.name, appCategoryValue(app), v) })
+    h('div', { class: 'topbar-app-heading' }, [
+      inlineEditableText({ className: 'topbar-app-name', value: app.name, title: '双击编辑软件名称', onSave: (v) => saveAppMetadata(v, appCategory(app)) }),
+      inlineEditableText({ className: 'category-pill compact', value: appCategory(app), title: '双击编辑分类', onSave: (v) => saveAppMetadata(app.name, v) })
+    ]),
+    inlineEditableText({ className: 'topbar-app-desc muted', value: app.description || app.manifest?.description || '双击添加介绍', title: '双击编辑介绍', onSave: (v) => saveAppMetadata(app.name, appCategory(app), v) })
   ]);
 }
 
 async function saveAppMetadata(name, category, description) {
-  const body = await api(`/api/apps/${state.currentApp.id}`, { method: 'PUT', body: JSON.stringify({ name, category, description: description || '', expectedUpdatedAt: state.currentApp.updatedAt }) });
+  const nextDescription = description === undefined
+    ? (state.currentApp.description || state.currentApp.manifest?.description || '')
+    : description;
+  const body = await api(`/api/apps/${state.currentApp.id}`, { method: 'PUT', body: JSON.stringify({ name, category, description: nextDescription, expectedUpdatedAt: state.currentApp.updatedAt }) });
   state.currentApp = body.app;
   state.apps = state.apps.map((a) => a.id === body.app.id ? body.app : a);
   shellActions.renderRuntime();

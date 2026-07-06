@@ -1,6 +1,10 @@
-import { readStorage, writeStorage, globalStorageKey, clampSidebarWidth } from '../common/storage.js';
+import { readStorage, writeStorage, clampSidebarWidth, clampCollapsedSidebarWidth } from '../common/storage.js';
 import { state } from '../app-context.js';
 import { renderRuntime } from './runtime-actions.js';
+
+function sidebarLayoutKey(name) {
+  return `luban-ai:${state.currentApp?.id || 'unknown-app'}:${name}`;
+}
 
 export function toggleSidebarCollapsed() {
   state.sidebarCollapsed = !state.sidebarCollapsed;
@@ -9,18 +13,21 @@ export function toggleSidebarCollapsed() {
 }
 
 export function startSidebarResize(event) {
-  if (state.sidebarCollapsed) {
-    toggleSidebarCollapsed();
-    return;
-  }
   event.preventDefault();
   const startX = event.clientX;
-  const startWidth = state.sidebarWidth;
+  const collapsed = state.sidebarCollapsed;
+  const startWidth = collapsed ? state.sidebarCollapsedWidth : state.sidebarWidth;
   const controller = new AbortController();
   document.body.classList.add('resizing-sidebar');
   const update = (moveEvent) => {
-    state.sidebarWidth = clampSidebarWidth(startWidth + moveEvent.clientX - startX);
-    document.querySelector('.runtime')?.style.setProperty('--sidebar-width', `${state.sidebarWidth}px`);
+    const nextWidth = startWidth + moveEvent.clientX - startX;
+    if (collapsed) {
+      state.sidebarCollapsedWidth = clampCollapsedSidebarWidth(nextWidth);
+      document.querySelector('.runtime')?.style.setProperty('--sidebar-collapsed-width', `${state.sidebarCollapsedWidth}px`);
+    } else {
+      state.sidebarWidth = clampSidebarWidth(nextWidth);
+      document.querySelector('.runtime')?.style.setProperty('--sidebar-width', `${state.sidebarWidth}px`);
+    }
   };
   const finish = () => {
     document.body.classList.remove('resizing-sidebar');
@@ -33,11 +40,13 @@ export function startSidebarResize(event) {
 }
 
 export function loadSidebarLayout() {
-  state.sidebarCollapsed = Boolean(readStorage(globalStorageKey('sidebar-collapsed'), false));
-  state.sidebarWidth = clampSidebarWidth(readStorage(globalStorageKey('sidebar-width'), 168));
+  state.sidebarCollapsed = Boolean(readStorage(sidebarLayoutKey('sidebar-collapsed'), false));
+  state.sidebarWidth = clampSidebarWidth(readStorage(sidebarLayoutKey('sidebar-width'), 168));
+  state.sidebarCollapsedWidth = clampCollapsedSidebarWidth(readStorage(sidebarLayoutKey('sidebar-collapsed-width'), 112));
 }
 
 export function saveSidebarLayout() {
-  writeStorage(globalStorageKey('sidebar-collapsed'), state.sidebarCollapsed);
-  writeStorage(globalStorageKey('sidebar-width'), state.sidebarWidth);
+  writeStorage(sidebarLayoutKey('sidebar-collapsed'), state.sidebarCollapsed);
+  writeStorage(sidebarLayoutKey('sidebar-width'), state.sidebarWidth);
+  writeStorage(sidebarLayoutKey('sidebar-collapsed-width'), state.sidebarCollapsedWidth);
 }

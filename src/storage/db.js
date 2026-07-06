@@ -250,7 +250,7 @@ export function withTransaction(callback) {
   }
 }
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 /*
  * Migration strategy:
@@ -449,6 +449,15 @@ function migrate(database) {
     `);
   }
 
+  if (currentVersion < 7) {
+    try { database.exec(`ALTER TABLE apps ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1`); } catch {}
+    try { database.exec(`ALTER TABLE apps ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0`); } catch {}
+    const apps = database.prepare('SELECT id FROM apps ORDER BY updatedAt DESC').all();
+    const updateOrder = database.prepare('UPDATE apps SET sortOrder = ? WHERE id = ?');
+    apps.forEach((app, index) => updateOrder.run(index, app.id));
+    database.exec(`CREATE INDEX IF NOT EXISTS idx_apps_enabled_order ON apps(enabled DESC, sortOrder ASC)`);
+  }
+
   if (currentVersion < SCHEMA_VERSION) {
     database.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   }
@@ -485,6 +494,8 @@ export function rowToApp(row) {
     actions: JSON.parse(row.actionsJson),
     prompts: row.promptsJson ? JSON.parse(row.promptsJson) : undefined,
     version: row.version,
+    enabled: row.enabled === undefined ? true : Boolean(row.enabled),
+    sortOrder: Number(row.sortOrder || 0),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };

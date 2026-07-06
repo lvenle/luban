@@ -28,11 +28,13 @@ export function createAppFromPackage(pkg, options = {}) {
   const id = createId('app');
   const createdAt = now();
   const slug = uniqueSlug(options.slug || clean.manifest.id || clean.manifest.name);
+  const firstOrder = Number(database.prepare('SELECT MIN(sortOrder) AS value FROM apps WHERE enabled = 1').get()?.value);
+  const sortOrder = Number.isFinite(firstOrder) ? firstOrder - 1 : 0;
   database.prepare(`
     INSERT INTO apps (
       id, slug, name, description, icon, manifestJson, schemaJson, uiJson,
-      actionsJson, promptsJson, version, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      actionsJson, promptsJson, version, enabled, sortOrder, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     slug,
@@ -45,6 +47,8 @@ export function createAppFromPackage(pkg, options = {}) {
     JSON.stringify(clean.actions),
     JSON.stringify(clean.prompts || {}),
     clean.manifest.version || '1.0.0',
+    1,
+    sortOrder,
     createdAt,
     createdAt
   );
@@ -124,14 +128,55 @@ export function updateAppMetadata(appId, metadata = {}) {
   if (name) pkg.manifest.name = name;
   if (category) pkg.manifest.category = category;
   if (description !== null) pkg.manifest.description = description;
-  return updateAppPackage(appId, pkg, { expectedUpdatedAt: metadata.expectedUpdatedAt });
+  const hasPackageChanges = Boolean(name || category || description !== null);
+  let nextApp = hasPackageChanges
+    ? updateAppPackage(appId, pkg, { expectedUpdatedAt: metadata.expectedUpdatedAt })
+    : app;
+  if (metadata.enabled !== undefined) {
+    if (!hasPackageChanges && metadata.expectedUpdatedAt && app.updatedAt !== metadata.expectedUpdatedAt) {
+      const error = new Error('软件已在其他页面发生变化，请刷新后重试。');
+      error.status = 409;
+      throw error;
+    }
+    const updatedAt = hasPackageChanges ? nextApp.updatedAt : nextTimestamp(app.updatedAt);
+    getDb().prepare('UPDATE apps SET enabled = ?, updatedAt = ? WHERE id = ?')
+      .run(metadata.enabled ? 1 : 0, updatedAt, appId);
+    triggerBackup();
+    nextApp = getApp(appId);
+  }
+  return nextApp;
 }
 
 export function listApps() {
   return getDb()
-    .prepare('SELECT * FROM apps ORDER BY updatedAt DESC')
+    .prepare('SELECT * FROM apps ORDER BY enabled DESC, sortOrder ASC, updatedAt DESC')
     .all()
     .map(rowToApp);
+}
+
+export function moveApp(appId, targetId, position = 'before') {
+  const database = getDb();
+  const source = getApp(appId);
+  const target = getApp(targetId);
+  if (!source || !target) throw notFound('找不到应用。');
+  if (source.enabled !== target.enabled) {
+    const error = new Error('启用和禁用的软件不能跨区域排序。');
+    error.status = 400;
+    throw error;
+  }
+  const apps = database.prepare('SELECT id FROM apps WHERE enabled = ? ORDER BY sortOrder ASC, updatedAt DESC')
+    .all(source.enabled ? 1 : 0);
+  const ids = apps.map((item) => item.id).filter((id) => id !== appId);
+  let targetIndex = ids.indexOf(targetId);
+  if (targetIndex < 0) throw notFound('找不到目标应用。');
+  if (position === 'after') targetIndex += 1;
+  ids.splice(targetIndex, 0, appId);
+  return withTransaction(() => {
+    const update = database.prepare('UPDATE apps SET sortOrder = ? WHERE id = ?');
+    ids.forEach((id, index) => update.run(index, id));
+    triggerBackup();
+    return listApps();
+  });
 }
 
 export function getApp(id) {
