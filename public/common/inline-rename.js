@@ -74,6 +74,7 @@ export function startInlineRename(target, {
   input.addEventListener('dblclick', (event) => event.stopPropagation());
   input.addEventListener('blur', () => finish(true));
   input.addEventListener('keydown', (event) => {
+    event.stopPropagation();
     if (event.key === 'Enter') {
       event.preventDefault();
       finish(true);

@@ -51,8 +51,8 @@ export function renderHome() {
       topbar(),
       h('main', { class: 'container' }, [
         h('section', { class: 'hero' }, [
-          h('h1', { text: '鲁班AI系统' }),
-          h('p', { text: 'AI 原生软件自定义平台，用自然语言创建、运行和持续改造属于你的业务软件。' }),
+          h('h1', { text: 'AI 原生软件创作平台' }),
+          h('p', { text: '用自然语言创建、运行和持续改造属于你的业务软件。' }),
           h('div', { class: 'hero-meta' }, [
             h('button', {
               text: 'AI助理创建软件',

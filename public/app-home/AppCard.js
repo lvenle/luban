@@ -9,6 +9,7 @@ import { loadApps, openApp } from './home-actions.js';
 
 export function appCard(app) {
   const title = h('h3', { text: app.name });
+  const categoryPill = h('span', { class: 'category-pill', text: appCategory(app) });
   const menu = bindFloatingMenu(h('details', {
     class: 'card-menu',
     onclick: (event) => event.stopPropagation(),
@@ -35,6 +36,15 @@ export function appCard(app) {
               toast('软件已重命名');
             }
           });
+        }
+      }),
+      h('button', {
+        class: 'ghost-menu',
+        text: '修改分类',
+        onclick: (event) => {
+          event.stopPropagation();
+          menu.open = false;
+          startCategoryInlineEdit(categoryPill, app);
         }
       }),
       h('a', { href: `/api/apps/${app.id}/export`, download: `${app.slug}.sgpkg` }, '导出 .sgpkg'),
@@ -88,7 +98,7 @@ export function appCard(app) {
     ondblclick: (event) => {
       event.preventDefault();
       if (openTimer) clearTimeout(openTimer);
-      openCategoryEditor(app);
+      if (event.target === categoryPill) startCategoryInlineEdit(categoryPill, app);
     },
     ondragstart: (event) => {
       if (openTimer) clearTimeout(openTimer);
@@ -138,7 +148,7 @@ export function appCard(app) {
     h('div', { class: 'app-card-top' }, [
       h('div', { class: 'app-card-title' }, [
         title,
-        h('span', { class: 'category-pill', text: appCategory(app) })
+        categoryPill
       ]),
       menu
     ]),
@@ -153,43 +163,21 @@ export function appCard(app) {
 
 let suppressCardOpenUntil = 0;
 
-function openCategoryEditor(app) {
-  const input = h('input', { value: appCategory(app), placeholder: '输入分类名称', maxlength: '20' });
-  const suggestions = [...new Set(state.apps.map(appCategory))].filter(Boolean);
-  const chips = h('div', { class: 'category-editor-suggestions' }, suggestions.map((category) =>
-    h('button', { class: 'chip', text: category, onclick: () => { input.value = category; input.focus(); } })
-  ));
-  const backdrop = h('div', { class: 'modal-backdrop', onclick: (event) => { if (event.target === backdrop) backdrop.remove(); } });
-  const save = async () => {
-    const category = input.value.trim();
-    if (!category) return toast('分类不能为空。');
-    await api(`/api/apps/${app.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ category, expectedUpdatedAt: app.updatedAt })
-    });
-    backdrop.remove();
-    await loadApps();
-    toast('分类已更新');
-  };
-  backdrop.append(h('div', { class: 'modal compact-modal', onclick: (event) => event.stopPropagation() }, [
-    h('div', { class: 'toolbar' }, [
-      h('h3', { text: '编辑软件分类' }),
-      h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
-    ]),
-    h('div', { class: 'field' }, [h('label', { text: '分类' }), input]),
-    chips,
-    h('div', { class: 'row modal-actions' }, [
-      h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
-      h('button', { text: '保存', onclick: save })
-    ])
-  ]));
-  document.body.append(backdrop);
-  input.focus();
-  input.select();
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') save();
-    if (event.key === 'Escape') backdrop.remove();
+function startCategoryInlineEdit(categoryPill, app) {
+  const input = startInlineRename(categoryPill, {
+    value: appCategory(app),
+    className: 'app-card-category-input',
+    emptyMessage: '分类不能为空。',
+    onSave: async (category) => {
+      await api(`/api/apps/${app.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ category, expectedUpdatedAt: app.updatedAt })
+      });
+      await loadApps();
+      toast('分类已更新');
+    }
   });
+  input?.setAttribute('maxlength', '20');
 }
 
 async function openAppFromCard(appId) {

@@ -496,6 +496,15 @@ textarea {
   font-weight: 650;
 }
 
+.app-card-category-input {
+  width: 104px;
+  min-width: 72px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .page-name-input {
   width: 100%;
   min-width: 0;
