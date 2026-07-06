@@ -81,7 +81,6 @@ export function appCard(app) {
       })
     ])
   ]));
-  let openTimer = null;
   const card = h('article', {
     class: `card app-card clickable-card ${app.enabled === false ? 'is-disabled' : ''}`,
     tabindex: '0',
@@ -89,19 +88,10 @@ export function appCard(app) {
     'data-app-id': app.id,
     onclick: () => {
       if (Date.now() < suppressCardOpenUntil) return;
-      if (openTimer) clearTimeout(openTimer);
-      openTimer = setTimeout(() => {
-        if (app.enabled === false) return toast('该软件已禁用，请先启用后再打开。');
-        openAppFromCard(app.id);
-      }, 220);
-    },
-    ondblclick: (event) => {
-      event.preventDefault();
-      if (openTimer) clearTimeout(openTimer);
-      if (event.target === categoryPill) startCategoryInlineEdit(categoryPill, app);
+      if (app.enabled === false) return toast('该软件已禁用，请先启用后再打开。');
+      openAppFromCard(app.id);
     },
     ondragstart: (event) => {
-      if (openTimer) clearTimeout(openTimer);
       state.appDragId = app.id;
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('text/plain', app.id);

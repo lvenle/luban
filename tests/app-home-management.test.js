@@ -43,5 +43,6 @@ test('home UI exposes search, drag ordering, status toggle, and category editing
   assert.match(card, /\/api\/apps\/order/);
   assert.match(card, /app\.enabled === false \? '启用' : '禁用'/);
   assert.match(card, /class: `app-status/);
-  assert.match(card, /ondblclick:[\s\S]*openCategoryEditor\(app\)/);
+  assert.match(card, /text: '修改分类'/);
+  assert.doesNotMatch(card, /setTimeout\([\s\S]*openAppFromCard/);
 });
