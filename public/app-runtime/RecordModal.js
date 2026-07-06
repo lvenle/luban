@@ -2,7 +2,7 @@ import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { openConfirmDialog, openTextModal } from '../common/modal.js';
-import { state, getFormLayout, getFormDesign } from '../app-context.js';
+import { state, entityDisplayName, getFormLayout, getFormDesign } from '../app-context.js';
 import { writeStorage } from '../common/storage.js';
 import { inputForField, valueFromInput, renderFormFieldBlock, defaultValueForField } from './CellEditor.js';
 import { getCurrentView, getListConfig, updateCurrentView } from './ViewBar.js';
@@ -11,6 +11,7 @@ import { pushUndo } from '../common/UndoStack.js';
 import { notifyRuleResults } from './RuleFeedback.js';
 
 export async function openRecordModal(entity, record = null, options = {}) {
+  const tableName = entityDisplayName(entity);
   if (!record && !Object.prototype.hasOwnProperty.call(options, 'ruleDependencyFieldIds')) {
     try {
       const rulesBody = await api(`/api/apps/${state.currentApp.id}/rules`);
@@ -41,7 +42,7 @@ export async function openRecordModal(entity, record = null, options = {}) {
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal' }, [
       h('div', { class: 'toolbar' }, [
-        h('h3', { text: record ? `编辑${entity.name}` : `新增${entity.name}` }),
+        h('h3', { text: record ? `编辑${tableName}` : `新增${tableName}` }),
         h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
       ]),
       form,
@@ -64,12 +65,12 @@ export async function openRecordModal(entity, record = null, options = {}) {
               const body = await api(path, { method, body: JSON.stringify({ entityId: entity.id, data }) });
               backdrop.remove();
               if (record) {
-                pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
+                pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: tableName });
                 record.data = data;
                 import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch((err) => console.error('[AI Trigger]', err));
               } else {
                 const created = body.record;
-                pushUndo({ type: 'create', recordId: created.id, entityId: entity.id, data: created.data, entityLabel: entity.name });
+                pushUndo({ type: 'create', recordId: created.id, entityId: entity.id, data: created.data, entityLabel: tableName });
                 import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, created, null)).catch((err) => console.error('[AI Trigger]', err));
               }
               await loadCurrentPageRecords();
@@ -91,7 +92,7 @@ export async function openRecordModal(entity, record = null, options = {}) {
 
 export async function removeRecord(recordId, entityId) {
   const record = state.records.find((r) => r.id === recordId);
-  const entityName = state.currentApp?.schema?.entities?.find((e) => e.id === entityId)?.name || entityId;
+  const entityName = entityDisplayName(entityId);
   const oldData = record?.data ? { ...record.data } : null;
   openConfirmDialog({
     title: '删除记录',
@@ -132,7 +133,7 @@ export async function quickAddRecord(entity) {
     const body = await api(`/api/apps/${state.currentApp.id}/records`, { method: 'POST', body: JSON.stringify({ entityId: entity.id, data }) });
 
     const created = body.record;
-    pushUndo({ type: 'create', recordId: created.id, entityId: entity.id, data: created.data, entityLabel: entity.name });
+    pushUndo({ type: 'create', recordId: created.id, entityId: entity.id, data: created.data, entityLabel: entityDisplayName(entity) });
     import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, created, null)).catch((err) => console.error('[AI Trigger]', err));
 
     const currentView = getCurrentView(entity);

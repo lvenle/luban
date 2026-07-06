@@ -2,11 +2,12 @@ import { h, svgIcon, svgPath, svgLine, buttonLabel } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { openConfirmDialog, openTextModal } from '../common/modal.js';
-import { state, entityFor, recordsFor, storageKey, entityById, writeRoute, uniquePageId } from '../app-context.js';
-import { toggleSidebarCollapsed } from './RuntimeFrame.js';
+import { state, entityFor, entityDisplayName, recordsFor, storageKey, entityById, writeRoute, uniquePageId } from '../app-context.js';
 import { loadCurrentPageRecords, renderRuntime, saveCurrentPackage } from './runtime-actions.js';
 import { getViews, selectFromOptions } from './ViewBar.js';
 import { optionObject } from './FieldEditor.js';
+import { pageTitleExists, uniquePageTitle } from '../common/page-title.js';
+import { startInlineRename } from '../common/inline-rename.js';
 
 export function clearPageDragStyles() {
   document.querySelectorAll('.page-nav-item').forEach((item) => {
@@ -187,28 +188,19 @@ function openSidebarCreateMenu(event, page) {
 }
 
 export function renderSidebarContent(app, page) {
-  const toggleIcon = state.sidebarCollapsed
-    ? [svgLine(4, 3, 4, 15), svgPath('m8 5 4 4-4 4')]
-    : [svgLine(14, 3, 14, 15), svgPath('m10 5-4 4 4 4')];
-  const toggle = h('button', {
-    class: 'sidebar-toggle ghost',
-    title: state.sidebarCollapsed ? '展开页面列表' : '折叠页面列表',
-    'aria-label': state.sidebarCollapsed ? '展开页面列表' : '折叠页面列表',
-    onclick: toggleSidebarCollapsed
-  }, [
-    svgIcon('0 0 18 18', toggleIcon, 'sidebar-toggle-icon'),
-    h('span', { class: 'sidebar-toggle-label', text: state.sidebarCollapsed ? '展开' : '收起' })
-  ]);
-  const footer = h('div', { class: 'sidebar-footer' }, [toggle]);
-  const createMenu = h('button', {
-    class: 'sidebar-create-trigger',
+  const createTrigger = (className, text, label) => h('button', {
+    class: className,
     title: '新建',
-    'aria-label': '打开新建菜单',
+    'aria-label': label,
     'aria-haspopup': 'menu',
     'aria-expanded': 'false',
-    text: '+',
+    text,
     onclick: (event) => openSidebarCreateMenu(event, page)
   });
+  const createMenu = createTrigger('sidebar-create-trigger', '+', '打开新建菜单');
+  const footer = h('div', { class: 'sidebar-footer' }, [
+    createTrigger('sidebar-footer-create', '+ 新建', '打开新建菜单')
+  ]);
   if (state.sidebarCollapsed) {
     return [
       h('div', { class: 'sidebar-collapsed-head' }, [createMenu]),
@@ -232,6 +224,7 @@ export function renderPageNavItem(app, activePage, item) {
   const isTablePage = navKind === 'table';
   const fullTitle = String(item.title || '');
   const visibleTitle = state.sidebarCollapsed ? Array.from(fullTitle).slice(0, 4).join('') : fullTitle;
+  let row = null;
   const btn = h('button', {
     class: 'page-menu ghost', title: '页面操作', text: '⋮',
     onclick: (event) => {
@@ -246,15 +239,15 @@ export function renderPageNavItem(app, activePage, item) {
       const popover = h('div', { class: 'page-menu-popover fixed-menu' }, [
         h('button', {
           class: 'ghost-menu', text: '重命名',
-          onclick: () => run(() => renamePage(item))
+          onclick: () => run(() => renamePage(item, row))
         }),
-        navKind !== 'link' ? h('button', {
+        !isTablePage && navKind !== 'link' ? h('button', {
           class: 'ghost-menu', text: '删除页面',
           onclick: () => run(() => deletePage(item))
-        }) : h('button', {
+        }) : navKind === 'link' ? h('button', {
           class: 'ghost-menu', text: '删除链接',
           onclick: () => run(() => deletePage(item))
-        }),
+        }) : null,
         navKind === 'link' ? h('button', {
           class: 'ghost-menu', text: item.target === '_self' ? '切换：新页面打开' : '切换：当前页面打开',
           onclick: () => run(() => toggleLinkTarget(item))
@@ -285,7 +278,7 @@ export function renderPageNavItem(app, activePage, item) {
       window.addEventListener('scroll', closePageMenus, { capture: true, signal: controller.signal });
     }
   });
-  const row = h('div', {
+  row = h('div', {
     class: `page-nav-item ${item.id === activePage?.id ? 'active' : ''}`,
     draggable: 'true',
     ondragstart: (event) => {
@@ -402,41 +395,30 @@ export async function reorderPage(draggedId, targetId, position = 'before') {
   }
 }
 
-export function renamePage(page) {
-  const input = h('input', { value: page.title || '', placeholder: '页面名称' });
-  const backdrop = h('div', { class: 'modal-backdrop' }, [
-    h('div', { class: 'modal compact-modal' }, [
-      h('div', { class: 'toolbar' }, [
-        h('h3', { text: '重命名页面' }),
-        h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
-      ]),
-      h('div', { class: 'field' }, [h('label', { text: '页面名称' }), input]),
-      h('div', { class: 'row', style: 'margin-top:14px' }, [
-        h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
-        h('button', {
-          text: '保存',
-          onclick: async () => {
-            const title = input.value.trim();
-            if (!title) return toast('页面名称不能为空。');
-            try {
-              await saveCurrentPackage((pkg) => {
-                const target = pkg.ui.pages.find((p) => p.id === page.id);
-                if (target) target.title = title;
-              });
-              page.title = title;
-              backdrop.remove();
-              renderRuntime();
-              toast('页面已重命名');
-            } catch (error) {
-              toast(error.message);
-            }
-          }
-        })
-      ])
-    ])
-  ]);
-  document.body.append(backdrop);
-  setTimeout(() => input.focus(), 0);
+export function renamePage(page, row = null) {
+  const pageRow = row || [...document.querySelectorAll('.page-nav-item')]
+    .find((item) => item.querySelector('.menu-item')?.textContent === page.title);
+  const titleButton = pageRow?.querySelector('.menu-item');
+  if (!titleButton) return;
+  pageRow.draggable = false;
+  startInlineRename(titleButton, {
+    value: page.title || '',
+    className: 'page-name-input',
+    emptyMessage: '页面名称不能为空。',
+    validate: (title) => pageTitleExists(state.currentApp?.ui?.pages, title, page.id)
+      ? '页面名称不能重复，请使用其他名称。'
+      : '',
+    onCancel: () => { pageRow.draggable = true; },
+    onSave: async (title) => {
+      await saveCurrentPackage((pkg) => {
+        const target = pkg.ui.pages.find((item) => item.id === page.id);
+        if (target) target.title = title;
+      });
+      page.title = title;
+      renderRuntime();
+      toast('页面已重命名');
+    }
+  });
 }
 
 export function deletePage(page) {
@@ -447,7 +429,7 @@ export function deletePage(page) {
   if (!remainingPages.some((item) => pageNavKind(app, item) !== 'link')) return toast('至少保留一个数据页面。');
   if (pageNavKind(app, page) !== 'link' && page.entity && !remainingPages.some((item) => pageNavKind(app, item) !== 'link' && item.entity === page.entity)) {
     const entity = state.currentApp.schema.entities.find((item) => item.id === page.entity);
-    return toast(`「${entity?.name || page.title}」表只有这一个列表入口，不能单独删除页面。`);
+    return toast(`「${entityDisplayName(entity || page.entity)}」表只有这一个列表入口，不能单独删除页面。`);
   }
   openConfirmDialog({
     title: '删除页面',
@@ -479,9 +461,10 @@ export function deletePage(page) {
 export function deleteTableAndData(entity) {
   const pages = state.currentApp.ui.pages || [];
   const relatedPages = pages.filter((page) => page.entity === entity.id);
+  const tableName = entityDisplayName(entity);
   openConfirmDialog({
     title: '删除表',
-    message: `确定删除「${entity.name}」表、${relatedPages.length} 个页面入口和这张表里的所有记录吗？如果这些记录被其他表实际引用，会自动阻止删除。`,
+    message: `确定删除「${tableName}」表、${relatedPages.length} 个页面入口和这张表里的所有记录吗？如果这些记录被其他表实际引用，会自动阻止删除。`,
     confirmText: '删除表',
     danger: true,
     onConfirm: async () => {
@@ -506,9 +489,10 @@ export function deleteTableAndData(entity) {
 
 export function clearTableData(entity) {
   const count = recordsFor(entity.id).length;
+  const tableName = entityDisplayName(entity);
   openConfirmDialog({
     title: '清除数据',
-    message: `确定清除「${entity.name}」表里的 ${count} 条记录吗？表结构和页面会保留。如果这些记录被其他表实际引用，会自动阻止清除。`,
+    message: `确定清除「${tableName}」表里的 ${count} 条记录吗？表结构和页面会保留。如果这些记录被其他表实际引用，会自动阻止清除。`,
     confirmText: '清除数据',
     danger: true,
     onConfirm: async () => {
@@ -518,17 +502,18 @@ export function clearTableData(entity) {
         renderRuntime();
         toast(`已清除 ${body.deletedCount || 0} 条数据`);
       } catch (error) {
-        showDeleteTableBlocked(error, entity, '不能清除数据', `请先清理这些关联记录，再清除「${entity.name}」表的数据。`);
+        showDeleteTableBlocked(error, entity, '不能清除数据', `请先清理这些关联记录，再清除「${tableName}」表的数据。`);
       }
     }
   });
 }
 
-export function showDeleteTableBlocked(error, entity, title = '不能删除表', footer = `请先清理这些关联记录，再删除「${entity.name}」表。`) {
+export function showDeleteTableBlocked(error, entity, title = '不能删除表', footer = `请先清理这些关联记录，再删除「${entityDisplayName(entity)}」表。`) {
   const references = error.details?.references || [];
   if (!references.length) return toast(error.message);
+  const tableName = entityDisplayName(entity);
   const detail = references.map((reference) =>
-    `「${reference.sourceEntityName}.${reference.fieldLabel}」已有 ${reference.count} 条记录引用「${entity.name}」的数据`
+    `「${entityDisplayName(reference.sourceEntityId) || reference.sourceEntityName}.${reference.fieldLabel}」已有 ${reference.count} 条记录引用「${tableName}」的数据`
   ).join('\n');
   openTextModal(title, `${error.message}\n\n${detail}\n\n${footer}`);
 }
@@ -583,7 +568,7 @@ export function buildHtmlPage(title, content = '') {
 }
 
 export async function openAddMarkdownFile() {
-  const page = buildMarkdownPage('未命名文档');
+  const page = buildMarkdownPage(uniquePageTitle(state.currentApp?.ui?.pages, '未命名文档'));
   try {
     await saveCurrentPackage((pkg) => { pkg.ui.pages.push(page); });
     state.currentPageId = page.id;
@@ -597,7 +582,7 @@ export async function openAddMarkdownFile() {
 }
 
 export async function openAddHtmlPage() {
-  const page = buildHtmlPage('未命名网页');
+  const page = buildHtmlPage(uniquePageTitle(state.currentApp?.ui?.pages, '未命名网页'));
   try {
     await saveCurrentPackage((pkg) => { pkg.ui.pages.push(page); });
     state.currentPageId = page.id;
@@ -628,7 +613,7 @@ export function openCreatePageModal(sourcePage = null) {
   if (!entities.length) return toast('请先创建一张数据表。');
   const entitySelect = h('select', { required: true }, [
     h('option', { value: '', text: '— 请选择数据表 —' }),
-    ...entities.map((e) => h('option', { value: e.id, text: e.name }))
+    ...entities.map((e) => h('option', { value: e.id, text: entityDisplayName(e) }))
   ]);
 
   const typeSelect = selectFromOptions([
@@ -715,7 +700,8 @@ export function openCreatePageModal(sourcePage = null) {
         createButton = h('button', {
           text: '创建',
           onclick: async () => {
-            const title = nameInput.value.trim() || (entitySelect.value ? entities.find((e) => e.id === entitySelect.value)?.name || '页面' : '页面');
+            const title = nameInput.value.trim() || (entitySelect.value ? entityDisplayName(entitySelect.value) || '页面' : '页面');
+            if (pageTitleExists(state.currentApp?.ui?.pages, title)) return toast('页面名称不能重复，请使用其他名称。');
             const entityId = entitySelect.value;
             if (!entityId) return toast('请选择一个数据表。');
             const entity = entities.find((e) => e.id === entityId);
@@ -775,6 +761,7 @@ export function openCreateDashboardModal() {
           text: '创建',
           onclick: async () => {
             const title = nameInput.value.trim() || '看板';
+            if (pageTitleExists(state.currentApp?.ui?.pages, title)) return toast('页面名称不能重复，请使用其他名称。');
             const page = buildBlankPage(title, 'dashboard');
             try {
               await saveCurrentPackage((pkg) => {
@@ -815,6 +802,7 @@ export function openCreateTableModal() {
           onclick: async () => {
             const name = nameInput.value.trim();
             if (!name) return toast('表名不能为空。');
+            if (pageTitleExists(state.currentApp?.ui?.pages, name)) return toast('页面名称不能重复，请使用其他表名。');
             const body = await api(`/api/apps/${state.currentApp.id}/tables`, {
               method: 'POST',
               body: JSON.stringify({ name, description: descriptionInput.value.trim() })
@@ -858,6 +846,7 @@ export function openCreateLinkModal() {
             const url = urlInput.value.trim();
             if (!title) return toast('请输入链接名称。');
             if (!url) return toast('请输入链接地址。');
+            if (pageTitleExists(state.currentApp?.ui?.pages, title)) return toast('页面名称不能重复，请使用其他链接名称。');
             const fullUrl = url.match(/^https?:\/\//i) ? url : `https://${url}`;
             const linkPage = {
               id: uniquePageId(title, 'link'),

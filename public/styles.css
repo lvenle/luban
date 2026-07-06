@@ -11,9 +11,12 @@
   --ok: #17803d;
   --soft: #f8fafc;
   --shadow: 0 8px 18px rgba(16, 24, 40, 0.08);
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --surface-radius: 12px;
+  --menu-font-size: 13px;
+  --menu-trigger-size: 28px;
   --radius-full: 999px;
   --z-sticky: 5;
   --z-dropdown: 20;
@@ -32,7 +35,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
 }
 
@@ -328,6 +331,19 @@ textarea {
   grid-template-rows: auto 1fr;
 }
 
+.desktop-runtime-shell {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.desktop-runtime-shell .runtime {
+  height: 100%;
+  min-height: 0;
+}
+
 .topbar {
   position: sticky;
   top: 0;
@@ -464,10 +480,27 @@ textarea {
 
 .inline-edit-input,
 .header-edit-input,
+.inline-rename-input,
 .view-name-input {
   width: auto;
   min-width: 100px;
   max-width: 260px;
+  padding: 4px 6px;
+}
+
+.app-card-name-input {
+  width: min(220px, 100%);
+  min-width: 0;
+  height: 30px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.page-name-input {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  height: 28px;
   padding: 4px 6px;
 }
 
@@ -880,6 +913,8 @@ textarea {
   position: relative;
   display: flex;
   flex-direction: column;
+  align-self: start;
+  height: 100%;
   min-height: 0;
   background: #f5f6f8;
   padding: 8px;
@@ -898,7 +933,7 @@ textarea {
 .runtime.sidebar-collapsed .sidebar {
   justify-content: flex-start;
   overflow: hidden;
-  padding: 8px 5px;
+  padding: 8px;
 }
 
 .sidebar-head {
@@ -916,53 +951,39 @@ textarea {
   margin: 0;
 }
 
-.sidebar-toggle {
-  min-width: 68px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 0 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #475569;
-}
-
-.sidebar-toggle-icon {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.sidebar-toggle-label {
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1;
-}
-
-.sidebar-toggle:hover {
-  border-color: #94a3b8;
-  background: #e8edf4;
-  color: #1f2937;
-}
-
 .sidebar-footer {
   display: flex;
   flex: 0 0 auto;
   justify-content: flex-end;
   margin-top: auto;
-  padding-top: 8px;
+  padding: 8px 2px 2px;
 }
 
 .runtime.sidebar-collapsed .sidebar-footer {
   width: 100%;
   justify-content: center;
+}
+
+.sidebar-footer-create {
+  width: 100%;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 650;
+  padding: 5px 10px;
+}
+
+.sidebar-footer-create:hover,
+.sidebar-footer-create[aria-expanded="true"] {
+  border-color: #aebed4;
+  background: #eef4ff;
+  color: var(--brand-dark);
 }
 
 .sidebar-collapsed-head {
@@ -1036,12 +1057,6 @@ textarea {
 
 .sidebar-create-action .button-icon {
   flex: 0 0 22px;
-}
-
-.runtime.sidebar-collapsed .sidebar-toggle {
-  width: 72px;
-  min-width: 72px;
-  padding: 0 8px;
 }
 
 .sidebar-resizer {
@@ -3463,6 +3478,22 @@ thead .frozen-column {
 .settings-tab.active { background: #eef4ff; color: var(--brand); }
 .settings-modal-content { min-height: 280px; max-height: calc(100vh - 180px); overflow: auto; padding: 20px; }
 .settings-actions { margin-top: 14px; }
+.sample-import-panel { display: grid; gap: 14px; }
+.sample-import-toolbar { position: sticky; top: -20px; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); background: var(--panel); }
+.sample-import-toolbar > .muted { flex: 1; }
+.sample-select-all { display: inline-flex; align-items: center; gap: 7px; font-weight: 650; white-space: nowrap; }
+.sample-import-list { display: grid; gap: 10px; }
+.sample-import-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: var(--surface-radius); background: var(--panel); }
+.sample-import-card:hover { border-color: #c8d4e3; background: #fbfcfe; }
+.sample-import-card-select { align-self: start; padding-top: 2px; }
+.sample-import-card-body { min-width: 0; display: grid; gap: 7px; }
+.sample-import-card-title { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.sample-import-card-title strong { font-size: 15px; }
+.sample-import-card-body p { margin: 0; }
+.sample-import-meta { display: flex; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: 12px; }
+.sample-import-meta span { padding: 3px 7px; border-radius: var(--radius-full); background: var(--soft); }
+.sample-imported-badge { padding: 3px 7px; border-radius: var(--radius-full); background: #e8f7ee; color: var(--ok); font-size: 12px; font-weight: 650; }
+.sample-import-one { min-width: 64px; }
 .business-rules-list { display: grid; gap: 10px; }
 .business-rule-item { position: relative; display: grid; gap: 6px; width: 100%; padding: 15px 18px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--text); text-align: left; box-shadow: none; }
 .business-rule-item:hover { border-color: rgba(23, 105, 224, .35); background: #f8fbff; }
@@ -5814,4 +5845,117 @@ button.assistant-send {
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* Unified surfaces and overflow menus */
+:is(
+  .hero,
+  .card,
+  .panel,
+  .table-panel,
+  .page-card,
+  .debug-panel,
+  .modal,
+  .image-preview-modal,
+  .typed-view-panel,
+  .mobile-record-card,
+  .ai-tool-card,
+  .ai-plan-metric,
+  .ai-diff
+) {
+  border-radius: var(--surface-radius);
+}
+
+.mobile-runtime .mobile-record-card {
+  border-radius: var(--surface-radius);
+}
+
+:is(
+  .table-wrap,
+  .markdown-code-editor,
+  .markdown-preview,
+  .html-syntax-editor,
+  .html-file-preview,
+  .link-page-iframe
+) {
+  border-radius: var(--radius-md);
+}
+
+.table-panel .table-wrap,
+.markdown-editor-pane .markdown-code-editor,
+.html-editor-pane .markdown-code-editor {
+  border-radius: var(--radius-md);
+}
+
+.card-menu summary,
+.page-nav-item .page-menu.ghost,
+.view-tab-shell .view-menu-trigger,
+.mobile-runtime .mobile-card-menu-btn {
+  width: var(--menu-trigger-size);
+  height: var(--menu-trigger-size);
+  min-width: var(--menu-trigger-size);
+  min-height: var(--menu-trigger-size);
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: #64748b;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0;
+  box-shadow: none;
+}
+
+.card-menu summary:hover,
+.card-menu[open] summary,
+.page-nav-item .page-menu.ghost:hover,
+.view-tab-shell .view-menu-trigger:hover,
+.mobile-runtime .mobile-card-menu-btn:hover,
+.mobile-runtime .mobile-card-menu-btn:active {
+  background: #e8edf3;
+  color: #27313f;
+  box-shadow: none;
+}
+
+:is(
+  .card-menu-popover,
+  .page-menu-popover,
+  .view-menu-popover,
+  .export-menu-popover,
+  .context-menu,
+  .sidebar-create-dropdown,
+  .cell-choice-dropdown,
+  .option-color-dropdown
+) {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 4px;
+  font-size: var(--menu-font-size);
+  line-height: 1.4;
+}
+
+:is(
+  .card-menu-popover a,
+  .ghost-menu,
+  .context-menu .ghost-menu,
+  .sidebar-create-dropdown button
+) {
+  min-height: 32px;
+  border-radius: var(--radius-sm);
+  font-size: var(--menu-font-size);
+  font-weight: 400;
+  line-height: 1.4;
+  padding: 6px 9px;
+}
+
+.view-tab-shell .view-menu-trigger {
+  margin-left: calc(-1 * var(--menu-trigger-size));
+}
+
+.view-tab-shell:has(.view-menu-trigger) .view-tab {
+  padding-right: 36px;
 }

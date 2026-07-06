@@ -3,6 +3,8 @@ import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { formatRuleChanges } from './RuleFeedback.js';
 import { humanizeMessage } from '../common/messages.js';
+import { entityDisplayName } from '../common/entity-display.js';
+import { loadApps } from '../app-home/home-actions.js';
 
 function formatTime(value) {
   if (!value) return '暂无';
@@ -110,7 +112,7 @@ function openManualRuleEditor(container, appId, app, rule, onCancel) {
     { value: 'record.created', label: '新增记录时' },
     { value: 'record.updated', label: '字段值变化时' }
   ], intent.trigger?.event || rule.contractJson?.trigger?.type || 'record.updated');
-  setSelectOptions(triggerEntity, entities.map((entity) => ({ value: entity.id, label: entity.name })), intent.trigger?.entity);
+  setSelectOptions(triggerEntity, entities.map((entity) => ({ value: entity.id, label: entityDisplayName(app, entity) })), intent.trigger?.entity);
   setSelectOptions(operation, [
     { value: 'set', label: '设置为' }, { value: 'increment', label: '增加' }, { value: 'decrement', label: '减少' }
   ], intent.action?.operation || 'set');
@@ -125,7 +127,7 @@ function openManualRuleEditor(container, appId, app, rule, onCancel) {
     const relations = (sourceEntity?.fields || []).filter((field) => field.type === 'relation' && entities.some((entity) => entity.id === field.targetEntity));
     setSelectOptions(relationField, [
       { value: '', label: '当前记录' },
-      ...relations.map((field) => ({ value: field.id, label: `${field.label} → ${entities.find((entity) => entity.id === field.targetEntity)?.name}` }))
+      ...relations.map((field) => ({ value: field.id, label: `${field.label} → ${entityDisplayName(app, field.targetEntity)}` }))
     ], relationField.dataset.ready ? relationField.value : (intent.target?.relationField || ''));
     relationField.dataset.ready = 'true';
     const relation = relations.find((field) => field.id === relationField.value);
@@ -321,21 +323,118 @@ function renderAiPanel(ai, backdrop) {
   ]);
 }
 
+function createSampleImporter(samples, onImported) {
+  const selected = new Set();
+  const imported = new Set();
+  let busy = false;
+
+  const importIds = async (ids, panel) => {
+    if (busy || !ids.length) return;
+    busy = true;
+    render(panel);
+    try {
+      const body = await api('/api/samples/import', {
+        method: 'POST',
+        body: JSON.stringify({ ids })
+      });
+      ids.forEach((id) => imported.add(id));
+      selected.clear();
+      onImported();
+      toast(`已导入 ${body.imported?.length || ids.length} 个样例`);
+    } catch (error) {
+      toast(`导入失败：${error.message}`);
+    } finally {
+      busy = false;
+      render(panel);
+    }
+  };
+
+  const render = (panel) => {
+    const allSelected = samples.length > 0 && selected.size === samples.length;
+    const selectAll = h('input', {
+      type: 'checkbox',
+      checked: allSelected ? 'checked' : null,
+      onchange: (event) => {
+        selected.clear();
+        if (event.currentTarget.checked) samples.forEach((sample) => selected.add(sample.id));
+        render(panel);
+      }
+    });
+    const cards = samples.map((sample) => {
+      const checkbox = h('input', {
+        type: 'checkbox',
+        checked: selected.has(sample.id) ? 'checked' : null,
+        onchange: (event) => {
+          if (event.currentTarget.checked) selected.add(sample.id);
+          else selected.delete(sample.id);
+          render(panel);
+        }
+      });
+      return h('article', { class: 'sample-import-card' }, [
+        h('div', { class: 'sample-import-card-select' }, [checkbox]),
+        h('div', { class: 'sample-import-card-body' }, [
+          h('div', { class: 'sample-import-card-title' }, [
+            h('strong', { text: sample.name }),
+            h('span', { class: 'category-pill', text: sample.category || '未分类' }),
+            imported.has(sample.id) ? h('span', { class: 'sample-imported-badge', text: '本次已导入' }) : null
+          ]),
+          h('p', { class: 'muted', text: sample.description || '暂无介绍' }),
+          h('div', { class: 'sample-import-meta' }, [
+            h('span', { text: `${sample.entityCount} 张表` }),
+            h('span', { text: `${sample.recordCount} 条数据` }),
+            h('span', { text: `${sample.ruleCount} 条业务规则` })
+          ])
+        ]),
+        h('button', {
+          class: 'secondary sample-import-one',
+          text: busy ? '导入中…' : '导入',
+          disabled: busy ? 'disabled' : null,
+          onclick: () => importIds([sample.id], panel)
+        })
+      ]);
+    });
+    panel.replaceChildren(h('div', { class: 'sample-import-panel' }, [
+      h('div', { class: 'sample-import-toolbar' }, [
+        h('label', { class: 'sample-select-all' }, [selectAll, h('span', { text: '全选' })]),
+        h('span', { class: 'muted', text: `共 ${samples.length} 个样例，已选择 ${selected.size} 个` }),
+        h('button', {
+          text: busy ? '导入中…' : `导入选中${selected.size ? ` (${selected.size})` : ''}`,
+          disabled: busy || !selected.size ? 'disabled' : null,
+          onclick: () => importIds([...selected], panel)
+        })
+      ]),
+      samples.length ? h('div', { class: 'sample-import-list' }, cards) : h('div', { class: 'business-rules-empty' }, [
+        h('h3', { text: '样例库为空' }),
+        h('p', { class: 'muted', text: '当前还没有可导入的样例。' })
+      ])
+    ]));
+  };
+  return { render };
+}
+
 export async function openSettingsModal(appId = '', initialTab = 'rules') {
-  const [settings, rulesBody, runsBody, appBody] = await Promise.all([
+  const [settings, rulesBody, runsBody, appBody, samplesBody] = await Promise.all([
     appId ? Promise.resolve({ ai: {} }) : api('/api/settings'),
     appId ? api(`/api/apps/${encodeURIComponent(appId)}/rules`) : Promise.resolve({ rules: [] }),
     appId ? api(`/api/apps/${encodeURIComponent(appId)}/rule-runs?limit=100`) : Promise.resolve({ runs: [] }),
-    appId ? api(`/api/apps/${encodeURIComponent(appId)}`) : Promise.resolve({ app: null })
+    appId ? api(`/api/apps/${encodeURIComponent(appId)}`) : Promise.resolve({ app: null }),
+    appId ? Promise.resolve({ samples: [] }) : api('/api/samples')
   ]);
-  let activeTab = appId ? (initialTab === 'runs' ? 'runs' : 'rules') : 'ai';
+  let activeTab = appId ? (initialTab === 'runs' ? 'runs' : 'rules') : (initialTab === 'samples' ? 'samples' : 'ai');
+  let samplesImported = false;
   const content = h('div', { class: 'settings-modal-content' });
   const tabs = h('div', { class: 'settings-tabs' });
   const backdrop = h('div', { class: 'modal-backdrop' });
+  const close = async () => {
+    backdrop.remove();
+    if (samplesImported) await loadApps();
+  };
+  const sampleImporter = createSampleImporter(samplesBody.samples || [], () => { samplesImported = true; });
   const render = () => {
     tabs.querySelectorAll('button').forEach((button) => button.classList.toggle('active', button.dataset.tab === activeTab));
     if (activeTab === 'rules') renderRulesPanel(content, appId, appBody.app, rulesBody.rules || []);
     else if (activeTab === 'runs') renderAllRunsPanel(content, rulesBody.rules || [], runsBody.runs || [], appBody.app);
+    else if (activeTab === 'samples') sampleImporter.render(content);
     else content.replaceChildren(renderAiPanel(settings.ai || {}, backdrop));
   };
   const tab = (id, text) => h('button', { class: 'settings-tab', text, 'data-tab': id, onclick: () => { activeTab = id; render(); } });
@@ -344,9 +443,10 @@ export async function openSettingsModal(appId = '', initialTab = 'rules') {
     tabs.append(tab('runs', `执行记录 ${runsBody.runs?.length ? `(${runsBody.runs.length})` : ''}`));
   } else {
     tabs.append(tab('ai', 'AI 设置'));
+    tabs.append(tab('samples', `样例导入 (${samplesBody.samples?.length || 0})`));
   }
   backdrop.append(h('div', { class: 'modal app-settings-modal' }, [
-    h('div', { class: 'toolbar app-settings-head' }, [h('h3', { text: appId ? '应用设置' : 'AI 设置' }), h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })]),
+    h('div', { class: 'toolbar app-settings-head' }, [h('h3', { text: appId ? '应用设置' : '系统设置' }), h('button', { class: 'ghost', text: '关闭', onclick: close })]),
     tabs,
     content
   ]));

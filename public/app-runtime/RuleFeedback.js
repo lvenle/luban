@@ -1,4 +1,5 @@
 import { toast } from '../common/toast.js';
+import { entityDisplayName } from '../common/entity-display.js';
 
 function displayValue(value) {
   if (value === undefined || value === null || value === '') return '空';
@@ -18,7 +19,7 @@ export function formatRuleChanges(result, app) {
       ? change.afterValue : change.after?.data?.[changedFieldId];
     const entity = app?.schema?.entities?.find((item) => item.id === entityId);
     const field = entity?.fields?.find((item) => item.id === changedFieldId);
-    const entityName = entity?.name || '相关数据';
+    const entityName = entityDisplayName(app, entity || entityId) || '相关数据';
     const businessObject = change.recordLabel ? `${entityName}“${change.recordLabel}”` : entityName;
     const fieldName = field?.label || '目标字段';
     return `${businessObject}的“${fieldName}”已由 ${displayValue(beforeValue)} 调整为 ${displayValue(afterValue)}`;

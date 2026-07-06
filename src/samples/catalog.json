@@ -1,0 +1,5414 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-06T14:08:35.737Z",
+  "samples": [
+    {
+      "id": "app-3",
+      "name": "生日备忘",
+      "description": "管理朋友、家人和同事的生日信息，及时送上祝福",
+      "category": "未分类",
+      "icon": "table",
+      "payload": {
+        "manifest": {
+          "name": "生日备忘",
+          "description": "管理朋友、家人和同事的生日信息，及时送上祝福",
+          "icon": "table",
+          "packageVersion": "2.0",
+          "id": "app",
+          "version": "1.0.0",
+          "author": "local-user",
+          "createdBy": "ai",
+          "tags": []
+        },
+        "schema": {
+          "entities": [
+            {
+              "id": "entity_contact",
+              "name": "联系人",
+              "fields": [
+                {
+                  "id": "field_name",
+                  "label": "姓名",
+                  "type": "text"
+                },
+                {
+                  "id": "field_birthday",
+                  "label": "生日日期",
+                  "type": "date"
+                },
+                {
+                  "id": "field_phone",
+                  "label": "联系电话",
+                  "type": "text"
+                },
+                {
+                  "id": "field_relation",
+                  "label": "关系分类",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_g150",
+                      "label": "家人",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_hzj4",
+                      "label": "朋友",
+                      "color": "gray"
+                    },
+                    {
+                      "id": "opt_eq67",
+                      "label": "同事",
+                      "color": "yellow"
+                    },
+                    {
+                      "id": "opt_espm",
+                      "label": "同学",
+                      "color": "lime"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_g150",
+                        "label": "家人",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_hzj4",
+                        "label": "朋友",
+                        "color": "gray"
+                      },
+                      {
+                        "id": "opt_eq67",
+                        "label": "同事",
+                        "color": "yellow"
+                      },
+                      {
+                        "id": "opt_espm",
+                        "label": "同学",
+                        "color": "lime"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_remark",
+                  "label": "备注",
+                  "type": "textarea"
+                }
+              ]
+            }
+          ]
+        },
+        "ui": {
+          "pages": [
+            {
+              "id": "page-contacts",
+              "title": "联系人列表",
+              "type": "table",
+              "entity": "entity_contact",
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_name",
+                    "field_birthday",
+                    "field_phone",
+                    "field_relation",
+                    "field_remark"
+                  ],
+                  "fieldOrder": [
+                    "field_name",
+                    "field_birthday",
+                    "field_phone",
+                    "field_relation",
+                    "field_remark"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_name",
+                    "field_birthday",
+                    "field_phone",
+                    "field_relation",
+                    "field_remark"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                },
+                {
+                  "visibleFields": [
+                    "field_name",
+                    "field_birthday",
+                    "field_phone",
+                    "field_relation",
+                    "field_remark"
+                  ],
+                  "fieldOrder": [
+                    "field_name",
+                    "field_birthday",
+                    "field_phone",
+                    "field_relation",
+                    "field_remark"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_name",
+                    "field_birthday",
+                    "field_phone",
+                    "field_relation",
+                    "field_remark"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "view_mr99yhg5_6dfsz",
+                  "name": "123",
+                  "type": "list"
+                }
+              ]
+            }
+          ],
+          "home": {
+            "layout": "dashboard",
+            "cards": []
+          }
+        },
+        "actions": {
+          "actions": [
+            {
+              "label": "添加联系人",
+              "type": "data.createRecord",
+              "entity": "entity_contact",
+              "id": "action",
+              "name": "action"
+            }
+          ]
+        },
+        "prompts": {
+          "systemPrompt": "你是这个软件的助手，负责帮助用户使用和改进该软件。",
+          "suggestedCommands": []
+        },
+        "sampleData": [
+          {
+            "id": "rec_b4f950d26d0945e587",
+            "entityId": "entity_contact",
+            "data": {
+              "field_name": "张三",
+              "field_birthday": "2015-02-06",
+              "field_phone": "13800001111",
+              "field_relation": "opt_g150",
+              "field_remark": "妈妈的生日，记得送花"
+            }
+          },
+          {
+            "id": "rec_fe354fff0d894d1fbd",
+            "entityId": "entity_contact",
+            "data": {
+              "field_name": "李明",
+              "field_birthday": "1990-07-20",
+              "field_phone": "13912345678",
+              "field_relation": "opt_hzj4",
+              "field_remark": "大学室友"
+            }
+          },
+          {
+            "id": "rec_6e86f54f141a4927a6",
+            "entityId": "entity_contact",
+            "data": {
+              "field_name": "王经理",
+              "field_birthday": "1985-03-10",
+              "field_phone": "13698765432",
+              "field_relation": "opt_eq67",
+              "field_remark": "部门领导"
+            }
+          }
+        ],
+        "businessRules": []
+      }
+    },
+    {
+      "id": "cms",
+      "name": "内容创作",
+      "description": "管理博客文章、分类和标签",
+      "category": "内容",
+      "icon": "blog",
+      "payload": {
+        "manifest": {
+          "name": "内容创作",
+          "description": "管理博客文章、分类和标签",
+          "icon": "blog",
+          "packageVersion": "2.0",
+          "id": "cms",
+          "version": "1.0.0",
+          "author": "local-user",
+          "createdBy": "ai",
+          "tags": [],
+          "category": "内容"
+        },
+        "schema": {
+          "entities": [
+            {
+              "id": "entity_article",
+              "name": "文章",
+              "fields": [
+                {
+                  "id": "field_title",
+                  "label": "标题",
+                  "type": "text"
+                },
+                {
+                  "id": "field_summary",
+                  "label": "摘要",
+                  "type": "textarea"
+                },
+                {
+                  "id": "field_content",
+                  "label": "正文",
+                  "type": "richText"
+                },
+                {
+                  "id": "field_author",
+                  "label": "作者",
+                  "type": "text"
+                },
+                {
+                  "id": "field_category",
+                  "label": "分类",
+                  "type": "relation",
+                  "targetEntity": "entity_category",
+                  "displayField": "field_category_name",
+                  "multiple": false,
+                  "allowCreateTargetRecord": false,
+                  "enableSearch": true,
+                  "config": {
+                    "targetEntity": "entity_category",
+                    "displayField": "field_category_name",
+                    "multiple": false,
+                    "allowCreateTargetRecord": false,
+                    "enableSearch": true
+                  }
+                },
+                {
+                  "id": "field_tags",
+                  "label": "标签",
+                  "type": "relation",
+                  "targetEntity": "entity_tag",
+                  "multiple": true,
+                  "displayField": "field_tag_name",
+                  "allowCreateTargetRecord": false,
+                  "enableSearch": true,
+                  "config": {
+                    "targetEntity": "entity_tag",
+                    "displayField": "field_tag_name",
+                    "multiple": true,
+                    "allowCreateTargetRecord": false,
+                    "enableSearch": true
+                  }
+                },
+                {
+                  "id": "field_status",
+                  "label": "状态",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_n02e",
+                      "label": "草稿",
+                      "color": "lime"
+                    },
+                    {
+                      "id": "opt_e656s",
+                      "label": "已发布",
+                      "color": "lime"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_n02e",
+                        "label": "草稿",
+                        "color": "lime"
+                      },
+                      {
+                        "id": "opt_e656s",
+                        "label": "已发布",
+                        "color": "lime"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_publish_time",
+                  "label": "发布时间",
+                  "type": "datetime"
+                },
+                {
+                  "id": "field_cover",
+                  "label": "封面图",
+                  "type": "image"
+                }
+              ]
+            },
+            {
+              "id": "entity_category",
+              "name": "分类",
+              "fields": [
+                {
+                  "id": "field_category_name",
+                  "label": "分类名称",
+                  "type": "text"
+                },
+                {
+                  "id": "field_category_description",
+                  "label": "描述",
+                  "type": "textarea"
+                }
+              ]
+            },
+            {
+              "id": "entity_tag",
+              "name": "标签",
+              "fields": [
+                {
+                  "id": "field_tag_name",
+                  "label": "标签名称",
+                  "type": "text"
+                }
+              ]
+            }
+          ]
+        },
+        "ui": {
+          "pages": [
+            {
+              "id": "page-articles",
+              "title": "文章列表",
+              "type": "table",
+              "entity": "entity_article",
+              "pageSize": 100
+            },
+            {
+              "id": "page-categories",
+              "title": "分类管理",
+              "type": "table",
+              "entity": "entity_category",
+              "pageSize": 100
+            },
+            {
+              "id": "page-tags",
+              "title": "标签管理",
+              "type": "table",
+              "entity": "entity_tag",
+              "pageSize": 100
+            }
+          ],
+          "home": {
+            "layout": "dashboard",
+            "cards": []
+          }
+        },
+        "actions": {
+          "actions": []
+        },
+        "prompts": {
+          "systemPrompt": "你是这个软件的助手，负责帮助用户使用和改进该软件。",
+          "suggestedCommands": []
+        },
+        "sampleData": [],
+        "businessRules": []
+      }
+    },
+    {
+      "id": "project-tracker",
+      "name": "项目管理",
+      "description": "记录项目名称、负责人、状态、截止日期和风险。",
+      "category": "未分类",
+      "icon": "app",
+      "payload": {
+        "manifest": {
+          "packageVersion": "2.0",
+          "id": "project-tracker",
+          "name": "项目管理",
+          "description": "记录项目名称、负责人、状态、截止日期和风险。",
+          "icon": "app",
+          "version": "1.0.0",
+          "author": "local-user",
+          "createdBy": "ai",
+          "tags": [
+            "generated"
+          ]
+        },
+        "schema": {
+          "entities": [
+            {
+              "id": "project",
+              "name": "项目",
+              "fields": [
+                {
+                  "id": "name",
+                  "label": "项目名称",
+                  "type": "text"
+                },
+                {
+                  "id": "status",
+                  "label": "状态",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_lq5q4",
+                      "label": "进行中",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_e7hbq",
+                      "label": "已完成",
+                      "color": "green"
+                    },
+                    {
+                      "id": "opt_e98y4",
+                      "label": "已暂停",
+                      "color": "lime"
+                    },
+                    {
+                      "id": "opt_e68dg",
+                      "label": "已取消",
+                      "color": "red"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_lq5q4",
+                        "label": "进行中",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_e7hbq",
+                        "label": "已完成",
+                        "color": "green"
+                      },
+                      {
+                        "id": "opt_e98y4",
+                        "label": "已暂停",
+                        "color": "lime"
+                      },
+                      {
+                        "id": "opt_e68dg",
+                        "label": "已取消",
+                        "color": "red"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "deadline",
+                  "label": "截止日期",
+                  "type": "date"
+                },
+                {
+                  "id": "field",
+                  "label": "项目描述",
+                  "type": "textarea"
+                },
+                {
+                  "id": "field_2",
+                  "label": "开始日期",
+                  "type": "date"
+                },
+                {
+                  "id": "field_3",
+                  "label": "优先级",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_ul4",
+                      "label": "高",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_ffx",
+                      "label": "中",
+                      "color": "yellow"
+                    },
+                    {
+                      "id": "opt_fny",
+                      "label": "低",
+                      "color": "gray"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_ul4",
+                        "label": "高",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_ffx",
+                        "label": "中",
+                        "color": "yellow"
+                      },
+                      {
+                        "id": "opt_fny",
+                        "label": "低",
+                        "color": "gray"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "rel_table",
+                  "label": "项目任务",
+                  "type": "relation",
+                  "targetEntity": "table",
+                  "multiple": true,
+                  "displayField": "name",
+                  "allowCreateTargetRecord": false,
+                  "enableSearch": true,
+                  "config": {
+                    "targetEntity": "table",
+                    "displayField": "name",
+                    "multiple": true,
+                    "allowCreateTargetRecord": false,
+                    "enableSearch": true
+                  }
+                },
+                {
+                  "id": "field_4",
+                  "label": "责任人",
+                  "type": "text"
+                }
+              ]
+            },
+            {
+              "id": "table",
+              "name": "任务",
+              "description": "项目的具体任务",
+              "fields": [
+                {
+                  "id": "name",
+                  "label": "任务名称",
+                  "type": "text"
+                },
+                {
+                  "id": "field_2",
+                  "label": "任务描述",
+                  "type": "textarea"
+                },
+                {
+                  "id": "field_3",
+                  "label": "责任人",
+                  "type": "text"
+                },
+                {
+                  "id": "field_4",
+                  "label": "优先级",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_iyrsqa",
+                      "label": "重要紧急",
+                      "color": "red"
+                    },
+                    {
+                      "id": "opt_jiaeaf",
+                      "label": "重要不紧急",
+                      "color": "yellow"
+                    },
+                    {
+                      "id": "opt_4l918j",
+                      "label": "紧急不重要",
+                      "color": "lime"
+                    },
+                    {
+                      "id": "opt_hyk6ty",
+                      "label": "不紧急不重要",
+                      "color": "gray"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_iyrsqa",
+                        "label": "重要紧急",
+                        "color": "red"
+                      },
+                      {
+                        "id": "opt_jiaeaf",
+                        "label": "重要不紧急",
+                        "color": "yellow"
+                      },
+                      {
+                        "id": "opt_4l918j",
+                        "label": "紧急不重要",
+                        "color": "lime"
+                      },
+                      {
+                        "id": "opt_hyk6ty",
+                        "label": "不紧急不重要",
+                        "color": "gray"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_5",
+                  "label": "状态",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_gp89",
+                      "label": "待办",
+                      "color": "yellow"
+                    },
+                    {
+                      "id": "opt_lq5q4",
+                      "label": "进行中",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_e7hbq",
+                      "label": "已完成",
+                      "color": "green"
+                    },
+                    {
+                      "id": "opt_e68dg",
+                      "label": "已取消",
+                      "color": "red"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_gp89",
+                        "label": "待办",
+                        "color": "yellow"
+                      },
+                      {
+                        "id": "opt_lq5q4",
+                        "label": "进行中",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_e7hbq",
+                        "label": "已完成",
+                        "color": "green"
+                      },
+                      {
+                        "id": "opt_e68dg",
+                        "label": "已取消",
+                        "color": "red"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_6",
+                  "label": "截止日期",
+                  "type": "date"
+                },
+                {
+                  "id": "field_7",
+                  "label": "预计工时",
+                  "type": "number"
+                },
+                {
+                  "id": "rel_project",
+                  "label": "所属项目",
+                  "type": "relation",
+                  "targetEntity": "project",
+                  "multiple": false,
+                  "displayField": "name",
+                  "allowCreateTargetRecord": false,
+                  "enableSearch": true,
+                  "config": {
+                    "targetEntity": "project",
+                    "displayField": "name",
+                    "multiple": false,
+                    "allowCreateTargetRecord": false,
+                    "enableSearch": true
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "ui": {
+          "home": {
+            "layout": "dashboard",
+            "cards": [
+              {
+                "type": "stat",
+                "title": "项目总数",
+                "entity": "project",
+                "operation": "count"
+              }
+            ]
+          },
+          "pages": [
+            {
+              "id": "project-list",
+              "title": "项目列表",
+              "type": "table",
+              "entity": "project",
+              "features": [
+                "create",
+                "edit",
+                "delete",
+                "search",
+                "export"
+              ],
+              "views": [
+                {
+                  "visibleFields": [
+                    "name",
+                    "status",
+                    "deadline",
+                    "field",
+                    "field_2",
+                    "field_3",
+                    "rel_table",
+                    "field_4"
+                  ],
+                  "fieldOrder": [
+                    "name",
+                    "status",
+                    "field_4",
+                    "deadline",
+                    "field",
+                    "field_2",
+                    "field_3",
+                    "rel_table"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {
+                    "field_4": 96,
+                    "status": 96,
+                    "deadline": 96,
+                    "field": 225,
+                    "field_2": 123,
+                    "field_3": 101,
+                    "rel_table": 197
+                  },
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "name",
+                    "status",
+                    "deadline",
+                    "field",
+                    "field_2",
+                    "field_3",
+                    "rel_table",
+                    "field_4"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list",
+                  "summaries": {}
+                }
+              ],
+              "pageSize": 100
+            },
+            {
+              "id": "table-list",
+              "title": "任务列表",
+              "type": "table",
+              "entity": "table",
+              "navKind": "table",
+              "features": [
+                "create",
+                "edit",
+                "delete",
+                "search",
+                "export"
+              ],
+              "views": [
+                {
+                  "visibleFields": [
+                    "name",
+                    "field_2",
+                    "field_3",
+                    "field_4",
+                    "field_5",
+                    "field_6",
+                    "field_7",
+                    "rel_project"
+                  ],
+                  "fieldOrder": [
+                    "rel_project",
+                    "name",
+                    "field_2",
+                    "field_3",
+                    "field_4",
+                    "field_5",
+                    "field_6",
+                    "field_7"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {
+                    "rel_project": 96,
+                    "name": 194,
+                    "field_2": 190
+                  },
+                  "frozenFieldId": "field_3",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "name",
+                    "field_2",
+                    "field_3",
+                    "field_4",
+                    "field_5",
+                    "field_6",
+                    "field_7",
+                    "rel_project"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                },
+                {
+                  "visibleFields": [
+                    "name",
+                    "field_3",
+                    "field_4",
+                    "field_5",
+                    "field_6",
+                    "field_7",
+                    "rel_project",
+                    "field_2"
+                  ],
+                  "fieldOrder": [
+                    "name",
+                    "field_2",
+                    "field_3",
+                    "field_4",
+                    "field_5",
+                    "field_6",
+                    "field_7",
+                    "rel_project"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "name",
+                    "field_2",
+                    "field_3",
+                    "field_4",
+                    "field_5",
+                    "field_6",
+                    "field_7",
+                    "rel_project"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "view_mqonfw51_fdhvz",
+                  "name": "四象限",
+                  "type": "quadrant",
+                  "quadrant": {
+                    "fieldId": "field_4",
+                    "optionIds": [
+                      "opt_iyrsqa",
+                      "opt_jiaeaf",
+                      "opt_4l918j",
+                      "opt_hyk6ty"
+                    ]
+                  }
+                }
+              ],
+              "pageSize": 100
+            },
+            {
+              "id": "project-chart",
+              "title": "状态统计",
+              "type": "page",
+              "entity": "project",
+              "chart": {
+                "type": "bar",
+                "groupBy": "status",
+                "value": "count"
+              },
+              "views": [
+                {
+                  "visibleFields": [
+                    "name",
+                    "status",
+                    "deadline",
+                    "field",
+                    "field_2",
+                    "field_3",
+                    "rel_table",
+                    "field_4"
+                  ],
+                  "fieldOrder": [
+                    "name",
+                    "status",
+                    "deadline",
+                    "field",
+                    "field_2",
+                    "field_3",
+                    "rel_table",
+                    "field_4"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "actionWidth": 112,
+                  "allFields": [
+                    "name",
+                    "status",
+                    "deadline",
+                    "field",
+                    "field_2",
+                    "field_3",
+                    "rel_table",
+                    "field_4"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list",
+                  "summaries": {}
+                }
+              ],
+              "pageSize": 100
+            }
+          ]
+        },
+        "actions": {
+          "actions": [
+            {
+              "id": "query_project",
+              "name": "查询项目",
+              "type": "data.queryRecords",
+              "input": {
+                "records": "project"
+              }
+            },
+            {
+              "id": "export_project",
+              "name": "导出项目 CSV",
+              "type": "export.csv",
+              "input": {
+                "records": "project"
+              }
+            }
+          ]
+        },
+        "prompts": {
+          "systemPrompt": "你是项目跟踪器助手，帮助用户管理项目。",
+          "suggestedCommands": [
+            "增加里程碑页面",
+            "增加项目优先级字段"
+          ]
+        },
+        "sampleData": [
+          {
+            "id": "rec_d91ea8d401334fad9f",
+            "entityId": "project",
+            "data": {
+              "name": "BPM项目",
+              "status": "opt_lq5q4",
+              "deadline": "2026-07-15",
+              "field": "23123",
+              "field_2": "2026-07-06",
+              "field_3": "opt_ul4",
+              "field_4": "张三",
+              "rel_table": [
+                {
+                  "targetRecordId": "rec_cb9057c1fc3145ab90",
+                  "displayValue": "红榜线上化"
+                },
+                {
+                  "targetRecordId": "rec_8fdf64b5ea1d401caa",
+                  "displayValue": "销售历史通报上传"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_cb9057c1fc3145ab90",
+            "entityId": "table",
+            "data": {
+              "name": "红榜线上化",
+              "field_2": "部门荣誉、团队荣誉、个人荣誉\n同步到大数据、个人工作台\n",
+              "field_3": "张乐薇",
+              "field_4": "opt_jiaeaf",
+              "field_5": "opt_lq5q4",
+              "field_6": "2026-06-26",
+              "field_7": null,
+              "rel_project": [
+                {
+                  "targetRecordId": "rec_d91ea8d401334fad9f",
+                  "displayValue": "BPM项目"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_8fdf64b5ea1d401caa",
+            "entityId": "table",
+            "data": {
+              "name": "销售历史通报上传",
+              "field_2": "张芳、陈洋洋",
+              "field_3": "张芳",
+              "field_4": "opt_iyrsqa",
+              "field_5": "opt_gp89",
+              "field_6": "2026-07-01",
+              "field_7": null,
+              "rel_project": [
+                {
+                  "targetRecordId": "rec_d91ea8d401334fad9f",
+                  "displayValue": "BPM项目"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_1037401070164c789c",
+            "entityId": "table",
+            "data": {
+              "name": "用户声音录入agent",
+              "field_2": "agent直接打通ones系统\n",
+              "field_3": "吕恩乐",
+              "field_4": "opt_jiaeaf",
+              "field_5": "opt_lq5q4",
+              "field_6": "2026-06-25",
+              "field_7": null,
+              "rel_project": [
+                {
+                  "targetRecordId": "rec_33a0652d1250445daf",
+                  "displayValue": "用户声音"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_48b282bbf944484ab4",
+            "entityId": "table",
+            "data": {
+              "name": "用户声音管理规定正式签发",
+              "field_2": "转换成正式文件",
+              "field_3": "吕恩乐",
+              "field_4": "opt_iyrsqa",
+              "field_5": "",
+              "field_6": "",
+              "field_7": null,
+              "rel_project": [
+                {
+                  "targetRecordId": "rec_33a0652d1250445daf",
+                  "displayValue": "用户声音"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_33a0652d1250445daf",
+            "entityId": "project",
+            "data": {
+              "name": "用户声音",
+              "status": "opt_lq5q4",
+              "deadline": "2026-07-29",
+              "field": "2313",
+              "field_2": "2026-07-06",
+              "field_3": "opt_ffx",
+              "field_4": "里斯",
+              "rel_table": [
+                {
+                  "targetRecordId": "rec_f28bfc4eadaf47dd89",
+                  "displayValue": "运营需求清单正式挂出"
+                },
+                {
+                  "targetRecordId": "rec_48b282bbf944484ab4",
+                  "displayValue": "用户声音管理规定正式签发"
+                },
+                {
+                  "targetRecordId": "rec_1037401070164c789c",
+                  "displayValue": "用户声音录入agent"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_f28bfc4eadaf47dd89",
+            "entityId": "table",
+            "data": {
+              "name": "运营需求清单正式挂出",
+              "field_2": "",
+              "field_3": "王俊程",
+              "field_4": "opt_iyrsqa",
+              "field_5": "",
+              "field_6": "",
+              "field_7": null,
+              "rel_project": [
+                {
+                  "targetRecordId": "rec_33a0652d1250445daf",
+                  "displayValue": "用户声音"
+                }
+              ]
+            }
+          }
+        ],
+        "businessRules": []
+      }
+    },
+    {
+      "id": "app-5",
+      "name": "个人任务管理",
+      "description": "帮助用户管理日常任务的工具",
+      "category": "效率",
+      "icon": "clipboard-list",
+      "payload": {
+        "manifest": {
+          "name": "个人任务管理",
+          "description": "帮助用户管理日常任务的工具",
+          "icon": "clipboard-list",
+          "packageVersion": "2.0",
+          "id": "app",
+          "version": "1.0.0",
+          "author": "local-user",
+          "createdBy": "ai",
+          "tags": [],
+          "category": "效率"
+        },
+        "schema": {
+          "entities": [
+            {
+              "id": "entity_task",
+              "name": "任务表",
+              "fields": [
+                {
+                  "id": "field_task_name",
+                  "label": "任务名称",
+                  "type": "text"
+                },
+                {
+                  "id": "field_task_description",
+                  "label": "任务描述",
+                  "type": "textarea"
+                },
+                {
+                  "id": "field_task_status",
+                  "label": "状态",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_gp89",
+                      "label": "待办",
+                      "color": "yellow"
+                    },
+                    {
+                      "id": "opt_lq5q4",
+                      "label": "进行中",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_e7hbq",
+                      "label": "已完成",
+                      "color": "green"
+                    },
+                    {
+                      "id": "opt_e68dg",
+                      "label": "已取消",
+                      "color": "red"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_gp89",
+                        "label": "待办",
+                        "color": "yellow"
+                      },
+                      {
+                        "id": "opt_lq5q4",
+                        "label": "进行中",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_e7hbq",
+                        "label": "已完成",
+                        "color": "green"
+                      },
+                      {
+                        "id": "opt_e68dg",
+                        "label": "已取消",
+                        "color": "red"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_task_priority",
+                  "label": "优先级",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_fny",
+                      "label": "低",
+                      "color": "gray"
+                    },
+                    {
+                      "id": "opt_ffx",
+                      "label": "中",
+                      "color": "yellow"
+                    },
+                    {
+                      "id": "opt_ul4",
+                      "label": "高",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_ltcu",
+                      "label": "紧急",
+                      "color": "orange"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_fny",
+                        "label": "低",
+                        "color": "gray"
+                      },
+                      {
+                        "id": "opt_ffx",
+                        "label": "中",
+                        "color": "yellow"
+                      },
+                      {
+                        "id": "opt_ul4",
+                        "label": "高",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_ltcu",
+                        "label": "紧急",
+                        "color": "orange"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "ai",
+                  "label": "AI",
+                  "type": "ai",
+                  "aiConfig": {
+                    "prompt": "根据{任务名称}生成行动计划",
+                    "triggerFieldIds": [
+                      "field_task_name"
+                    ]
+                  },
+                  "options": []
+                },
+                {
+                  "id": "field_2",
+                  "label": "开始日期",
+                  "type": "date",
+                  "format": "yyyy-mm-dd",
+                  "options": []
+                },
+                {
+                  "id": "field_task_due_date",
+                  "label": "截止日期",
+                  "type": "date"
+                },
+                {
+                  "id": "field",
+                  "label": "象限",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_jiajha",
+                      "label": "重要且紧急",
+                      "color": "red"
+                    },
+                    {
+                      "id": "opt_jiaeaf",
+                      "label": "重要不紧急",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_4l918j",
+                      "label": "紧急不重要",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_wvljvu",
+                      "label": "不重要不紧急",
+                      "color": "gray"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_jiajha",
+                        "label": "重要且紧急",
+                        "color": "red"
+                      },
+                      {
+                        "id": "opt_jiaeaf",
+                        "label": "重要不紧急",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_4l918j",
+                        "label": "紧急不重要",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_wvljvu",
+                        "label": "不重要不紧急",
+                        "color": "gray"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_task_assignee",
+                  "label": "负责人",
+                  "type": "text"
+                },
+                {
+                  "id": "field_3",
+                  "label": "任务类型",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_d8um2h",
+                      "label": "日常任务",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_jq4j17",
+                      "label": "项目任务",
+                      "color": "red"
+                    },
+                    {
+                      "id": "opt_buvcqo",
+                      "label": "学习任务",
+                      "color": "lime"
+                    },
+                    {
+                      "id": "opt_eae8",
+                      "label": "其他",
+                      "color": "cyan"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_d8um2h",
+                        "label": "日常任务",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_jq4j17",
+                        "label": "项目任务",
+                        "color": "red"
+                      },
+                      {
+                        "id": "opt_buvcqo",
+                        "label": "学习任务",
+                        "color": "lime"
+                      },
+                      {
+                        "id": "opt_eae8",
+                        "label": "其他",
+                        "color": "cyan"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_4",
+                  "label": "任务预算",
+                  "type": "number"
+                }
+              ],
+              "formLayout": {
+                "columns": 2,
+                "order": [
+                  "field_task_name",
+                  "field_task_description",
+                  "field_task_status",
+                  "field_task_priority",
+                  "ai",
+                  "field_2",
+                  "field_task_due_date",
+                  "field",
+                  "field_task_assignee",
+                  "field_3",
+                  "field_4"
+                ]
+              }
+            }
+          ]
+        },
+        "ui": {
+          "pages": [
+            {
+              "id": "page-task-list",
+              "title": "任务列表",
+              "type": "table",
+              "entity": "entity_task",
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_task_priority",
+                    "field",
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "fieldOrder": [
+                    "field_task_name",
+                    "field_task_priority",
+                    "field",
+                    "field_task_description",
+                    "field_task_status",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "field_task_name",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {
+                    "field_4": "average",
+                    "field_task_priority": "count",
+                    "field": "count"
+                  },
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                },
+                {
+                  "visibleFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee"
+                  ],
+                  "fieldOrder": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "view_mqrzj5p6_inl66",
+                  "name": "四象限",
+                  "type": "quadrant",
+                  "quadrant": {
+                    "fieldId": "field",
+                    "optionIds": [
+                      "opt_jiajha",
+                      "opt_jiaeaf",
+                      "opt_4l918j",
+                      "opt_wvljvu"
+                    ]
+                  }
+                },
+                {
+                  "visibleFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee"
+                  ],
+                  "fieldOrder": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "view_mqrzkmap_09d2g",
+                  "name": "甘特",
+                  "type": "gantt",
+                  "gantt": {
+                    "titleField": "field_task_name",
+                    "startField": "field_2",
+                    "endField": "field_task_due_date",
+                    "progressField": "",
+                    "scaleType": "day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "entity-task",
+              "title": "四象限",
+              "type": "page",
+              "entity": "entity_task",
+              "navKind": "page",
+              "features": [
+                "create",
+                "edit",
+                "delete",
+                "search",
+                "export"
+              ],
+              "views": [
+                {
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "quadrant",
+                  "quadrant": {
+                    "fieldId": "field",
+                    "optionIds": [
+                      "opt_jiajha",
+                      "opt_jiaeaf",
+                      "opt_4l918j",
+                      "opt_wvljvu"
+                    ]
+                  },
+                  "visibleFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "fieldOrder": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "actionWidth": 112,
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "allFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ]
+                }
+              ],
+              "pageSize": 100
+            },
+            {
+              "id": "entity-task-2",
+              "title": "甘特图",
+              "type": "page",
+              "entity": "entity_task",
+              "navKind": "page",
+              "features": [
+                "create",
+                "edit",
+                "delete",
+                "search",
+                "export"
+              ],
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "fieldOrder": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_status",
+                    "field_task_priority",
+                    "ai",
+                    "field_2",
+                    "field_task_due_date",
+                    "field",
+                    "field_task_assignee",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "gantt",
+                  "gantt": {
+                    "titleField": "field_task_name",
+                    "startField": "field_2",
+                    "endField": "field_task_due_date",
+                    "progressField": "",
+                    "scaleType": "day"
+                  }
+                }
+              ],
+              "pageSize": 100
+            }
+          ],
+          "home": {
+            "layout": "dashboard",
+            "cards": []
+          }
+        },
+        "actions": {
+          "actions": [
+            {
+              "id": "action_create_task",
+              "label": "创建任务",
+              "type": "data.createRecord",
+              "entity": "entity_task",
+              "name": "action_create_task"
+            }
+          ]
+        },
+        "prompts": {
+          "systemPrompt": "你是这个软件的助手，负责帮助用户使用和改进该软件。",
+          "suggestedCommands": []
+        },
+        "sampleData": [
+          {
+            "id": "rec_32dc76a1e83c47ee9a",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "完成项目需求文档",
+              "field_task_description": "整理并撰写Q2项目需求规格说明书",
+              "field_task_status": "opt_lq5q4",
+              "field_task_priority": "opt_ul4",
+              "field_2": "2025-01-10",
+              "field_task_due_date": "2025-01-20",
+              "field": "opt_jiajha",
+              "field_task_assignee": "张三",
+              "field_3": "opt_jq4j17",
+              "field_4": 5000
+            }
+          },
+          {
+            "id": "rec_ed9c9e6ead5444bdbd",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "每日晨会汇报",
+              "field_task_description": "每天早上9点参加团队晨会，汇报昨日进展和今日计划",
+              "field_task_status": "opt_gp89",
+              "field_task_priority": "opt_ffx",
+              "field_2": "2025-01-11",
+              "field_task_due_date": "2025-01-11",
+              "field": "opt_4l918j",
+              "field_task_assignee": "张三",
+              "field_3": "opt_d8um2h"
+            }
+          },
+          {
+            "id": "rec_1f2518f38dde4307b7",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "学习React高级教程",
+              "field_task_description": "完成React高级模式与性能优化章节学习",
+              "field_task_status": "opt_gp89",
+              "field_task_priority": "opt_ffx",
+              "field_2": "2025-01-15",
+              "field_task_due_date": "2025-02-01",
+              "field": "opt_jiaeaf",
+              "field_task_assignee": "李四",
+              "field_3": "opt_buvcqo",
+              "field_4": 200
+            }
+          },
+          {
+            "id": "rec_3deda43139834517b3",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "修复登录页Bug",
+              "field_task_description": "用户反馈移动端登录按钮点击无响应，需要排查修复",
+              "field_task_status": "opt_gp89",
+              "field_task_priority": "opt_ltcu",
+              "field_2": "2025-01-10",
+              "field_task_due_date": "2025-01-12",
+              "field": "opt_jiajha",
+              "field_task_assignee": "王五",
+              "field_3": "opt_jq4j17"
+            }
+          },
+          {
+            "id": "rec_8e7700ce04854fe5b2",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "整理报销单据",
+              "field_task_description": "汇总12月份差旅报销单据并提交财务",
+              "field_task_status": "opt_e7hbq",
+              "field_task_priority": "opt_fny",
+              "field_2": "2025-01-05",
+              "field_task_due_date": "2025-01-08",
+              "field": "opt_wvljvu",
+              "field_task_assignee": "赵六",
+              "field_3": "opt_d8um2h",
+              "field_4": 3000
+            }
+          },
+          {
+            "id": "rec_23e918b5ad434e3aa9",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "编写单元测试",
+              "field_task_description": "为订单模块编写完整的单元测试用例，覆盖率需达80%以上",
+              "field_task_status": "opt_lq5q4",
+              "field_task_priority": "opt_ul4",
+              "field_2": "2025-01-08",
+              "field_task_due_date": "2025-01-18",
+              "field": "opt_jiajha",
+              "field_task_assignee": "李四",
+              "field_3": "opt_jq4j17",
+              "field_4": 1000
+            }
+          },
+          {
+            "id": "rec_ee47f212e29d428581",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "阅读《系统设计面试》",
+              "field_task_description": "每周阅读2章并做笔记",
+              "field_task_status": "opt_gp89",
+              "field_task_priority": "opt_fny",
+              "field_2": "2025-01-13",
+              "field_task_due_date": "2025-02-28",
+              "field": "opt_jiaeaf",
+              "field_task_assignee": "张三",
+              "field_3": "opt_buvcqo",
+              "field_4": 100
+            }
+          },
+          {
+            "id": "rec_4e673efa487c41c0af",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "准备周报数据",
+              "field_task_description": "统计本周完成的任务和下周计划",
+              "field_task_status": "opt_e7hbq",
+              "field_task_priority": "opt_ffx",
+              "field_2": "2025-01-06",
+              "field_task_due_date": "2025-01-06",
+              "field": "opt_4l918j",
+              "field_task_assignee": "王五",
+              "field_3": "opt_d8um2h"
+            }
+          },
+          {
+            "id": "rec_3024dc7c94cf47d786",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "数据库性能优化",
+              "field_task_description": "分析慢查询日志，优化索引和查询语句",
+              "field_task_status": "opt_gp89",
+              "field_task_priority": "opt_ul4",
+              "field_2": "2025-01-14",
+              "field_task_due_date": "2025-01-25",
+              "field": "opt_jiaeaf",
+              "field_task_assignee": "赵六",
+              "field_3": "opt_jq4j17",
+              "field_4": 2000
+            }
+          },
+          {
+            "id": "rec_2f99f7fcd0b34529a2",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "客户会议准备",
+              "field_task_description": "准备演示PPT和产品Demo环境",
+              "field_task_status": "opt_e68dg",
+              "field_task_priority": "opt_ltcu",
+              "field_2": "2025-01-07",
+              "field_task_due_date": "2025-01-09",
+              "field": "opt_jiajha",
+              "field_task_assignee": "张三",
+              "field_3": "opt_eae8",
+              "field_4": 500
+            }
+          }
+        ],
+        "businessRules": []
+      }
+    },
+    {
+      "id": "app-6",
+      "name": "库存管理",
+      "description": "管理商品信息、入库记录和出库记录",
+      "category": "未分类",
+      "icon": "package",
+      "payload": {
+        "manifest": {
+          "name": "库存管理",
+          "description": "管理商品信息、入库记录和出库记录",
+          "icon": "package",
+          "packageVersion": "2.0",
+          "id": "app",
+          "version": "1.0.0",
+          "author": "local-user",
+          "createdBy": "ai",
+          "tags": []
+        },
+        "schema": {
+          "entities": [
+            {
+              "id": "entity_goods",
+              "name": "商品信息",
+              "fields": [
+                {
+                  "id": "field_goods_name",
+                  "label": "商品名称",
+                  "type": "text"
+                },
+                {
+                  "id": "field_goods_code",
+                  "label": "商品编号",
+                  "type": "text"
+                },
+                {
+                  "id": "field_goods_spec",
+                  "label": "规格",
+                  "type": "text"
+                },
+                {
+                  "id": "field_goods_unit",
+                  "label": "单位",
+                  "type": "text"
+                },
+                {
+                  "id": "field_goods_stock",
+                  "label": "当前库存",
+                  "type": "number"
+                },
+                {
+                  "id": "field",
+                  "label": "分类",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_qgua",
+                      "label": "食品",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_fhohq",
+                      "label": "日用品",
+                      "color": "lime"
+                    },
+                    {
+                      "id": "opt_f5y9dh",
+                      "label": "电子产品",
+                      "color": "yellow"
+                    },
+                    {
+                      "id": "opt_ia1k",
+                      "label": "服装",
+                      "color": "lime"
+                    },
+                    {
+                      "id": "opt_cr294",
+                      "label": "原材料",
+                      "color": "lime"
+                    },
+                    {
+                      "id": "opt_eae8",
+                      "label": "其他",
+                      "color": "cyan"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_qgua",
+                        "label": "食品",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_fhohq",
+                        "label": "日用品",
+                        "color": "lime"
+                      },
+                      {
+                        "id": "opt_f5y9dh",
+                        "label": "电子产品",
+                        "color": "yellow"
+                      },
+                      {
+                        "id": "opt_ia1k",
+                        "label": "服装",
+                        "color": "lime"
+                      },
+                      {
+                        "id": "opt_cr294",
+                        "label": "原材料",
+                        "color": "lime"
+                      },
+                      {
+                        "id": "opt_eae8",
+                        "label": "其他",
+                        "color": "cyan"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_2",
+                  "label": "单价",
+                  "type": "number"
+                },
+                {
+                  "id": "field_3",
+                  "label": "最低库存预警",
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "id": "entity_in",
+              "name": "入库记录",
+              "fields": [
+                {
+                  "id": "field",
+                  "label": "入库流水号",
+                  "type": "autoNumber",
+                  "autoNumber": {
+                    "start": 1,
+                    "step": 1,
+                    "prefix": "RK-"
+                  },
+                  "options": [],
+                  "config": {
+                    "autoNumber": {
+                      "start": 1,
+                      "step": 1,
+                      "prefix": "RK-"
+                    }
+                  }
+                },
+                {
+                  "id": "field_in_goods",
+                  "label": "商品",
+                  "type": "relation",
+                  "targetEntity": "entity_goods",
+                  "displayField": "field_goods_name",
+                  "multiple": false,
+                  "allowCreateTargetRecord": false,
+                  "enableSearch": true,
+                  "config": {
+                    "targetEntity": "entity_goods",
+                    "displayField": "field_goods_name",
+                    "multiple": false,
+                    "allowCreateTargetRecord": false,
+                    "enableSearch": true
+                  }
+                },
+                {
+                  "id": "field_in_quantity",
+                  "label": "入库数量",
+                  "type": "number"
+                },
+                {
+                  "id": "field_in_date",
+                  "label": "入库日期",
+                  "type": "date"
+                },
+                {
+                  "id": "field_in_remark",
+                  "label": "备注",
+                  "type": "textarea"
+                }
+              ]
+            },
+            {
+              "id": "entity_out",
+              "name": "出库记录",
+              "fields": [
+                {
+                  "id": "field_out_no",
+                  "label": "出库单号",
+                  "type": "text"
+                },
+                {
+                  "id": "field_out_goods",
+                  "label": "商品",
+                  "type": "relation",
+                  "targetEntity": "entity_goods",
+                  "displayField": "field_goods_name",
+                  "multiple": false,
+                  "allowCreateTargetRecord": false,
+                  "enableSearch": true,
+                  "config": {
+                    "targetEntity": "entity_goods",
+                    "displayField": "field_goods_name",
+                    "multiple": false,
+                    "allowCreateTargetRecord": false,
+                    "enableSearch": true
+                  }
+                },
+                {
+                  "id": "field_out_quantity",
+                  "label": "出库数量",
+                  "type": "number"
+                },
+                {
+                  "id": "field_out_date",
+                  "label": "出库日期",
+                  "type": "date"
+                },
+                {
+                  "id": "field_out_remark",
+                  "label": "备注",
+                  "type": "textarea"
+                }
+              ]
+            }
+          ]
+        },
+        "ui": {
+          "pages": [
+            {
+              "id": "page-goods",
+              "title": "商品信息",
+              "type": "table",
+              "entity": "entity_goods",
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_goods_name",
+                    "field_goods_code",
+                    "field_goods_spec",
+                    "field_goods_unit",
+                    "field_goods_stock",
+                    "field",
+                    "field_2",
+                    "field_3"
+                  ],
+                  "fieldOrder": [
+                    "field_goods_name",
+                    "field_goods_code",
+                    "field_goods_spec",
+                    "field_goods_unit",
+                    "field_goods_stock",
+                    "field",
+                    "field_2",
+                    "field_3"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_goods_name",
+                    "field_goods_code",
+                    "field_goods_spec",
+                    "field_goods_unit",
+                    "field_goods_stock",
+                    "field",
+                    "field_2",
+                    "field_3"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ]
+            },
+            {
+              "id": "page-in",
+              "title": "入库记录",
+              "type": "table",
+              "entity": "entity_in",
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "field",
+                    "field_in_goods",
+                    "field_in_quantity",
+                    "field_in_date",
+                    "field_in_remark"
+                  ],
+                  "fieldOrder": [
+                    "field",
+                    "field_in_goods",
+                    "field_in_quantity",
+                    "field_in_date",
+                    "field_in_remark"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {
+                    "field": 96
+                  },
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field",
+                    "field_in_goods",
+                    "field_in_quantity",
+                    "field_in_date",
+                    "field_in_remark"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ]
+            },
+            {
+              "id": "page-out",
+              "title": "出库记录",
+              "type": "table",
+              "entity": "entity_out",
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_out_no",
+                    "field_out_goods",
+                    "field_out_quantity",
+                    "field_out_date",
+                    "field_out_remark"
+                  ],
+                  "fieldOrder": [
+                    "field_out_no",
+                    "field_out_goods",
+                    "field_out_quantity",
+                    "field_out_date",
+                    "field_out_remark"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_out_no",
+                    "field_out_goods",
+                    "field_out_quantity",
+                    "field_out_date",
+                    "field_out_remark"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ]
+            },
+            {
+              "id": "dashboard",
+              "title": "经营看板",
+              "type": "page",
+              "navKind": "dashboard",
+              "cards": [],
+              "pageSize": 100
+            }
+          ],
+          "home": {
+            "layout": "dashboard",
+            "cards": []
+          }
+        },
+        "actions": {
+          "actions": []
+        },
+        "prompts": {
+          "systemPrompt": "你是这个软件的助手，负责帮助用户使用和改进该软件。",
+          "suggestedCommands": []
+        },
+        "sampleData": [
+          {
+            "id": "rec_fec868457a194340b4",
+            "entityId": "entity_goods",
+            "data": {
+              "field_goods_name": "苹果",
+              "field_goods_code": "SP001",
+              "field_goods_spec": "箱",
+              "field_goods_unit": "箱",
+              "field_goods_stock": 140,
+              "field": "opt_qgua",
+              "field_2": 50,
+              "field_3": 20
+            }
+          },
+          {
+            "id": "rec_88bad6f3677549c5b5",
+            "entityId": "entity_goods",
+            "data": {
+              "field_goods_name": "矿泉水",
+              "field_goods_code": "SP002",
+              "field_goods_spec": "瓶",
+              "field_goods_unit": "瓶",
+              "field_goods_stock": 500,
+              "field": "opt_qgua",
+              "field_2": 2,
+              "field_3": 100
+            }
+          },
+          {
+            "id": "rec_d2f8ab5569e74067a1",
+            "entityId": "entity_goods",
+            "data": {
+              "field_goods_name": "笔记本电脑",
+              "field_goods_code": "SP003",
+              "field_goods_spec": "台",
+              "field_goods_unit": "台",
+              "field_goods_stock": 10,
+              "field": "opt_f5y9dh",
+              "field_2": 5000,
+              "field_3": 3
+            }
+          },
+          {
+            "id": "rec_5abf1038f3a4451a85",
+            "entityId": "entity_in",
+            "data": {
+              "field_in_quantity": 50,
+              "field_in_date": "2024-06-01",
+              "field_in_remark": "新批次到货",
+              "field": "RK-1",
+              "field_in_goods": [
+                {
+                  "targetRecordId": "rec_fec868457a194340b4",
+                  "displayValue": "苹果"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_d1b6f36bbc884b9686",
+            "entityId": "entity_in",
+            "data": {
+              "field_in_quantity": 200,
+              "field_in_date": "2024-06-05",
+              "field_in_remark": "夏季备货",
+              "field": "RK-2",
+              "field_in_goods": [
+                {
+                  "targetRecordId": "rec_88bad6f3677549c5b5",
+                  "displayValue": "矿泉水"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_445bcbfba44b464085",
+            "entityId": "entity_out",
+            "data": {
+              "field_out_no": "CK2024001",
+              "field_out_quantity": 20,
+              "field_out_date": "2024-06-10",
+              "field_out_remark": "客户A订单",
+              "field_out_goods": [
+                {
+                  "targetRecordId": "rec_fec868457a194340b4",
+                  "displayValue": "苹果"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_9453882d3f1649059b",
+            "entityId": "entity_out",
+            "data": {
+              "field_out_no": "CK2024002",
+              "field_out_quantity": 2,
+              "field_out_date": "2024-06-12",
+              "field_out_remark": "客户B采购",
+              "field_out_goods": [
+                {
+                  "targetRecordId": "rec_d2f8ab5569e74067a1",
+                  "displayValue": "笔记本电脑"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_a2955b96551047178c",
+            "entityId": "entity_in",
+            "data": {
+              "field_in_quantity": 10,
+              "field_in_date": "2026-07-01",
+              "field_in_remark": "111",
+              "field": "RK-3",
+              "field_in_goods": [
+                {
+                  "targetRecordId": "rec_fec868457a194340b4",
+                  "displayValue": "苹果"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_04d7c0fcbe4e464980",
+            "entityId": "entity_in",
+            "data": {
+              "field_in_quantity": 15,
+              "field_in_date": "2026-07-16",
+              "field_in_remark": "",
+              "field": "RK-4",
+              "field_in_goods": [
+                {
+                  "targetRecordId": "rec_fec868457a194340b4",
+                  "displayValue": "苹果"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_488c783f447f45b981",
+            "entityId": "entity_in",
+            "data": {
+              "field_in_quantity": 10,
+              "field_in_date": "",
+              "field_in_remark": "",
+              "field": "RK-5",
+              "field_in_goods": [
+                {
+                  "targetRecordId": "rec_fec868457a194340b4",
+                  "displayValue": "苹果"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_694b56205bf34fafb0",
+            "entityId": "entity_out",
+            "data": {
+              "field_out_no": "",
+              "field_out_quantity": 10,
+              "field_out_date": "",
+              "field_out_remark": "",
+              "field_out_goods": [
+                {
+                  "targetRecordId": "rec_fec868457a194340b4",
+                  "displayValue": "苹果"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_a939696e05224f76b5",
+            "entityId": "entity_out",
+            "data": {
+              "field_out_no": "",
+              "field_out_quantity": 10,
+              "field_out_date": "",
+              "field_out_remark": "",
+              "field_out_goods": [
+                {
+                  "targetRecordId": "rec_fec868457a194340b4",
+                  "displayValue": "苹果"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_790d4de6db76482e9f",
+            "entityId": "entity_in",
+            "data": {
+              "field_in_quantity": 15,
+              "field_in_date": "",
+              "field_in_remark": "",
+              "field": "RK-6",
+              "field_in_goods": [
+                {
+                  "targetRecordId": "rec_fec868457a194340b4",
+                  "displayValue": "苹果"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_c92760754ba04dc499",
+            "entityId": "entity_out",
+            "data": {
+              "field_out_no": "",
+              "field_out_quantity": 20,
+              "field_out_date": "",
+              "field_out_remark": "",
+              "field_out_goods": [
+                {
+                  "targetRecordId": "rec_fec868457a194340b4",
+                  "displayValue": "苹果"
+                }
+              ]
+            }
+          },
+          {
+            "id": "rec_f0299295960c41a484",
+            "entityId": "entity_in",
+            "data": {
+              "field_in_quantity": 20,
+              "field_in_date": "",
+              "field_in_remark": "",
+              "field": "RK-7",
+              "field_in_goods": [
+                {
+                  "targetRecordId": "rec_fec868457a194340b4",
+                  "displayValue": "苹果"
+                }
+              ]
+            }
+          }
+        ],
+        "businessRules": [
+          {
+            "name": "出库扣减库存",
+            "description": "新增出库记录时，扣减对应商品的当前库存",
+            "status": "active",
+            "sourceText": "出库时扣减库存：当在出库记录表中新增一条出库记录时，将该出库记录所关联的商品信息的当前库存字段值，减去本次出库的入库数量。",
+            "businessIntentJson": {
+              "supported": true,
+              "name": "出库扣减库存",
+              "summary": "新增出库记录时，扣减对应商品的当前库存",
+              "trigger": {
+                "event": "record.created",
+                "entity": "entity_out",
+                "field": null,
+                "from": null,
+                "to": null
+              },
+              "target": {
+                "entity": "entity_goods",
+                "relationField": "field_out_goods",
+                "field": "field_goods_stock"
+              },
+              "action": {
+                "operation": "decrement",
+                "value": {
+                  "type": "trigger.field",
+                  "field": "field_out_quantity",
+                  "value": null
+                }
+              },
+              "display": {
+                "when": "新增出库记录时",
+                "then": "扣减对应商品的当前库存（减少出库数量）"
+              }
+            },
+            "schemaMappingJson": {
+              "trigger": {
+                "type": "record.created",
+                "entityId": "entity_out",
+                "entityName": "出库记录",
+                "fieldId": null,
+                "fieldName": null
+              },
+              "relation": {
+                "fieldId": "field_out_goods",
+                "fieldName": "商品",
+                "targetEntityId": "entity_goods"
+              },
+              "source": {
+                "fieldId": "field_out_quantity",
+                "fieldName": "出库数量"
+              },
+              "target": {
+                "entityId": "entity_goods",
+                "entityName": "商品信息",
+                "fieldId": "field_goods_stock",
+                "fieldName": "当前库存"
+              }
+            },
+            "contractJson": {
+              "id": "rule",
+              "name": "出库扣减库存",
+              "trigger": {
+                "type": "record.created",
+                "entity": "entity_out"
+              },
+              "steps": [
+                {
+                  "id": "read_targets",
+                  "type": "read.related",
+                  "sourceEntity": "entity_out",
+                  "sourceRecord": "{{trigger.record.id}}",
+                  "field": "field_out_goods",
+                  "output": "targets"
+                },
+                {
+                  "id": "update_target",
+                  "type": "update.field",
+                  "entity": "entity_goods",
+                  "scope": "each targets",
+                  "record": "{{targets.id}}",
+                  "field": "field_goods_stock",
+                  "operation": "decrement",
+                  "value": "{{trigger.record.field_out_quantity}}"
+                },
+                {
+                  "id": "write_log",
+                  "type": "log.run"
+                }
+              ],
+              "idempotency": {
+                "key": "{{rule.id}}:{{trigger.entity}}:{{trigger.record.id}}"
+              }
+            }
+          },
+          {
+            "name": "入库增加库存",
+            "description": "新增入库记录时，增加关联商品的库存数量",
+            "status": "active",
+            "sourceText": "入库时增加商品库存",
+            "businessIntentJson": {
+              "supported": true,
+              "name": "入库增加库存",
+              "summary": "新增入库记录时，增加关联商品的库存数量",
+              "trigger": {
+                "event": "record.created",
+                "entity": "entity_in"
+              },
+              "target": {
+                "entity": "entity_goods",
+                "relationField": "field_in_goods",
+                "field": "field_goods_stock"
+              },
+              "action": {
+                "operation": "increment",
+                "value": {
+                  "type": "trigger.field",
+                  "field": "field_in_quantity"
+                }
+              },
+              "display": {
+                "when": "新增入库记录时",
+                "then": "增加关联商品的库存，增加数量为入库数量"
+              }
+            },
+            "schemaMappingJson": {
+              "trigger": {
+                "type": "record.created",
+                "entityId": "entity_in",
+                "entityName": "入库记录",
+                "fieldId": null,
+                "fieldName": null
+              },
+              "relation": {
+                "fieldId": "field_in_goods",
+                "fieldName": "商品",
+                "targetEntityId": "entity_goods"
+              },
+              "source": {
+                "fieldId": "field_in_quantity",
+                "fieldName": "入库数量"
+              },
+              "target": {
+                "entityId": "entity_goods",
+                "entityName": "商品信息",
+                "fieldId": "field_goods_stock",
+                "fieldName": "当前库存"
+              }
+            },
+            "contractJson": {
+              "id": "rule",
+              "name": "入库增加库存",
+              "trigger": {
+                "type": "record.created",
+                "entity": "entity_in"
+              },
+              "steps": [
+                {
+                  "id": "read_targets",
+                  "type": "read.related",
+                  "sourceEntity": "entity_in",
+                  "sourceRecord": "{{trigger.record.id}}",
+                  "field": "field_in_goods",
+                  "output": "targets"
+                },
+                {
+                  "id": "update_target",
+                  "type": "update.field",
+                  "entity": "entity_goods",
+                  "scope": "each targets",
+                  "record": "{{targets.id}}",
+                  "field": "field_goods_stock",
+                  "operation": "increment",
+                  "value": "{{trigger.record.field_in_quantity}}"
+                },
+                {
+                  "id": "write_log",
+                  "type": "log.run"
+                }
+              ],
+              "idempotency": {
+                "key": "{{rule.id}}:{{trigger.entity}}:{{trigger.record.id}}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "app",
+      "name": "家庭记账",
+      "description": "管理家庭日常收支，按分类和成员统计开销。",
+      "category": "未分类",
+      "icon": "wallet",
+      "payload": {
+        "manifest": {
+          "name": "家庭记账",
+          "description": "管理家庭日常收支，按分类和成员统计开销。",
+          "icon": "wallet",
+          "packageVersion": "2.0",
+          "id": "app",
+          "version": "1.0.0",
+          "author": "local-user",
+          "createdBy": "ai",
+          "tags": []
+        },
+        "schema": {
+          "entities": [
+            {
+              "id": "entity_transaction",
+              "name": "账目记录",
+              "fields": [
+                {
+                  "id": "field_date",
+                  "label": "日期",
+                  "type": "date"
+                },
+                {
+                  "id": "field_amount",
+                  "label": "金额",
+                  "type": "number"
+                },
+                {
+                  "id": "field_type",
+                  "label": "收支类型",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_hnu7",
+                      "label": "收入",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_hnsb",
+                      "label": "支出",
+                      "color": "pink"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_hnu7",
+                        "label": "收入",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_hnsb",
+                        "label": "支出",
+                        "color": "pink"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_category",
+                  "label": "分类",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_qvku",
+                      "label": "餐饮",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_on30",
+                      "label": "购物",
+                      "color": "gray"
+                    },
+                    {
+                      "id": "opt_e60m",
+                      "label": "交通",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_e11s",
+                      "label": "住房",
+                      "color": "lime"
+                    },
+                    {
+                      "id": "opt_j1q9",
+                      "label": "水电",
+                      "color": "green"
+                    },
+                    {
+                      "id": "opt_frr3",
+                      "label": "娱乐",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_esvw",
+                      "label": "医疗",
+                      "color": "gray"
+                    },
+                    {
+                      "id": "opt_hy0p",
+                      "label": "教育",
+                      "color": "red"
+                    },
+                    {
+                      "id": "opt_alx5fv",
+                      "label": "其他支出",
+                      "color": "green"
+                    },
+                    {
+                      "id": "opt_gqv3",
+                      "label": "工资",
+                      "color": "red"
+                    },
+                    {
+                      "id": "opt_fzuj",
+                      "label": "奖金",
+                      "color": "pink"
+                    },
+                    {
+                      "id": "opt_kicc",
+                      "label": "理财",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_alx5hr",
+                      "label": "其他收入",
+                      "color": "yellow"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_qvku",
+                        "label": "餐饮",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_on30",
+                        "label": "购物",
+                        "color": "gray"
+                      },
+                      {
+                        "id": "opt_e60m",
+                        "label": "交通",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_e11s",
+                        "label": "住房",
+                        "color": "lime"
+                      },
+                      {
+                        "id": "opt_j1q9",
+                        "label": "水电",
+                        "color": "green"
+                      },
+                      {
+                        "id": "opt_frr3",
+                        "label": "娱乐",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_esvw",
+                        "label": "医疗",
+                        "color": "gray"
+                      },
+                      {
+                        "id": "opt_hy0p",
+                        "label": "教育",
+                        "color": "red"
+                      },
+                      {
+                        "id": "opt_alx5fv",
+                        "label": "其他支出",
+                        "color": "green"
+                      },
+                      {
+                        "id": "opt_gqv3",
+                        "label": "工资",
+                        "color": "red"
+                      },
+                      {
+                        "id": "opt_fzuj",
+                        "label": "奖金",
+                        "color": "pink"
+                      },
+                      {
+                        "id": "opt_kicc",
+                        "label": "理财",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_alx5hr",
+                        "label": "其他收入",
+                        "color": "yellow"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_member",
+                  "label": "成员",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_k1z4",
+                      "label": "爸爸",
+                      "color": "gray"
+                    },
+                    {
+                      "id": "opt_fpxc",
+                      "label": "妈妈",
+                      "color": "gray"
+                    },
+                    {
+                      "id": "opt_g1s7",
+                      "label": "孩子",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_byozwu",
+                      "label": "家庭共用",
+                      "color": "cyan"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_k1z4",
+                        "label": "爸爸",
+                        "color": "gray"
+                      },
+                      {
+                        "id": "opt_fpxc",
+                        "label": "妈妈",
+                        "color": "gray"
+                      },
+                      {
+                        "id": "opt_g1s7",
+                        "label": "孩子",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_byozwu",
+                        "label": "家庭共用",
+                        "color": "cyan"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_remark",
+                  "label": "备注",
+                  "type": "textarea"
+                }
+              ]
+            },
+            {
+              "id": "entity_category",
+              "name": "分类",
+              "fields": [
+                {
+                  "id": "field_name",
+                  "label": "分类名称",
+                  "type": "text"
+                },
+                {
+                  "id": "field_type",
+                  "label": "类型",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_hnu7",
+                      "label": "收入",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_hnsb",
+                      "label": "支出",
+                      "color": "pink"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_hnu7",
+                        "label": "收入",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_hnsb",
+                        "label": "支出",
+                        "color": "pink"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "entity_member",
+              "name": "家庭成员",
+              "fields": [
+                {
+                  "id": "field_name",
+                  "label": "姓名",
+                  "type": "text"
+                },
+                {
+                  "id": "field_role",
+                  "label": "角色",
+                  "type": "text"
+                }
+              ]
+            }
+          ]
+        },
+        "ui": {
+          "pages": [
+            {
+              "id": "page-transactions",
+              "title": "收支记录",
+              "type": "table",
+              "entity": "entity_transaction",
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_date",
+                    "field_amount",
+                    "field_type",
+                    "field_category",
+                    "field_member",
+                    "field_remark"
+                  ],
+                  "fieldOrder": [
+                    "field_date",
+                    "field_amount",
+                    "field_type",
+                    "field_category",
+                    "field_member",
+                    "field_remark"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_date",
+                    "field_amount",
+                    "field_type",
+                    "field_category",
+                    "field_member",
+                    "field_remark"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ]
+            },
+            {
+              "id": "page-categories",
+              "title": "分类管理",
+              "type": "table",
+              "entity": "entity_category",
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_name",
+                    "field_type"
+                  ],
+                  "fieldOrder": [
+                    "field_name",
+                    "field_type"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_name",
+                    "field_type"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ]
+            },
+            {
+              "id": "page-members",
+              "title": "家庭成员",
+              "type": "table",
+              "entity": "entity_member",
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_name",
+                    "field_role"
+                  ],
+                  "fieldOrder": [
+                    "field_name",
+                    "field_role"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_name",
+                    "field_role"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ]
+            },
+            {
+              "id": "entity-transaction",
+              "title": "收入流水",
+              "type": "page",
+              "entity": "entity_transaction",
+              "navKind": "page",
+              "features": [
+                "create",
+                "edit",
+                "delete",
+                "search",
+                "export"
+              ],
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_date",
+                    "field_amount",
+                    "field_type",
+                    "field_category",
+                    "field_member",
+                    "field_remark"
+                  ],
+                  "fieldOrder": [
+                    "field_date",
+                    "field_amount",
+                    "field_type",
+                    "field_category",
+                    "field_member",
+                    "field_remark"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_date",
+                    "field_amount",
+                    "field_type",
+                    "field_category",
+                    "field_member",
+                    "field_remark"
+                  ],
+                  "filters": [
+                    {
+                      "field": "field_type",
+                      "op": "eq",
+                      "value": "收入"
+                    }
+                  ],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ],
+              "pageSize": 100
+            },
+            {
+              "id": "entity-transaction-2",
+              "title": "支出流水",
+              "type": "page",
+              "entity": "entity_transaction",
+              "navKind": "page",
+              "features": [
+                "create",
+                "edit",
+                "delete",
+                "search",
+                "export"
+              ],
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_date",
+                    "field_amount",
+                    "field_type",
+                    "field_category",
+                    "field_member",
+                    "field_remark"
+                  ],
+                  "fieldOrder": [
+                    "field_date",
+                    "field_amount",
+                    "field_type",
+                    "field_category",
+                    "field_member",
+                    "field_remark"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_date",
+                    "field_amount",
+                    "field_type",
+                    "field_category",
+                    "field_member",
+                    "field_remark"
+                  ],
+                  "filters": [
+                    {
+                      "field": "field_type",
+                      "op": "eq",
+                      "value": "支出"
+                    }
+                  ],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ],
+              "pageSize": 100
+            }
+          ],
+          "home": {
+            "layout": "dashboard",
+            "cards": []
+          }
+        },
+        "actions": {
+          "actions": []
+        },
+        "prompts": {
+          "systemPrompt": "你是这个软件的助手，负责帮助用户使用和改进该软件。",
+          "suggestedCommands": []
+        },
+        "sampleData": [
+          {
+            "id": "rec_0138f70184074251b5",
+            "entityId": "entity_category",
+            "data": {
+              "field_name": "餐饮",
+              "field_type": "opt_hnsb"
+            }
+          },
+          {
+            "id": "rec_0efa2684e0c74036b0",
+            "entityId": "entity_category",
+            "data": {
+              "field_name": "购物",
+              "field_type": "opt_hnsb"
+            }
+          },
+          {
+            "id": "rec_2065f2f6d1224e9d92",
+            "entityId": "entity_category",
+            "data": {
+              "field_name": "交通",
+              "field_type": "opt_hnsb"
+            }
+          },
+          {
+            "id": "rec_ccba39969fdb4f2c81",
+            "entityId": "entity_category",
+            "data": {
+              "field_name": "住房",
+              "field_type": "opt_hnsb"
+            }
+          },
+          {
+            "id": "rec_f0ab2aebc3d64f079e",
+            "entityId": "entity_category",
+            "data": {
+              "field_name": "水电",
+              "field_type": "opt_hnsb"
+            }
+          },
+          {
+            "id": "rec_da35c04e6ac648738a",
+            "entityId": "entity_category",
+            "data": {
+              "field_name": "娱乐",
+              "field_type": "opt_hnsb"
+            }
+          },
+          {
+            "id": "rec_30fb73ed90314275ad",
+            "entityId": "entity_category",
+            "data": {
+              "field_name": "医疗",
+              "field_type": "opt_hnsb"
+            }
+          },
+          {
+            "id": "rec_960786b0e26948c2bd",
+            "entityId": "entity_category",
+            "data": {
+              "field_name": "教育",
+              "field_type": "opt_hnsb"
+            }
+          },
+          {
+            "id": "rec_3cad79c48d5940c3bb",
+            "entityId": "entity_category",
+            "data": {
+              "field_name": "工资",
+              "field_type": "opt_hnu7"
+            }
+          },
+          {
+            "id": "rec_bad50f1f29b7402fa4",
+            "entityId": "entity_category",
+            "data": {
+              "field_name": "奖金",
+              "field_type": "opt_hnu7"
+            }
+          },
+          {
+            "id": "rec_ccbaeb182d004f218d",
+            "entityId": "entity_category",
+            "data": {
+              "field_name": "理财",
+              "field_type": "opt_hnu7"
+            }
+          },
+          {
+            "id": "rec_7b543314b96842119e",
+            "entityId": "entity_member",
+            "data": {
+              "field_name": "爸爸",
+              "field_role": "父亲"
+            }
+          },
+          {
+            "id": "rec_46bbf6e9b58b44bcb8",
+            "entityId": "entity_member",
+            "data": {
+              "field_name": "妈妈",
+              "field_role": "母亲"
+            }
+          },
+          {
+            "id": "rec_585b6ac996f14e3781",
+            "entityId": "entity_member",
+            "data": {
+              "field_name": "孩子",
+              "field_role": "子女"
+            }
+          },
+          {
+            "id": "rec_3b5ba125609d48759b",
+            "entityId": "entity_transaction",
+            "data": {
+              "field_date": "2024-01-05",
+              "field_amount": 35,
+              "field_type": "opt_hnsb",
+              "field_category": "opt_qvku",
+              "field_member": "opt_g1s7",
+              "field_remark": "早餐"
+            }
+          },
+          {
+            "id": "rec_14a518cb62ac431cb2",
+            "entityId": "entity_transaction",
+            "data": {
+              "field_date": "2024-01-06",
+              "field_amount": 268,
+              "field_type": "opt_hnsb",
+              "field_category": "opt_on30",
+              "field_member": "opt_byozwu",
+              "field_remark": "超市采购日用品"
+            }
+          },
+          {
+            "id": "rec_9ddf68b1e36d45e385",
+            "entityId": "entity_transaction",
+            "data": {
+              "field_date": "2024-01-07",
+              "field_amount": 100,
+              "field_type": "opt_hnsb",
+              "field_category": "opt_e60m",
+              "field_member": "opt_fpxc",
+              "field_remark": "地铁卡充值"
+            }
+          },
+          {
+            "id": "rec_d2e1ac099068476296",
+            "entityId": "entity_transaction",
+            "data": {
+              "field_date": "2024-01-08",
+              "field_amount": 320,
+              "field_type": "opt_hnsb",
+              "field_category": "opt_j1q9",
+              "field_member": "opt_byozwu",
+              "field_remark": "1月电费"
+            }
+          },
+          {
+            "id": "rec_e0db54b993524ff4b7",
+            "entityId": "entity_transaction",
+            "data": {
+              "field_date": "2024-01-09",
+              "field_amount": 88,
+              "field_type": "opt_hnsb",
+              "field_category": "opt_frr3",
+              "field_member": "opt_k1z4",
+              "field_remark": "看电影"
+            }
+          },
+          {
+            "id": "rec_c3bf5b87fd1b4f97b2",
+            "entityId": "entity_transaction",
+            "data": {
+              "field_date": "2024-01-10",
+              "field_amount": 56,
+              "field_type": "opt_hnsb",
+              "field_category": "opt_esvw",
+              "field_member": "opt_byozwu",
+              "field_remark": "常备药品"
+            }
+          },
+          {
+            "id": "rec_a745f86ff7544d86a1",
+            "entityId": "entity_transaction",
+            "data": {
+              "field_date": "2024-01-05",
+              "field_amount": 15000,
+              "field_type": "opt_hnu7",
+              "field_category": "opt_gqv3",
+              "field_member": "opt_k1z4",
+              "field_remark": "1月工资"
+            }
+          },
+          {
+            "id": "rec_7974160ac19f48f982",
+            "entityId": "entity_transaction",
+            "data": {
+              "field_date": "2024-01-06",
+              "field_amount": 8000,
+              "field_type": "opt_hnu7",
+              "field_category": "opt_gqv3",
+              "field_member": "opt_fpxc",
+              "field_remark": "1月工资"
+            }
+          },
+          {
+            "id": "rec_b7ef948e4f59478d81",
+            "entityId": "entity_transaction",
+            "data": {
+              "field_date": "2024-01-10",
+              "field_amount": 500,
+              "field_type": "opt_hnu7",
+              "field_category": "opt_kicc",
+              "field_member": "opt_byozwu",
+              "field_remark": "理财收益"
+            }
+          },
+          {
+            "id": "rec_d2ff9e4546564defb6",
+            "entityId": "entity_transaction",
+            "data": {
+              "field_date": "2024-01-12",
+              "field_amount": 5000,
+              "field_type": "opt_hnu7",
+              "field_category": "opt_fzuj",
+              "field_member": "opt_k1z4",
+              "field_remark": "年终奖"
+            }
+          }
+        ],
+        "businessRules": []
+      }
+    },
+    {
+      "id": "budget-book-2",
+      "name": "作业管理",
+      "description": "记录收入、支出、分类和月度统计。",
+      "category": "教育",
+      "icon": "wallet",
+      "payload": {
+        "manifest": {
+          "packageVersion": "2.0",
+          "id": "budget-book",
+          "name": "作业管理",
+          "description": "记录收入、支出、分类和月度统计。",
+          "icon": "wallet",
+          "version": "1.0.0",
+          "author": "local-user",
+          "createdBy": "ai",
+          "tags": [
+            "finance",
+            "personal"
+          ],
+          "category": "教育"
+        },
+        "schema": {
+          "entities": [
+            {
+              "id": "table",
+              "name": "科目",
+              "description": "管理不同学科科目信息",
+              "fields": [
+                {
+                  "id": "name",
+                  "label": "名称",
+                  "type": "text"
+                },
+                {
+                  "id": "field",
+                  "label": "作业描述",
+                  "type": "textarea",
+                  "placeholder": "",
+                  "options": []
+                },
+                {
+                  "id": "field_2",
+                  "label": "教师",
+                  "type": "text"
+                },
+                {
+                  "id": "field_3",
+                  "label": "日期",
+                  "type": "date",
+                  "options": [],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_m974",
+                        "label": "红色",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_nbcl",
+                        "label": "蓝色",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_mbf7",
+                        "label": "绿色",
+                        "color": "green"
+                      },
+                      {
+                        "id": "opt_rpym",
+                        "label": "黄色",
+                        "color": "purple"
+                      },
+                      {
+                        "id": "opt_m087",
+                        "label": "紫色",
+                        "color": "blue"
+                      }
+                    ]
+                  },
+                  "format": "yyyy-mm-dd"
+                }
+              ]
+            }
+          ]
+        },
+        "ui": {
+          "home": {
+            "layout": "dashboard",
+            "cards": [
+              {
+                "type": "stat",
+                "title": "总支出",
+                "entity": "transaction",
+                "operation": "sum",
+                "field": "amount",
+                "filter": {
+                  "type": "支出"
+                }
+              },
+              {
+                "type": "quickAction",
+                "title": "新增账目",
+                "action": "openCreateForm",
+                "entity": "transaction"
+              }
+            ]
+          },
+          "pages": [
+            {
+              "id": "table-list",
+              "title": "作业列表",
+              "type": "table",
+              "entity": "table",
+              "navKind": "table",
+              "features": [
+                "create",
+                "edit",
+                "delete",
+                "search",
+                "export"
+              ],
+              "views": [
+                {
+                  "visibleFields": [
+                    "name",
+                    "field",
+                    "field_2",
+                    "field_3"
+                  ],
+                  "fieldOrder": [
+                    "name",
+                    "field",
+                    "field_2",
+                    "field_3"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {
+                    "field_2": 118,
+                    "field_3": 534,
+                    "name": 106,
+                    "field": 214
+                  },
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "name",
+                    "field",
+                    "field_2",
+                    "field_3"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ],
+              "pageSize": 100
+            }
+          ]
+        },
+        "actions": {
+          "actions": [
+            {
+              "id": "monthly_summary",
+              "name": "生成月度总结",
+              "type": "ai.generateText",
+              "input": {
+                "records": "transaction"
+              },
+              "prompt": "根据这些账目数据，生成一段简洁的月度收支总结，指出主要支出类别和节省建议。"
+            },
+            {
+              "id": "act",
+              "label": "新建作业",
+              "type": "data.createRecord",
+              "entity": "table_2",
+              "color": "brand",
+              "name": "act"
+            }
+          ]
+        },
+        "prompts": {
+          "systemPrompt": "你是家庭记账本助手，帮助用户记录、统计和优化个人收支。",
+          "suggestedCommands": [
+            "增加旅游预算功能",
+            "生成本月总结",
+            "添加一个按分类统计页面"
+          ]
+        },
+        "sampleData": [
+          {
+            "id": "rec_1de186cf582440589c",
+            "entityId": "table",
+            "data": {
+              "name": "数学",
+              "field": "数学分析与代数",
+              "field_2": "张老师",
+              "field_3": "2026-07-06"
+            }
+          },
+          {
+            "id": "rec_3d7aa44cd844432094",
+            "entityId": "table",
+            "data": {
+              "name": "语文",
+              "field": "阅读理解与写作",
+              "field_2": "李老师",
+              "field_3": "2026-07-06"
+            }
+          },
+          {
+            "id": "rec_06b4518d9c824b49a6",
+            "entityId": "table",
+            "data": {
+              "name": "英语",
+              "field": "词汇与语法",
+              "field_2": "王老师",
+              "field_3": "2026-07-06"
+            }
+          },
+          {
+            "id": "rec_83011dffab5b4d378d",
+            "entityId": "table",
+            "data": {
+              "name": "物理",
+              "field": "力学与运动学",
+              "field_2": "陈老师",
+              "field_3": "2026-07-06"
+            }
+          }
+        ],
+        "businessRules": []
+      }
+    },
+    {
+      "id": "contact-book",
+      "name": "通讯录",
+      "description": "记录姓名、电话、邮箱、关系和备注。",
+      "category": "未分类",
+      "icon": "app",
+      "payload": {
+        "manifest": {
+          "packageVersion": "2.0",
+          "id": "contact-book",
+          "name": "通讯录",
+          "description": "记录姓名、电话、邮箱、关系和备注。",
+          "icon": "app",
+          "version": "1.0.0",
+          "author": "local-user",
+          "createdBy": "ai",
+          "tags": [
+            "generated"
+          ]
+        },
+        "schema": {
+          "entities": [
+            {
+              "id": "contact",
+              "name": "联系人",
+              "fields": [
+                {
+                  "id": "name",
+                  "label": "姓名",
+                  "type": "text"
+                },
+                {
+                  "id": "phone",
+                  "label": "电话",
+                  "type": "text"
+                },
+                {
+                  "id": "email",
+                  "label": "邮箱",
+                  "type": "text"
+                },
+                {
+                  "id": "relationship",
+                  "label": "关系",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_g150",
+                      "label": "家人",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_hzj4",
+                      "label": "朋友",
+                      "color": "gray"
+                    },
+                    {
+                      "id": "opt_eq67",
+                      "label": "同事",
+                      "color": "yellow"
+                    },
+                    {
+                      "id": "opt_g4id",
+                      "label": "客户",
+                      "color": "red"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_g150",
+                        "label": "家人",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_hzj4",
+                        "label": "朋友",
+                        "color": "gray"
+                      },
+                      {
+                        "id": "opt_eq67",
+                        "label": "同事",
+                        "color": "yellow"
+                      },
+                      {
+                        "id": "opt_g4id",
+                        "label": "客户",
+                        "color": "red"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "note",
+                  "label": "备注",
+                  "type": "textarea"
+                },
+                {
+                  "id": "field",
+                  "label": "公司",
+                  "type": "text"
+                },
+                {
+                  "id": "field_2",
+                  "label": "职位",
+                  "type": "text"
+                },
+                {
+                  "id": "field_3",
+                  "label": "地址",
+                  "type": "text"
+                },
+                {
+                  "id": "field_4",
+                  "label": "生日",
+                  "type": "date"
+                }
+              ]
+            }
+          ]
+        },
+        "ui": {
+          "home": {
+            "layout": "dashboard",
+            "cards": [
+              {
+                "type": "stat",
+                "title": "联系人总数",
+                "entity": "contact",
+                "operation": "count"
+              }
+            ]
+          },
+          "pages": [
+            {
+              "id": "contact-list",
+              "title": "联系人列表",
+              "type": "table",
+              "entity": "contact",
+              "features": [
+                "create",
+                "edit",
+                "delete",
+                "search",
+                "export"
+              ],
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "name",
+                    "phone",
+                    "email",
+                    "relationship",
+                    "note",
+                    "field",
+                    "field_2",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "fieldOrder": [
+                    "name",
+                    "phone",
+                    "email",
+                    "relationship",
+                    "note",
+                    "field",
+                    "field_2",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {
+                    "name": 150,
+                    "phone": 160,
+                    "email": 170
+                  },
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "name",
+                    "phone",
+                    "email",
+                    "relationship",
+                    "note",
+                    "field",
+                    "field_2",
+                    "field_3",
+                    "field_4"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ]
+            },
+            {
+              "id": "contact-chart",
+              "title": "关系统计",
+              "type": "page",
+              "entity": "contact",
+              "chart": {
+                "type": "bar",
+                "groupBy": "relationship",
+                "value": "count"
+              },
+              "pageSize": 100
+            }
+          ]
+        },
+        "actions": {
+          "actions": [
+            {
+              "id": "query_contact",
+              "name": "查询联系人",
+              "type": "data.queryRecords",
+              "input": {
+                "records": "contact"
+              }
+            },
+            {
+              "id": "export_contact",
+              "name": "导出联系人 CSV",
+              "type": "export.csv",
+              "input": {
+                "records": "contact"
+              }
+            }
+          ]
+        },
+        "prompts": {
+          "systemPrompt": "你是联系人通讯录助手，帮助用户管理联系人。",
+          "suggestedCommands": [
+            "增加生日字段",
+            "增加最近联系日期"
+          ]
+        },
+        "sampleData": [
+          {
+            "id": "rec_21bbbed514a1453b90",
+            "entityId": "contact",
+            "data": {
+              "name": "张三",
+              "phone": "13800138001",
+              "email": "zhangsan@example.com",
+              "relationship": "opt_eq67",
+              "note": "重要客户联系人",
+              "field": "阿里巴巴",
+              "field_2": "技术经理",
+              "field_3": "杭州市余杭区",
+              "field_4": "1988-05-15"
+            }
+          },
+          {
+            "id": "rec_3252a4135aeb425987",
+            "entityId": "contact",
+            "data": {
+              "name": "李四",
+              "phone": "13900139002",
+              "email": "lisi@example.com",
+              "relationship": "opt_hzj4",
+              "note": "大学同学",
+              "field": "腾讯",
+              "field_2": "产品总监",
+              "field_3": "深圳市南山区",
+              "field_4": "1985-11-20"
+            }
+          },
+          {
+            "id": "rec_0d3a549be1634995b6",
+            "entityId": "contact",
+            "data": {
+              "name": "王五",
+              "phone": "13700137003",
+              "email": "wangwu@example.com",
+              "relationship": "opt_g150",
+              "note": "弟弟",
+              "field": "",
+              "field_2": "",
+              "field_3": "北京市海淀区",
+              "field_4": "1992-08-08"
+            }
+          }
+        ],
+        "businessRules": []
+      }
+    },
+    {
+      "id": "budget-book",
+      "name": "简单记账",
+      "description": "记录收入、支出、分类和统计。",
+      "category": "财务",
+      "icon": "wallet",
+      "payload": {
+        "manifest": {
+          "packageVersion": "2.0",
+          "id": "budget-book",
+          "name": "简单记账",
+          "description": "记录收入、支出、分类和统计。",
+          "icon": "wallet",
+          "version": "1.0.0",
+          "author": "local-user",
+          "createdBy": "ai",
+          "tags": [
+            "finance",
+            "personal"
+          ],
+          "category": "财务"
+        },
+        "schema": {
+          "entities": [
+            {
+              "id": "transaction",
+              "name": "账目",
+              "fields": [
+                {
+                  "id": "field",
+                  "label": "项目",
+                  "type": "text",
+                  "placeholder": "",
+                  "options": []
+                },
+                {
+                  "id": "type",
+                  "label": "类型",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_hnu7",
+                      "label": "收入",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_hnsb",
+                      "label": "支出",
+                      "color": "pink"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_hnu7",
+                        "label": "收入",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_hnsb",
+                        "label": "支出",
+                        "color": "pink"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "amount",
+                  "label": "金额",
+                  "type": "number"
+                },
+                {
+                  "id": "category",
+                  "label": "分类",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_qvku",
+                      "label": "餐饮",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_e60m",
+                      "label": "交通",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_on30",
+                      "label": "购物",
+                      "color": "gray"
+                    },
+                    {
+                      "id": "opt_gqv3",
+                      "label": "工资",
+                      "color": "red"
+                    },
+                    {
+                      "id": "opt_eae8",
+                      "label": "其他",
+                      "color": "cyan"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_qvku",
+                        "label": "餐饮",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_e60m",
+                        "label": "交通",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_on30",
+                        "label": "购物",
+                        "color": "gray"
+                      },
+                      {
+                        "id": "opt_gqv3",
+                        "label": "工资",
+                        "color": "red"
+                      },
+                      {
+                        "id": "opt_eae8",
+                        "label": "其他",
+                        "color": "cyan"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "date",
+                  "label": "日期",
+                  "type": "date"
+                },
+                {
+                  "id": "note",
+                  "label": "备注",
+                  "type": "textarea"
+                }
+              ]
+            }
+          ]
+        },
+        "ui": {
+          "home": {
+            "layout": "dashboard",
+            "cards": [
+              {
+                "type": "stat",
+                "title": "总支出",
+                "entity": "transaction",
+                "operation": "sum",
+                "field": "amount",
+                "filter": {
+                  "type": "支出"
+                }
+              },
+              {
+                "type": "quickAction",
+                "title": "新增账目",
+                "action": "openCreateForm",
+                "entity": "transaction"
+              }
+            ]
+          },
+          "pages": [
+            {
+              "id": "transaction-list",
+              "title": "收支记录",
+              "type": "table",
+              "entity": "transaction",
+              "features": [
+                "create",
+                "edit",
+                "delete",
+                "search",
+                "export"
+              ],
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "field",
+                    "type",
+                    "amount",
+                    "category",
+                    "date",
+                    "note"
+                  ],
+                  "fieldOrder": [
+                    "field",
+                    "type",
+                    "amount",
+                    "category",
+                    "date",
+                    "note"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field",
+                    "type",
+                    "amount",
+                    "category",
+                    "date",
+                    "note"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ]
+            }
+          ]
+        },
+        "actions": {
+          "actions": [
+            {
+              "id": "monthly_summary",
+              "name": "生成月度总结",
+              "type": "ai.generateText",
+              "input": {
+                "records": "transaction"
+              },
+              "prompt": "根据这些账目数据，生成一段简洁的月度收支总结，指出主要支出类别和节省建议。"
+            }
+          ]
+        },
+        "prompts": {
+          "systemPrompt": "你是家庭记账本助手，帮助用户记录、统计和优化个人收支。",
+          "suggestedCommands": [
+            "增加旅游预算功能",
+            "生成本月总结",
+            "添加一个按分类统计页面"
+          ]
+        },
+        "sampleData": [
+          {
+            "id": "rec_fdfdbc3c4d38450d9e",
+            "entityId": "transaction",
+            "data": {
+              "field": "工资收入",
+              "type": "opt_hnu7",
+              "amount": 15000,
+              "category": "opt_gqv3",
+              "date": "2026-07-06",
+              "note": "2月份工资"
+            }
+          },
+          {
+            "id": "rec_7e24902cee2348d0b0",
+            "entityId": "transaction",
+            "data": {
+              "field": "兼职收入",
+              "type": "opt_hnu7",
+              "amount": 3000,
+              "category": "opt_gqv3",
+              "date": "2025-02-05",
+              "note": "周末兼职"
+            }
+          },
+          {
+            "id": "rec_113f590de655442d82",
+            "entityId": "transaction",
+            "data": {
+              "field": "理财收益",
+              "type": "opt_hnu7",
+              "amount": 520,
+              "category": "opt_eae8",
+              "date": "2025-02-10",
+              "note": "基金收益"
+            }
+          },
+          {
+            "id": "rec_39e332615b1e40eaa9",
+            "entityId": "transaction",
+            "data": {
+              "field": "年终奖",
+              "type": "opt_hnu7",
+              "amount": 20000,
+              "category": "opt_gqv3",
+              "date": "2025-01-25",
+              "note": "2024年度年终奖"
+            }
+          },
+          {
+            "id": "rec_77454356fab24a1ead",
+            "entityId": "transaction",
+            "data": {
+              "field": "项目奖金",
+              "type": "opt_hnu7",
+              "amount": 5000,
+              "category": "opt_gqv3",
+              "date": "2025-02-15",
+              "note": "项目交付奖金"
+            }
+          },
+          {
+            "id": "rec_b35ecf1d715c4545b9",
+            "entityId": "transaction",
+            "data": {
+              "field": "投资分红",
+              "type": "opt_hnu7",
+              "amount": 1500,
+              "category": "opt_eae8",
+              "date": "2025-02-20",
+              "note": "股票分红"
+            }
+          },
+          {
+            "id": "rec_b4dcf7bb43b847528f",
+            "entityId": "transaction",
+            "data": {
+              "field": "午餐",
+              "type": "opt_hnsb",
+              "amount": 35,
+              "category": "opt_qvku",
+              "date": "2025-02-03",
+              "note": "公司食堂午餐"
+            }
+          },
+          {
+            "id": "rec_ea232628465a42b680",
+            "entityId": "transaction",
+            "data": {
+              "field": "打车",
+              "type": "opt_hnsb",
+              "amount": 28,
+              "category": "opt_e60m",
+              "date": "2025-02-06",
+              "note": "早上打车上班"
+            }
+          },
+          {
+            "id": "rec_bf4e2132354249dfb4",
+            "entityId": "transaction",
+            "data": {
+              "field": "网购日用品",
+              "type": "opt_hnsb",
+              "amount": 199,
+              "category": "opt_on30",
+              "date": "2025-02-12",
+              "note": "超市线上购物"
+            }
+          },
+          {
+            "id": "rec_b16da1ec5c7c47f3b6",
+            "entityId": "transaction",
+            "data": {
+              "field": "朋友聚餐",
+              "type": "opt_hnsb",
+              "amount": 186,
+              "category": "opt_qvku",
+              "date": "2025-02-18",
+              "note": "周末和朋友们吃饭"
+            }
+          }
+        ],
+        "businessRules": []
+      }
+    },
+    {
+      "id": "event-planner",
+      "name": "日程管理",
+      "description": "记录活动名称、日期、地点、预算和筹备状态。",
+      "category": "效率",
+      "icon": "app",
+      "payload": {
+        "manifest": {
+          "packageVersion": "2.0",
+          "id": "event-planner",
+          "name": "日程管理",
+          "description": "记录活动名称、日期、地点、预算和筹备状态。",
+          "icon": "app",
+          "version": "1.0.0",
+          "author": "local-user",
+          "createdBy": "ai",
+          "tags": [
+            "generated"
+          ],
+          "category": "效率"
+        },
+        "schema": {
+          "entities": [
+            {
+              "id": "event",
+              "name": "活动",
+              "fields": [
+                {
+                  "id": "name",
+                  "label": "任务名称",
+                  "type": "text",
+                  "placeholder": "",
+                  "options": []
+                },
+                {
+                  "id": "venue",
+                  "label": "地点",
+                  "type": "text"
+                },
+                {
+                  "id": "status",
+                  "label": "状态",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_kuncs",
+                      "label": "计划中",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_lq5q4",
+                      "label": "进行中",
+                      "color": "blue"
+                    },
+                    {
+                      "id": "opt_e7hbq",
+                      "label": "已完成",
+                      "color": "green"
+                    },
+                    {
+                      "id": "opt_e68dg",
+                      "label": "已取消",
+                      "color": "red"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_kuncs",
+                        "label": "计划中",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_lq5q4",
+                        "label": "进行中",
+                        "color": "blue"
+                      },
+                      {
+                        "id": "opt_e7hbq",
+                        "label": "已完成",
+                        "color": "green"
+                      },
+                      {
+                        "id": "opt_e68dg",
+                        "label": "已取消",
+                        "color": "red"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field",
+                  "label": "开始时间",
+                  "type": "date",
+                  "format": "yyyy-mm-dd",
+                  "options": []
+                },
+                {
+                  "id": "field_2",
+                  "label": "结束时间",
+                  "type": "date",
+                  "format": "yyyy-mm-dd",
+                  "options": []
+                },
+                {
+                  "id": "field_3",
+                  "label": "备注",
+                  "type": "textarea"
+                },
+                {
+                  "id": "field_4",
+                  "label": "优先级",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_vp391",
+                      "label": "🔴 高",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_voo3u",
+                      "label": "🟡 中",
+                      "color": "yellow"
+                    },
+                    {
+                      "id": "opt_voobv",
+                      "label": "🟢 低",
+                      "color": "gray"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_vp391",
+                        "label": "🔴 高",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_voo3u",
+                        "label": "🟡 中",
+                        "color": "yellow"
+                      },
+                      {
+                        "id": "opt_voobv",
+                        "label": "🟢 低",
+                        "color": "gray"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_5",
+                  "label": "分类",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_c6cw8b",
+                      "label": "工作会议",
+                      "color": "red"
+                    },
+                    {
+                      "id": "opt_a6tt8m",
+                      "label": "个人事务",
+                      "color": "lime"
+                    },
+                    {
+                      "id": "opt_ajltfu",
+                      "label": "健康运动",
+                      "color": "lime"
+                    },
+                    {
+                      "id": "opt_fmk86r",
+                      "label": "社交活动",
+                      "color": "yellow"
+                    },
+                    {
+                      "id": "opt_bux72m",
+                      "label": "学习培训",
+                      "color": "gray"
+                    },
+                    {
+                      "id": "opt_eae8",
+                      "label": "其他",
+                      "color": "cyan"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_c6cw8b",
+                        "label": "工作会议",
+                        "color": "red"
+                      },
+                      {
+                        "id": "opt_a6tt8m",
+                        "label": "个人事务",
+                        "color": "lime"
+                      },
+                      {
+                        "id": "opt_ajltfu",
+                        "label": "健康运动",
+                        "color": "lime"
+                      },
+                      {
+                        "id": "opt_fmk86r",
+                        "label": "社交活动",
+                        "color": "yellow"
+                      },
+                      {
+                        "id": "opt_bux72m",
+                        "label": "学习培训",
+                        "color": "gray"
+                      },
+                      {
+                        "id": "opt_eae8",
+                        "label": "其他",
+                        "color": "cyan"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "ui": {
+          "home": {
+            "layout": "dashboard",
+            "cards": [
+              {
+                "type": "stat",
+                "title": "活动总数",
+                "entity": "event",
+                "operation": "count"
+              },
+              {
+                "type": "stat",
+                "title": "总预算",
+                "entity": "event",
+                "operation": "sum",
+                "field": "budget"
+              }
+            ]
+          },
+          "pages": [
+            {
+              "id": "event-list",
+              "title": "待办任务",
+              "type": "table",
+              "entity": "event",
+              "features": [
+                "create",
+                "edit",
+                "delete",
+                "search",
+                "export"
+              ],
+              "views": [
+                {
+                  "visibleFields": [
+                    "name",
+                    "venue",
+                    "status",
+                    "field",
+                    "field_2",
+                    "field_3",
+                    "field_4",
+                    "field_5"
+                  ],
+                  "fieldOrder": [
+                    "name",
+                    "field_4",
+                    "venue",
+                    "field_5",
+                    "status",
+                    "field",
+                    "field_2",
+                    "field_3"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {
+                    "venue": 123,
+                    "status": 101,
+                    "name": 208,
+                    "field": 110,
+                    "field_2": 131,
+                    "field_4": 96,
+                    "field_3": 255,
+                    "field_5": 111
+                  },
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "name",
+                    "venue",
+                    "status",
+                    "field",
+                    "field_2",
+                    "field_3",
+                    "field_4",
+                    "field_5"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                }
+              ],
+              "pageSize": 100
+            }
+          ]
+        },
+        "actions": {
+          "actions": [
+            {
+              "id": "query_event",
+              "name": "查询活动",
+              "type": "data.queryRecords",
+              "input": {
+                "records": "event"
+              }
+            },
+            {
+              "id": "export_event",
+              "name": "导出活动 CSV",
+              "type": "export.csv",
+              "input": {
+                "records": "event"
+              }
+            }
+          ]
+        },
+        "prompts": {
+          "systemPrompt": "你是活动策划器助手，帮助用户管理活动。",
+          "suggestedCommands": [
+            "增加嘉宾名单字段",
+            "增加任务清单页面"
+          ]
+        },
+        "sampleData": [
+          {
+            "id": "rec_03fb044f76d34ee488",
+            "entityId": "event",
+            "data": {
+              "name": "团队周会",
+              "venue": "3楼会议室",
+              "status": "opt_kuncs",
+              "field": "2026-06-23T09:00:00.000Z",
+              "field_2": "2026-06-24T10:00",
+              "field_3": "每周例行进度同步会议",
+              "field_4": "opt_vp391",
+              "field_5": "opt_c6cw8b"
+            }
+          },
+          {
+            "id": "rec_159f43ee156d4fdc88",
+            "entityId": "event",
+            "data": {
+              "name": "健身房",
+              "venue": "公司健身房",
+              "status": "opt_kuncs",
+              "field": "2026-06-24T18:30:00.000Z",
+              "field_2": "2026-06-24T20:00:00.000Z",
+              "field_3": "跑步+力量训练",
+              "field_4": "opt_voo3u",
+              "field_5": "opt_ajltfu"
+            }
+          },
+          {
+            "id": "rec_13c868420208459d89",
+            "entityId": "event",
+            "data": {
+              "name": "产品评审会",
+              "venue": "线上 Zoom",
+              "status": "opt_lq5q4",
+              "field": "2026-06-25T14:00:00.000Z",
+              "field_2": "2026-06-25T16:00:00.000Z",
+              "field_3": "评审Q3产品路线图",
+              "field_4": "opt_vp391",
+              "field_5": "opt_c6cw8b"
+            }
+          },
+          {
+            "id": "rec_97f00fce14d2463a84",
+            "entityId": "event",
+            "data": {
+              "name": "123",
+              "venue": "213",
+              "status": "opt_lq5q4",
+              "field": "",
+              "field_2": "",
+              "field_3": "",
+              "field_4": "",
+              "field_5": ""
+            }
+          },
+          {
+            "id": "rec_0b8ee8d250134181aa",
+            "entityId": "event",
+            "data": {
+              "name": "1231",
+              "venue": "21",
+              "status": "",
+              "field": "2026-06-24T15:58",
+              "field_2": "2026-06-25T19:58",
+              "field_3": "",
+              "field_4": "",
+              "field_5": ""
+            }
+          }
+        ],
+        "businessRules": []
+      }
+    },
+    {
+      "id": "app-2",
+      "name": "四象限待办事项",
+      "description": "基于四象限法的任务管理应用",
+      "category": "未分类",
+      "icon": "table",
+      "payload": {
+        "manifest": {
+          "name": "四象限待办事项",
+          "description": "基于四象限法的任务管理应用",
+          "icon": "table",
+          "packageVersion": "2.0",
+          "id": "app",
+          "version": "1.0.0",
+          "author": "local-user",
+          "createdBy": "ai",
+          "tags": []
+        },
+        "schema": {
+          "entities": [
+            {
+              "id": "entity_task",
+              "name": "任务",
+              "fields": [
+                {
+                  "id": "field_task_name",
+                  "label": "任务名称",
+                  "type": "text"
+                },
+                {
+                  "id": "field_task_description",
+                  "label": "任务描述",
+                  "type": "textarea"
+                },
+                {
+                  "id": "field",
+                  "label": "象限",
+                  "type": "select",
+                  "options": [
+                    {
+                      "id": "opt_jiajha",
+                      "label": "重要且紧急",
+                      "color": "red"
+                    },
+                    {
+                      "id": "opt_jiaeaf",
+                      "label": "重要不紧急",
+                      "color": "yellow"
+                    },
+                    {
+                      "id": "opt_v0fd4x",
+                      "label": "不重要紧急",
+                      "color": "orange"
+                    },
+                    {
+                      "id": "opt_wvljvu",
+                      "label": "不重要不紧急",
+                      "color": "lime"
+                    }
+                  ],
+                  "config": {
+                    "options": [
+                      {
+                        "id": "opt_jiajha",
+                        "label": "重要且紧急",
+                        "color": "red"
+                      },
+                      {
+                        "id": "opt_jiaeaf",
+                        "label": "重要不紧急",
+                        "color": "yellow"
+                      },
+                      {
+                        "id": "opt_v0fd4x",
+                        "label": "不重要紧急",
+                        "color": "orange"
+                      },
+                      {
+                        "id": "opt_wvljvu",
+                        "label": "不重要不紧急",
+                        "color": "lime"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "field_task_deadline",
+                  "label": "截止日期",
+                  "type": "date"
+                },
+                {
+                  "id": "field_3",
+                  "label": "进度",
+                  "type": "number",
+                  "format": "percent",
+                  "options": []
+                },
+                {
+                  "id": "field_2",
+                  "label": "开始日期",
+                  "type": "date"
+                }
+              ]
+            }
+          ]
+        },
+        "ui": {
+          "pages": [
+            {
+              "id": "page-task-list",
+              "title": "任务列表",
+              "type": "table",
+              "entity": "entity_task",
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_task_deadline",
+                    "field",
+                    "field_3",
+                    "field_2"
+                  ],
+                  "fieldOrder": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field_2",
+                    "field_task_deadline",
+                    "field_3",
+                    "field"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field",
+                    "field_task_deadline",
+                    "field_3",
+                    "field_2"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {
+                    "field_3": "average"
+                  },
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "list"
+                },
+                {
+                  "visibleFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field",
+                    "field_task_deadline",
+                    "field_3",
+                    "field_2"
+                  ],
+                  "fieldOrder": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field",
+                    "field_task_deadline",
+                    "field_3",
+                    "field_2"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field",
+                    "field_task_deadline",
+                    "field_3",
+                    "field_2"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "view_mqror882_avvyw",
+                  "name": "甘特视图",
+                  "type": "gantt",
+                  "gantt": {
+                    "titleField": "field_task_name",
+                    "startField": "field_2",
+                    "endField": "field_task_deadline",
+                    "progressField": "field_3",
+                    "scaleType": "day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "page-task-quadrant",
+              "title": "四象限视图",
+              "type": "table",
+              "entity": "entity_task",
+              "pageSize": 100,
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field",
+                    "field_task_deadline",
+                    "field_2",
+                    "field_3"
+                  ],
+                  "fieldOrder": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field",
+                    "field_task_deadline",
+                    "field_2",
+                    "field_3"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field",
+                    "field_task_deadline",
+                    "field_3",
+                    "field_2"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "group": null,
+                  "id": "view_mqromag0_ky27w",
+                  "name": "四象限",
+                  "type": "quadrant",
+                  "quadrant": {
+                    "fieldId": "field",
+                    "optionIds": [
+                      "opt_jiajha",
+                      "opt_jiaeaf",
+                      "opt_v0fd4x",
+                      "opt_wvljvu"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "entity-task",
+              "title": "甘特视图",
+              "type": "page",
+              "entity": "entity_task",
+              "navKind": "page",
+              "features": [
+                "create",
+                "edit",
+                "delete",
+                "search",
+                "export"
+              ],
+              "views": [
+                {
+                  "visibleFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field",
+                    "field_task_deadline",
+                    "field_3",
+                    "field_2"
+                  ],
+                  "fieldOrder": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field",
+                    "field_task_deadline",
+                    "field_3",
+                    "field_2"
+                  ],
+                  "searchFields": [],
+                  "columnWidths": {},
+                  "frozenFieldId": "",
+                  "actionWidth": 112,
+                  "allFields": [
+                    "field_task_name",
+                    "field_task_description",
+                    "field",
+                    "field_task_deadline",
+                    "field_3",
+                    "field_2"
+                  ],
+                  "filters": [],
+                  "sorts": [],
+                  "summaries": {},
+                  "rowHeight": "low",
+                  "group": null,
+                  "id": "default",
+                  "name": "全部记录",
+                  "type": "gantt",
+                  "gantt": {
+                    "titleField": "field_task_name",
+                    "startField": "field_2",
+                    "endField": "field_task_deadline",
+                    "progressField": "",
+                    "scaleType": "day"
+                  }
+                }
+              ],
+              "pageSize": 100
+            }
+          ],
+          "home": {
+            "layout": "dashboard",
+            "cards": []
+          }
+        },
+        "actions": {
+          "actions": []
+        },
+        "prompts": {
+          "systemPrompt": "你是这个软件的助手，负责帮助用户使用和改进该软件。",
+          "suggestedCommands": []
+        },
+        "sampleData": [
+          {
+            "id": "rec_ecdf3b67a8064f778b",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "完成项目报告",
+              "field_task_description": "整理并提交季度项目报告",
+              "field": "opt_jiajha",
+              "field_task_deadline": "2025-03-01",
+              "field_3": 0.3,
+              "field_2": "2025-02-20"
+            }
+          },
+          {
+            "id": "rec_52cd92878cf947749e",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "修复系统漏洞",
+              "field_task_description": "处理线上系统的安全漏洞",
+              "field": "opt_jiajha",
+              "field_task_deadline": "2025-02-25",
+              "field_3": 0.5,
+              "field_2": "2025-02-22"
+            }
+          },
+          {
+            "id": "rec_0a0ed943ea8f497193",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "客户投诉处理",
+              "field_task_description": "跟进并解决客户紧急投诉",
+              "field": "opt_jiajha",
+              "field_task_deadline": "2025-02-24",
+              "field_3": 0.8,
+              "field_2": "2025-02-21"
+            }
+          },
+          {
+            "id": "rec_24b305caeb7b4312af",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "制定年度计划",
+              "field_task_description": "制定团队年度工作目标和计划",
+              "field": "opt_jiaeaf",
+              "field_task_deadline": "2025-03-15",
+              "field_3": 0.2,
+              "field_2": "2025-02-18"
+            }
+          },
+          {
+            "id": "rec_37d919d427c94c5db1",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "学习新技能",
+              "field_task_description": "参加线上课程提升专业技能",
+              "field": "opt_jiaeaf",
+              "field_task_deadline": "2025-04-01",
+              "field_3": 0.1,
+              "field_2": "2025-02-15"
+            }
+          },
+          {
+            "id": "rec_06072cebde944c96bf",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "建立知识库",
+              "field_task_description": "整理团队文档建立内部知识库",
+              "field": "opt_jiaeaf",
+              "field_task_deadline": "2025-03-30",
+              "field_3": 0.5,
+              "field_2": "2025-02-19"
+            }
+          },
+          {
+            "id": "rec_bf8f7007128f412e8e",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "回复日常邮件",
+              "field_task_description": "处理积压的日常邮件",
+              "field": "opt_v0fd4x",
+              "field_task_deadline": "2025-02-23",
+              "field_3": 0.6,
+              "field_2": "2025-02-22"
+            }
+          },
+          {
+            "id": "rec_bfa98f346b064c1aaf",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "会议纪要整理",
+              "field_task_description": "整理上周会议纪要并分发",
+              "field": "opt_v0fd4x",
+              "field_task_deadline": "2025-02-23",
+              "field_3": 0,
+              "field_2": "2025-02-21"
+            }
+          },
+          {
+            "id": "rec_2410be21b3e141f5a6",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "整理办公桌",
+              "field_task_description": "清理和整理办公桌面",
+              "field": "opt_wvljvu",
+              "field_task_deadline": "2025-03-05",
+              "field_3": 0,
+              "field_2": "2025-02-25"
+            }
+          },
+          {
+            "id": "rec_5a41989f896d42eaae",
+            "entityId": "entity_task",
+            "data": {
+              "field_task_name": "浏览行业资讯",
+              "field_task_description": "阅读行业最新动态和资讯",
+              "field": "opt_wvljvu",
+              "field_task_deadline": "2025-03-10",
+              "field_3": 0.15,
+              "field_2": "2025-02-20"
+            }
+          }
+        ],
+        "businessRules": []
+      }
+    }
+  ]
+}

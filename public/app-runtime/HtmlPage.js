@@ -2,6 +2,7 @@ import { h } from '../common/dom.js';
 import { toast } from '../common/toast.js';
 import { saveCurrentPackage } from './runtime-actions.js';
 import { createMarkdownCodeEditor } from './MarkdownLineNumbers.js';
+import { pageTitleExists } from '../common/page-title.js';
 
 function escapeSource(value) {
   return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -300,6 +301,7 @@ export function renderHtmlPage(page) {
         await save({ silent: true });
         while (saving) await new Promise((resolve) => setTimeout(resolve, 20));
         await saveCurrentPackage((pkg) => {
+          if (pageTitleExists(pkg.ui.pages, title, page.id)) throw new Error('页面名称不能重复，请使用其他网页名称。');
           const target = pkg.ui.pages.find((item) => item.id === page.id);
           if (target) {
             target.title = title;

@@ -6,6 +6,7 @@ import { wrapMarkdownSelection, applyMarkdownHeading } from './MarkdownFormattin
 import { saveCurrentPackage } from './runtime-actions.js';
 import { createMarkdownCodeEditor } from './MarkdownLineNumbers.js';
 import { createMarkdownUploadButtons } from './MarkdownUploads.js';
+import { pageTitleExists } from '../common/page-title.js';
 
 export function renderMarkdownPage(page) {
   const textarea = h('textarea', {
@@ -146,6 +147,10 @@ export function renderMarkdownPage(page) {
         return toast('文件名不能为空。');
       }
       const fileName = rawName;
+      if (pageTitleExists(state.currentApp?.ui?.pages, fileName, page.id)) {
+        input.replaceWith(fileNameLabel);
+        return toast('页面名称不能重复，请使用其他文件名。');
+      }
       try {
         await save({ silent: true });
         while (saving) await new Promise((resolve) => setTimeout(resolve, 20));

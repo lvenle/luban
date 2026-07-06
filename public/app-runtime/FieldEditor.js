@@ -2,7 +2,7 @@ import { h, svgIcon, svgPath } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { openConfirmDialog } from '../common/modal.js';
-import { state } from '../app-context.js';
+import { state, entityDisplayName } from '../app-context.js';
 import { getViews, setViews, normalizeView, getListConfig, setListConfig } from './ViewBar.js';
 import { saveCurrentPackage, loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
 import { configureRuntimePorts } from './runtime-ports.js';
@@ -72,7 +72,7 @@ export function openFieldEditModal(entity, field = null, options = {}) {
     }
     if (type === 'relation') {
       const targets = state.currentApp.schema.entities.filter((item) => item.id !== entity.id);
-      const targetSelect = selectFromOptions(targets.map((item) => [item.id, item.name]), draft.targetEntity || targets[0]?.id || '');
+      const targetSelect = selectFromOptions(targets.map((item) => [item.id, entityDisplayName(item)]), draft.targetEntity || targets[0]?.id || '');
       targetSelect.dataset.fieldEditor = 'targetEntity';
       const displaySelect = h('select', { 'data-field-editor': 'displayField' });
       const multiple = h('input', { type: 'checkbox', 'data-field-editor': 'multiple' });

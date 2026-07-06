@@ -1,5 +1,19 @@
 import h from './dom.js';
 
+const CREATE_PRESETS = [
+  ['创建任务管理', '创建一个任务管理软件'],
+  ['创建项目管理', '创建一个项目管理软件'],
+  ['创建客户管理', '创建一个客户管理软件'],
+  ['创建收支记录', '创建一个收支记录软件']
+];
+
+const MODIFY_PRESETS = [
+  ['新增字段', '帮我新增一个字段'],
+  ['新增页面', '帮我新增一个页面'],
+  ['新增数据分析', '帮我新增一个数据分析页面'],
+  ['添加10行样例数据', '为当前数据表添加10行样例数据']
+];
+
 export default class ChatView {
   constructor(options = {}) {
     this.onSend = options.onSend || (() => {});
@@ -10,19 +24,16 @@ export default class ChatView {
     this.quickChips = null;
     this.element = null;
     this.streaming = false;
+    this.mode = options.mode === 'modify' ? 'modify' : 'create';
   }
 
   render() {
     const messages = h('div', { class: 'assistant-messages' });
     this.messagesEl = messages;
 
-    const quick = h('div', { class: 'assistant-quick' }, [
-      h('button', { class: 'assistant-chip', text: '创建任务管理', onclick: () => this.setInput('创建一个任务管理软件') }),
-      h('button', { class: 'assistant-chip', text: '添加字段', onclick: () => this.setInput('帮我添加一个字段') }),
-      h('button', { class: 'assistant-chip', text: '分析数据', onclick: () => this.setInput('分析一下当前数据') }),
-      h('button', { class: 'assistant-chip', text: '生成报表', onclick: () => this.setInput('生成一个统计报表') })
-    ]);
+    const quick = h('div', { class: 'assistant-quick' });
     this.quickChips = quick;
+    this.renderQuickChips();
 
     const input = h('textarea', {
       class: 'assistant-input-field',
@@ -55,6 +66,20 @@ export default class ChatView {
   setInput(text) {
     this.inputEl.value = text;
     this.inputEl.focus();
+  }
+
+  setMode(mode) {
+    this.mode = mode === 'modify' ? 'modify' : 'create';
+    this.renderQuickChips();
+  }
+
+  renderQuickChips() {
+    if (!this.quickChips) return;
+    const presets = this.mode === 'create' ? CREATE_PRESETS : MODIFY_PRESETS;
+    this.quickChips.replaceChildren(...presets.map(([label, prompt]) =>
+      h('button', { class: 'assistant-chip', text: label, onclick: () => this.setInput(prompt) })
+    ));
+    this.quickChips.hidden = presets.length === 0;
   }
 
   send() {

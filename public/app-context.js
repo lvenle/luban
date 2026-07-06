@@ -5,6 +5,7 @@ import { openConfirmDialog, openTextModal, floatingMenus, closeFloatingMenus, bi
 import { readStorage, writeStorage, globalStorageKey, clampSidebarWidth } from './common/storage.js';
 import { formatDateFieldValue } from './app-runtime/DateFormat.js';
 import { appCategory } from './common/app-metadata.js';
+import { entityDisplayName as resolveEntityDisplayName } from './common/entity-display.js';
 
 export const state = {
   apps: [], currentApp: null, currentPageId: null, records: [],
@@ -138,6 +139,7 @@ export function currentPage() { return state.currentApp?.ui.pages.find((p) => p.
 export function pageEntityForRecordLoad(page) { if (!page || !state.currentApp) return null; if (page.entity) return entityFor(page); return null; }
 export function recordsFor(entityId) { return state.records.filter((r) => !entityId || r.entityId === entityId); }
 export function entityById(entityId) { return state.currentApp.schema.entities.find((e) => e.id === entityId); }
+export function entityDisplayName(entityOrId, app = state.currentApp) { return resolveEntityDisplayName(app, entityOrId); }
 
 export function formatFieldValue(value, field) {
   if (value == null || value === '') return '';

@@ -2,7 +2,7 @@ import { h } from '../common/dom.js';
 import { state, storageKey, viewOrderedFields, applyViewFilters, sortRecords } from '../app-context.js';
 import { renderViewBar, openFilterModal, openSortModal, openGroupModal, getListConfig, setListConfig } from './ViewBar.js';
 import { openRecordModal, removeRecord } from './RecordModal.js';
-import { openConfirmDialog } from '../common/modal.js';
+import { openConfirmDialog, bindDismissiblePopover } from '../common/modal.js';
 import { toast } from '../common/toast.js';
 import { readStorage, writeStorage } from '../common/storage.js';
 import { renderRuntime, loadCurrentPageRecords, renderInfiniteLoadSentinel } from './runtime-actions.js';
@@ -120,6 +120,7 @@ export function renderMobileRecordList(page) {
       h('button', { class: 'danger ghost-menu', text: '删除', onclick: () => { closeCardMenu(); removeRecord(record.id, entity.id); } })
     ]);
     document.body.append(menu);
+    cardMenuDismiss = bindDismissiblePopover(menu, anchor);
   }
 
   return h('div', { class: 'panel table-panel mobile-record-panel' }, [
@@ -174,8 +175,13 @@ export function renderMobileRecordList(page) {
 }
 
 function closeCardMenu() {
-  document.querySelectorAll('.mobile-card-menu').forEach((m) => m.remove());
+  const dismiss = cardMenuDismiss;
+  cardMenuDismiss = null;
+  if (dismiss) dismiss();
+  else document.querySelectorAll('.mobile-card-menu').forEach((m) => m.remove());
 }
+
+let cardMenuDismiss = null;
 
 async function duplicateRecord(entity, record) {
   try {

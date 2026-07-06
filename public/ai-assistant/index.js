@@ -22,7 +22,8 @@ let currentAppName = '';
 
 export function init() {
   chatView = new ChatView({
-    onSend: handleSend
+    onSend: handleSend,
+    mode: currentMode
   });
 
   streamRenderer = new StreamRenderer(chatView.getMessageContainer());
@@ -156,7 +157,11 @@ function registerSSEHandlers() {
     })
     .on('message_end', (data = {}) => {
       if (data.appId) {
-        if (currentMode === 'create') currentMode = 'modify';
+        if (currentMode === 'create') {
+          currentMode = 'modify';
+          chatView.setMode(currentMode);
+          updateAssistantModeLabels();
+        }
         currentAppId = data.appId;
       }
       streamRenderer.finishMessage();
@@ -200,6 +205,7 @@ export function setAssistantMode({ mode = 'create', appId = '', appName = '', co
   currentAppName = nextMode === 'modify' ? appName : '';
   currentContext = nextMode === 'modify' ? context : '';
   currentPageId = nextMode === 'modify' ? pageId : '';
+  if (chatView) chatView.setMode(currentMode);
   if (scopeChanged && chatView) {
     currentSessionId = '';
     chatView.clear();

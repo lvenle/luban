@@ -4,9 +4,11 @@ import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { state } from '../app-context.js';
 import { appCategory as resolveAppCategory } from '../common/app-metadata.js';
+import { startInlineRename } from '../common/inline-rename.js';
 import { loadApps, openApp } from './home-actions.js';
 
 export function appCard(app) {
+  const title = h('h3', { text: app.name });
   const menu = bindFloatingMenu(h('details', {
     class: 'card-menu',
     onclick: (event) => event.stopPropagation(),
@@ -14,6 +16,27 @@ export function appCard(app) {
   }, [
     h('summary', { title: '更多操作' }, '⋮'),
       h('div', { class: 'card-menu-popover' }, [
+      h('button', {
+        class: 'ghost-menu',
+        text: '重命名',
+        onclick: (event) => {
+          event.stopPropagation();
+          menu.open = false;
+          startInlineRename(title, {
+            value: app.name,
+            className: 'app-card-name-input',
+            emptyMessage: '软件名称不能为空。',
+            onSave: async (name) => {
+              await api(`/api/apps/${app.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ name, expectedUpdatedAt: app.updatedAt })
+              });
+              await loadApps();
+              toast('软件已重命名');
+            }
+          });
+        }
+      }),
       h('a', { href: `/api/apps/${app.id}/export`, download: `${app.slug}.sgpkg` }, '导出 .sgpkg'),
       h('button', {
         class: 'ghost-menu',
@@ -114,7 +137,7 @@ export function appCard(app) {
   }, [
     h('div', { class: 'app-card-top' }, [
       h('div', { class: 'app-card-title' }, [
-        h('h3', { text: app.name }),
+        title,
         h('span', { class: 'category-pill', text: appCategory(app) })
       ]),
       menu

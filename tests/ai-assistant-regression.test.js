@@ -11,6 +11,7 @@ import { historyBusinessDetail } from '../public/ai-assistant/ToolDisplay.js';
 
 const appShellJs = source('../public/app.js');
 const assistantIndexJs = source('../public/ai-assistant/index.js');
+const chatViewJs = source('../public/ai-assistant/ChatView.js');
 const toolDisplayJs = source('../public/ai-assistant/ToolDisplay.js');
 const assistantCss = source('../public/ai-assistant/style.css');
 const appHomeJs = source('../public/app-home/index.js');
@@ -75,9 +76,20 @@ test('tool display info contains app, table, and field business names', () => {
 });
 
 test('completed app creation refreshes the home list with the created app id', () => {
-  assert.match(assistantIndexJs, /if \(data\.appId\) \{\s*if \(currentMode === 'create'\) currentMode = 'modify';/);
+  assert.match(assistantIndexJs, /if \(data\.appId\) \{\s*if \(currentMode === 'create'\) \{[\s\S]*chatView\.setMode\(currentMode\)/);
   assert.match(assistantIndexJs, /detail: \{ appId: data\.appId \|\| currentAppId \}/);
   assert.match(appShellJs, /if \(!state\.currentApp\) \{\s*await loadApps\(\)/);
+});
+
+test('assistant modes expose their requested preset prompts', () => {
+  for (const label of ['创建任务管理', '创建项目管理', '创建客户管理', '创建收支记录']) {
+    assert.match(chatViewJs, new RegExp(label));
+  }
+  for (const label of ['新增字段', '新增页面', '新增数据分析', '添加10行样例数据']) {
+    assert.match(chatViewJs, new RegExp(label));
+  }
+  assert.match(chatViewJs, /const presets = this\.mode === 'create' \? CREATE_PRESETS : MODIFY_PRESETS/);
+  assert.match(assistantCss, /\.assistant-quick\[hidden\][\s\S]*display: none/);
 });
 
 test('assistant is docked without a backdrop and resizes the main page', () => {

@@ -121,7 +121,7 @@ test('sidebar creates an editable markdown file without opening a file picker', 
   const styles = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   assert.match(sidebar, /text: '\+ 新建文档'/);
   assert.doesNotMatch(sidebar, /text: '\+ 添加文件'/);
-  assert.match(sidebar, /buildMarkdownPage\('未命名文档'\)/);
+  assert.match(sidebar, /buildMarkdownPage\(uniquePageTitle\([^)]*'未命名文档'\)\)/);
   assert.doesNotMatch(sidebar, /`\$\{fileName\}\.md`/);
   assert.doesNotMatch(sidebar, /type: 'file'/);
   assert.match(sidebar, /navKind: 'markdown'/);
@@ -202,8 +202,12 @@ test('sidebar restores explicit view creation and keeps page names when collapse
   assert.match(sidebar, /state\.sidebarCollapsed[\s\S]*collapsed-page-list[\s\S]*renderPageNavItem/);
   assert.match(sidebar, /sidebar-collapsed-head[\s\S]*createMenu/);
   assert.match(sidebar, /Array\.from\(fullTitle\)\.slice\(0, 4\)\.join/);
-  assert.match(sidebar, /svgLine\(4, 3, 4, 15\)[\s\S]*svgLine\(14, 3, 14, 15\)/);
+  assert.match(sidebar, /createTrigger\('sidebar-footer-create', '\+ 新建'/);
+  assert.doesNotMatch(sidebar, /sidebar-toggle|text: state\.sidebarCollapsed \? '展开' : '收起'/);
   assert.match(styles, /\.runtime\.sidebar-collapsed \.page-nav-item[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(styles, /\.sidebar-footer \{[\s\S]*padding: 8px 2px 2px/);
+  assert.match(styles, /\.desktop-runtime-shell \{[\s\S]*height: 100dvh[\s\S]*grid-template-rows: auto minmax\(0, 1fr\)/);
+  assert.match(styles, /\.desktop-runtime-shell \.runtime \{[\s\S]*height: 100%/);
   assert.match(styles, /var\(--sidebar-collapsed-width, 112px\)/);
   assert.match(runtimeFrame, /state\.sidebarCollapsedWidth = clampCollapsedSidebarWidth/);
   assert.match(runtimeFrame, /--sidebar-collapsed-width/);

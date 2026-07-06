@@ -1,7 +1,7 @@
 import { h, buttonLabel } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
-import { openConfirmDialog, openConfigModal, closeTopModal, closeFloatingMenus } from '../common/modal.js';
+import { openConfirmDialog, openConfigModal, closeTopModal, closeFloatingMenus, bindDismissiblePopover } from '../common/modal.js';
 import { readStorage, writeStorage } from '../common/storage.js';
 import { state, writeRoute, formatFieldValue, dateKey, storageKey } from '../app-context.js';
 import { renderRuntime, saveCurrentPackage } from './runtime-actions.js';
@@ -9,6 +9,8 @@ import { optionObject, effectiveFieldType } from './runtime-ports.js';
 import { dateInputValue, dateInputLocale } from './DateFormat.js';
 import { reorderItemsById } from './Ordering.js';
 import { numberInputValue, storedNumberValue } from './NumberValues.js';
+import { viewNameExists, uniqueViewName } from '../common/view-name.js';
+import { startInlineRename } from '../common/inline-rename.js';
 
 function defaultView(entity) {
   const legacy = readStorage(storageKey('list', entity.id), null);
@@ -236,7 +238,7 @@ export function renderViewMenu(entity) {
 
 export function openViewMenu(trigger, entity) {
   closeFloatingMenus();
-  document.querySelector('.view-menu-popover')?.remove();
+  closeViewMenu();
   const menu = h('div', { class: 'view-menu-popover floating-view-menu' }, [
     h('button', { class: 'ghost-menu', text: '复制', onclick: () => { closeViewMenu(); cloneView(entity); } }),
     h('button', { class: 'ghost-menu', text: '重命名', onclick: () => { closeViewMenu(); renameView(entity); } }),
@@ -245,6 +247,7 @@ export function openViewMenu(trigger, entity) {
   ]);
   document.body.append(menu);
   positionViewMenu(trigger, menu);
+  viewMenuDismiss = bindDismissiblePopover(menu, trigger);
 }
 
 export function positionViewMenu(trigger, menu) {
@@ -257,40 +260,45 @@ export function positionViewMenu(trigger, menu) {
 }
 
 export function closeViewMenu() {
-  document.querySelector('.view-menu-popover')?.remove();
+  const dismiss = viewMenuDismiss;
+  viewMenuDismiss = null;
+  if (dismiss) dismiss();
+  else document.querySelector('.view-menu-popover')?.remove();
 }
 
+let viewMenuDismiss = null;
+
 export function startViewNameEdit(button, entity, view) {
-  const input = h('input', { class: 'view-name-input', value: view.name });
-  button.replaceWith(input);
-  input.focus();
-  input.select();
-  let done = false;
-  const finish = (save) => {
-    if (done) return;
-    done = true;
-    const name = input.value.trim();
-    if (save && name) {
+  startInlineRename(button, {
+    value: view.name,
+    className: 'view-name-input',
+    emptyMessage: '视图名称不能为空。',
+    validate: (name) => viewNameExists(getViews(entity), name, view.id)
+      ? '视图名称不能重复，请使用其他名称。'
+      : '',
+    onCancel: renderRuntime,
+    onSave: (name) => {
       state.currentViewId = view.id;
       updateCurrentView(entity, { name });
+      toast('视图已重命名');
     }
-    renderRuntime();
-  };
-  input.addEventListener('blur', () => finish(true));
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') input.blur();
-    if (event.key === 'Escape') finish(false);
   });
 }
 
 export function createView(entity, name = '新视图', patch = {}) {
   const views = getViews(entity);
-  const view = normalizeView(entity, { ...defaultView(entity), ...patch, id: makeViewId(), name });
+  const normalizedName = String(name || '').trim() || '新视图';
+  if (viewNameExists(views, normalizedName)) {
+    toast('视图名称不能重复，请使用其他名称。');
+    return null;
+  }
+  const view = normalizeView(entity, { ...defaultView(entity), ...patch, id: makeViewId(), name: normalizedName });
   views.push(view);
   setViews(entity, views);
   state.currentViewId = view.id;
   writeRoute(state.currentApp.id, state.currentPageId, false, view.id);
   renderRuntime();
+  return view;
 }
 
 export function openCreateViewModal(entity) {
@@ -342,6 +350,8 @@ export function openCreateViewModal(entity) {
   typeSelect.addEventListener('change', renderConfig);
   createButton = h('button', { text: '创建', onclick: () => {
     const type = typeSelect.value;
+    const viewName = nameInput.value.trim() || '新视图';
+    if (viewNameExists(getViews(entity), viewName)) return toast('视图名称不能重复，请使用其他名称。');
     const patch = { type };
     if (type === 'quadrant') {
       const field = entity.fields.find((item) => item.id === config.querySelector('[data-view-config="quadrantField"]')?.value);
@@ -356,7 +366,7 @@ export function openCreateViewModal(entity) {
       if (!titleField || !startField || !endField || startField === endField) return toast('请选择标题字段以及两个不同的日期字段。');
       patch.gantt = { titleField, startField, endField, progressField };
     }
-    createView(entity, nameInput.value.trim() || '新视图', patch);
+    createView(entity, viewName, patch);
     backdrop.remove();
   } });
   renderConfig();
@@ -395,7 +405,9 @@ function persistViews(legacyKey = '') {
 
 export function cloneView(entity) {
   const current = getCurrentView(entity);
-  createView(entity, `${current.name} 副本`, { ...current, id: makeViewId(), name: `${current.name} 副本` });
+  const views = getViews(entity);
+  const cloneName = uniqueViewName(views, `${current.name} 副本`);
+  createView(entity, cloneName, { ...current, id: makeViewId(), name: cloneName });
 }
 
 export function renameView(entity) {

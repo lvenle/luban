@@ -4,6 +4,7 @@ import { handleAiApi } from './routes/ai.js';
 import { handleAppApi, handleAppOrder, handleGenerateApp, handleImportApp } from './routes/app.js';
 import { handleRuntimeApi } from './routes/runtime.js';
 import { handleSettingsApi } from './routes/settings.js';
+import { handleSamplesApi } from './routes/samples.js';
 import { initDb, closeDb } from './storage/db.js';
 import { getApp } from './models/app.js';
 
@@ -177,6 +178,11 @@ async function handleApi(req, res, url) {
 
   if (url.pathname.startsWith('/api/settings')) {
     await handleSettingsApi(req, res, method);
+    return;
+  }
+
+  if (url.pathname === '/api/samples' || url.pathname === '/api/samples/import') {
+    await handleSamplesApi(req, res, method, url);
     return;
   }
 

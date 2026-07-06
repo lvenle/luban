@@ -130,6 +130,10 @@
   border-top: 1px solid #e2e8f0;
 }
 
+.assistant-quick[hidden] {
+  display: none;
+}
+
 .assistant-chip {
   font-size: 12px;
   border: 1px solid #e2e8f0;

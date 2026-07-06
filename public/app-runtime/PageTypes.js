@@ -1,6 +1,6 @@
 import { h } from '../common/dom.js';
 import { clamp } from '../common/storage.js';
-import { state, entityFor, entityById, recordsFor, formatFieldValue, dateKey } from '../app-context.js';
+import { state, entityFor, entityById, entityDisplayName, recordsFor, formatFieldValue, dateKey } from '../app-context.js';
 import { hasDisplayValue, matchesFilter } from './CellEditor.js';
 import { formatNumberSummary } from './TableRow.js';
 import { openRecordModal } from './RecordModal.js';
@@ -220,7 +220,7 @@ export function renderPageStatCard(card) {
   const field = entity?.fields?.find((item) => item.id === card.field);
   return h('div', { class: 'page-stat-body' }, [
     h('div', { class: 'stat-value', text: field?.type === 'number' ? formatNumberSummary(value, field) : value }),
-    h('p', { class: 'muted', text: entity ? `${entity.name} · ${records.length} 条记录` : '未选择数据表' })
+    h('p', { class: 'muted', text: entity ? `${entityDisplayName(entity)} · ${records.length} 条记录` : '未选择数据表' })
   ]);
 }
 

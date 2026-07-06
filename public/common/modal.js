@@ -167,3 +167,23 @@ export function bindFloatingMenu(details) {
   });
   return details;
 }
+
+export function bindDismissiblePopover(popover, trigger = null) {
+  const controller = new AbortController();
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    controller.abort();
+    popover.remove();
+  };
+  document.addEventListener('pointerdown', (event) => {
+    if (!popover.contains(event.target) && (!trigger || !trigger.contains(event.target))) close();
+  }, { capture: true, signal: controller.signal });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') close();
+  }, { signal: controller.signal });
+  window.addEventListener('resize', close, { signal: controller.signal });
+  window.addEventListener('scroll', close, { capture: true, signal: controller.signal });
+  return close;
+}

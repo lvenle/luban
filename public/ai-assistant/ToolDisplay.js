@@ -1,5 +1,6 @@
 import h from './dom.js';
 import { humanizeMessage } from '../common/messages.js';
+import { entityDisplayName } from '../common/entity-display.js';
 
 export default class ToolDisplay {
   constructor(onConfirm) {
@@ -142,7 +143,7 @@ function findEntityName(output, entityId) {
   if (!entityId || !output) return null;
   const entities = output?.schema?.entities || output?.entities || [];
   const entity = entities.find((e) => e.id === entityId);
-  return entity?.name || null;
+  return entityDisplayName(output, entity || entityId) || null;
 }
 
 /**

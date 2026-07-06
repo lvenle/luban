@@ -63,6 +63,9 @@ web_modules/
 # Local project working files
 openspec/
 samples/
+!src/samples/
+!src/samples/library.js
+!src/samples/catalog.json
 spec/
 .codex/
 .opencode/

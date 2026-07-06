@@ -10,6 +10,7 @@ import { selectColumnHeader, insertRowAround } from './CellSelection.js';
 import { reorderIds, frozenColumnMeta } from './Ordering.js';
 import { state } from '../app-context.js';
 import { configureRuntimePorts } from './runtime-ports.js';
+import { bindDismissiblePopover } from '../common/modal.js';
 
 configureRuntimePorts({ closeContextMenu });
 
@@ -163,6 +164,7 @@ export function openHeaderContextMenu(event, entity, field, listConfig) {
     h('button', { class: 'danger ghost-menu', text: '删除字段', onclick: () => { deleteField(entity, field); closeContextMenu(); } })
   ]);
   document.body.append(menu);
+  contextMenuDismiss = bindDismissiblePopover(menu);
 }
 
 export function bindHeaderColumnDrag(header, entity, field, listConfig) {
@@ -305,8 +307,13 @@ export function ensureFilterForField(entity, fieldId, listConfig) {
 }
 
 export function closeContextMenu() {
-  document.querySelector('.context-menu')?.remove();
+  const dismiss = contextMenuDismiss;
+  contextMenuDismiss = null;
+  if (dismiss) dismiss();
+  else document.querySelector('.context-menu')?.remove();
 }
+
+let contextMenuDismiss = null;
 
 export function openCellContextMenu(event, entity, record) {
   event.preventDefault();
@@ -321,6 +328,7 @@ export function openCellContextMenu(event, entity, record) {
     h('button', { class: 'danger ghost-menu', text: '删除行', onclick: () => { closeContextMenu(); removeRecord(record.id, entity.id); } })
   ]);
   document.body.append(menu);
+  contextMenuDismiss = bindDismissiblePopover(menu);
 }
 
 async function duplicateRecordRow(entity, record) {

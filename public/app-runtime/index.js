@@ -2,7 +2,7 @@ import { h, svgIcon, svgPath, svgLine } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { clearUndoStack } from '../common/UndoStack.js';
-import { state, root, topbar, writeRoute, entityFor, currentPage, pageEntityForRecordLoad, recordsFor, entityById, formatFieldValue, dateKey, renderPage, setPageRenderers, toggleMobileDrawer } from '../app-context.js';
+import { state, root, topbar, writeRoute, entityFor, entityDisplayName, currentPage, pageEntityForRecordLoad, recordsFor, entityById, formatFieldValue, dateKey, renderPage, setPageRenderers, toggleMobileDrawer } from '../app-context.js';
 import { renderAssistantDrawer, removeAssistantDrawer, setAssistantMode } from '../ai-assistant/index.js';
 import { loadSidebarLayout, startSidebarResize, toggleSidebarCollapsed } from './RuntimeFrame.js';
 import { renderSidebarContent, renderMobileSidebar } from './Sidebar.js';
@@ -100,7 +100,7 @@ export function renderRuntime() {
       }
       root.append(shell);
     } else {
-      root.append(h('div', { class: 'shell' }, [
+      root.append(h('div', { class: 'shell desktop-runtime-shell' }, [
         topbar(),
         h('main', { class: `runtime ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`, style: `--sidebar-width:${state.sidebarWidth}px;--sidebar-collapsed-width:${state.sidebarCollapsedWidth}px` }, [
           h('aside', { class: 'sidebar' }, renderSidebarContent(app, page)),
@@ -232,7 +232,7 @@ export function buildAssistantContext() {
   const parts = [`当前应用: ${app.name}`, `当前页面: ${page?.title || '无'}`];
   if (page) parts.push(`页面ID: ${page.id}`, `页面类型: ${page.navKind || page.type}`);
   if (entity) {
-    parts.push(`当前数据表: ${entity.name} (${entity.id})`);
+    parts.push(`当前数据表: ${entityDisplayName(entity)} (${entity.id})`);
     parts.push(`字段列表: ${entity.fields.map((f) => `${f.label||f.id} (${f.type})`).join(', ')}`);
   }
   return parts.join(' | ');

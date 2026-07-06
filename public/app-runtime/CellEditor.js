@@ -1,7 +1,7 @@
 import { h, svgIcon, svgPath } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
-import { state, recordsFor, dateKey } from '../app-context.js';
+import { state, entityDisplayName, recordsFor, dateKey } from '../app-context.js';
 import { loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
 import { optionObject, effectiveFieldType, clearActiveTableSelection, configureRuntimePorts } from './runtime-ports.js';
 import { dateInputValue, dateInputLocale, formatDateFieldValue, bindDateTimePicker, showDateTimePicker } from './DateFormat.js';
@@ -31,7 +31,7 @@ export function startCellEdit(cell, entity, record, field) {
       const data = { ...record.data, [field.id]: newValue };
       try {
         const body = await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
-        pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
+        pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entityDisplayName(entity) });
         record.data = data; // update local ref for AI trigger
         import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch((err) => console.error('[AI Trigger]', err));
         await loadCurrentPageRecords();
@@ -78,7 +78,7 @@ export function startCellEdit(cell, entity, record, field) {
     cell.classList.add('saving-cell');
     try {
       const body = await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
-      pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entity.name });
+      pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entityDisplayName(entity) });
       record.data = data;
       import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch((err) => console.error('[AI Trigger]', err));
       // Local update only — avoid full re-render flash
