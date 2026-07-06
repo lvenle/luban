@@ -62,7 +62,7 @@ export default class ToolDisplay {
     if (!log?.toolName || log.status === 'running') return null;
     const titles = {
       create_app: '创建应用', add_entity: '创建表', add_field: '添加字段', add_relation: '添加关联',
-      add_page: '添加页面', add_view: '添加视图', add_record: '添加记录', add_action: '添加操作', update_entity: '修改表',
+      add_page: '添加页面', update_page: '修改页面', add_view: '添加视图', add_record: '添加记录', add_action: '添加操作', update_entity: '修改表',
       update_field: '修改字段', update_record: '修改记录', remove_entity: '删除表',
       remove_field: '删除字段', remove_page: '删除页面', delete_record: '删除记录',
       query_data: '查询数据', design_form: '设计表单', create_view: '创建视图', create_rule: '创建业务规则', update_rule: '修改业务规则'
@@ -200,9 +200,12 @@ export function historyBusinessDetail(log = {}) {
 
     case 'add_page': {
       // input: { title, type, entityId }
-      const typeLabels = { list: '列表', chart: '图表', dashboard: '仪表板', blank: '空白页' };
+      const typeLabels = { list: '列表', chart: '图表', dashboard: '看板', blank: '空白页', webpage: '网页' };
       return [input.title, typeLabels[input.type] || input.type].filter(Boolean).join(' · ');
     }
+
+    case 'update_page':
+      return input.title || (typeof input.content === 'string' ? '已更新页面内容' : '');
 
     case 'add_action':
       // input: { label, type, entityId }
@@ -344,7 +347,7 @@ function appendOperationDetails(card, output, input, toolName) {
 
   // ── add_page: show page title and type ──
   if (toolName === 'add_page' && input) {
-    const typeLabels = { list: '列表页', chart: '图表页', dashboard: '仪表板', blank: '空白页' };
+    const typeLabels = { list: '列表页', chart: '图表页', dashboard: '看板', blank: '空白页', webpage: '网页' };
     const list = h('div', { class: 'tool-card-operation-list' });
     list.append(h('div', { class: 'tool-card-operation' }, [
       h('span', { class: 'tool-card-operation-label', text: '新建页面' }),

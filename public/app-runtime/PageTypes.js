@@ -9,9 +9,11 @@ import { openConfirmDialog } from '../common/modal.js';
 import { toast } from '../common/toast.js';
 import { saveCurrentPackage, renderRuntime } from './runtime-actions.js';
 import { renderMarkdownPage } from './MarkdownPage.js';
+import { renderHtmlPage } from './HtmlPage.js';
 
 export function renderPageCanvas(page) {
   if (page.navKind === 'markdown') return renderMarkdownPage(page);
+  if (page.navKind === 'webpage') return renderHtmlPage(page);
   // Dashboard is a first-class page type, rendered via independent entry
   if (page.type === 'dashboard') return renderDashboardPage(page);
 

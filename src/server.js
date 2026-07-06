@@ -5,6 +5,7 @@ import { handleAppApi, handleGenerateApp, handleImportApp } from './routes/app.j
 import { handleRuntimeApi } from './routes/runtime.js';
 import { handleSettingsApi } from './routes/settings.js';
 import { initDb, closeDb } from './storage/db.js';
+import { getApp } from './models/app.js';
 
 const APP_VERSION = '2026.06.25';
 const PORT = Number(process.env.PORT || 5173);
@@ -54,6 +55,32 @@ function securityHeaders(res) {
   );
 }
 
+export function serveHtmlPreview(req, res, pathname) {
+  if (req.method !== 'GET') throw new HttpError(404, '预览地址不存在。');
+  const match = pathname.match(/^\/html-preview\/([^/]+)\/([^/]+)\/?$/);
+  if (!match) throw new HttpError(404, '预览地址不存在。');
+  let appId;
+  let pageId;
+  try {
+    appId = decodeURIComponent(match[1]);
+    pageId = decodeURIComponent(match[2]);
+  } catch {
+    throw new HttpError(400, '预览地址无效。');
+  }
+  const app = getApp(appId);
+  if (!app) throw new HttpError(404, '软件不存在。');
+  const page = app.ui?.pages?.find((item) => item.id === pageId && item.navKind === 'webpage');
+  if (!page) throw new HttpError(404, '网页不存在。');
+  res.writeHead(200, {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'no-referrer',
+    'content-security-policy': "sandbox allow-scripts allow-forms allow-modals allow-popups; default-src http: https: data: blob:; script-src http: https: 'unsafe-inline' 'unsafe-eval' blob:; style-src http: https: 'unsafe-inline'; img-src http: https: data: blob:; font-src http: https: data:; connect-src http: https:"
+  });
+  res.end(String(page.content || ''));
+}
+
 function logRequest(method, pathname, status, duration, userAgent) {
   const entry = { method, pathname, status, duration };
   if (status >= 500) entry.level = 'error';
@@ -80,7 +107,7 @@ export function createAppServer() {
         securityHeaders(res);
       }
 
-      if (DESKTOP_TOKEN && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/uploads/'))) {
+      if (DESKTOP_TOKEN && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/uploads/') || url.pathname.startsWith('/html-preview/'))) {
         if (req.headers['x-luban-desktop-token'] !== DESKTOP_TOKEN) {
           status = 403;
           sendJson(res, 403, { error: '无权访问本地应用服务。' });
@@ -104,6 +131,10 @@ export function createAppServer() {
       }
       if (url.pathname.startsWith('/uploads/')) {
         serveUpload(res, url.pathname);
+        return;
+      }
+      if (url.pathname.startsWith('/html-preview/')) {
+        serveHtmlPreview(req, res, url.pathname);
         return;
       }
       // Static files — only CSP headers for HTML

@@ -230,7 +230,7 @@ export function buildAssistantContext() {
   const page = app.ui.pages.find((p) => p.id === state.currentPageId) || app.ui.pages[0];
   const entity = page?.entity ? entityFor(page) : null;
   const parts = [`当前应用: ${app.name}`, `当前页面: ${page?.title || '无'}`];
-  if (page) parts.push(`页面ID: ${page.id}`, `页面类型: ${page.type}`);
+  if (page) parts.push(`页面ID: ${page.id}`, `页面类型: ${page.navKind || page.type}`);
   if (entity) {
     parts.push(`当前数据表: ${entity.name} (${entity.id})`);
     parts.push(`字段列表: ${entity.fields.map((f) => `${f.label||f.id} (${f.type})`).join(', ')}`);

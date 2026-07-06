@@ -32,15 +32,6 @@ export function renderHome() {
                 renderHome();
               }
             }),
-            h('button', {
-              class: 'secondary',
-              text: 'AI 配置业务规则',
-              onclick: async () => {
-                window.history.pushState(null, '', '/rules/ai-config');
-                const { renderAiRuleConfig } = await import('../rules/ai-config.js');
-                renderAiRuleConfig(root);
-              }
-            }),
             h('button', { class: 'secondary', text: '导入 .sgpkg', onclick: openImportModal }),
           ])
         ]),

@@ -4,21 +4,22 @@ import { getApp, updateAppPackage } from '../../models/app.js';
 
 register({
   name: 'update_page',
-  description: 'Add content (chart cards, stat cards) to the current page, or change page properties. IMPORTANT: When the user asks to add a chart, stat, or content to the current page, use "cards" to append new cards — do NOT replace existing ones. Cards are automatically merged and won\'t overwrite existing content.',
+  description: 'Modify the current page. For HTML webpages or Markdown documents, replace their complete source using content. For dashboards, append cards instead of replacing existing cards.',
   risk: 'low',
   schema: {
     type: 'function',
     function: {
       name: 'update_page',
-      description: 'Add cards to or modify the current page. Cards merge into existing content.',
+      description: 'Modify the current page, including complete HTML or Markdown source. Dashboard cards merge into existing content.',
       parameters: {
         type: 'object',
         properties: {
           appId: { type: 'string', description: 'App ID' },
           pageId: { type: 'string', description: 'Page ID to modify' },
           title: { type: 'string', description: 'New page title (optional)' },
-          type: { type: 'string', enum: ['list', 'chart', 'dashboard', 'blank'], description: 'New page type (optional)' },
+          type: { type: 'string', enum: ['list', 'chart', 'dashboard', 'blank', 'webpage', 'markdown'], description: 'New page type (optional)' },
           entityId: { type: 'string', description: 'Entity/table ID for the page (optional)' },
+          content: { type: 'string', description: 'Complete replacement source for the current HTML webpage or Markdown document. Return the entire revised document, not a patch or excerpt.' },
           chart: {
             type: 'object',
             description: 'WARNING: This REPLACES the full page with a chart view. Do NOT use on pages that already have content. For adding a chart to an existing page, use cards instead with type:"chart". Example: {"groupBy": "field_id", "value": "count"}.',
@@ -62,9 +63,22 @@ register({
     if (!targetPage) throw new Error(`Page not found: ${args.pageId || args.entityId}`);
 
     if (args.title) targetPage.title = args.title;
-    if (args.type) {
+    if (args.type === 'webpage') {
+      targetPage.type = 'page';
+      targetPage.navKind = 'webpage';
+    } else if (args.type === 'markdown') {
+      targetPage.type = 'page';
+      targetPage.navKind = 'markdown';
+    } else if (args.type === 'dashboard') {
+      targetPage.type = 'dashboard';
+      targetPage.navKind = 'dashboard';
+    } else if (args.type) {
       targetPage.type = 'page';
       targetPage.navKind = 'page';
+    }
+    if (typeof args.content === 'string') {
+      if (!['webpage', 'markdown'].includes(targetPage.navKind)) throw new Error('只有网页或 Markdown 文档支持直接修改完整内容');
+      targetPage.content = args.content;
     }
     if (args.entityId) {
       targetPage.entity = args.entityId;

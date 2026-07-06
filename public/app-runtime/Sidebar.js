@@ -61,6 +61,14 @@ export function pageTypeIcon(navKind) {
       svgPath('m10 10 1.5 2 1.5-2')
     ], 'page-type-svg');
   }
+  if (navKind === 'webpage') {
+    return svgIcon('0 0 18 18', [
+      svgPath('M3 3h12v12H3z'),
+      svgLine(3, 6, 15, 6),
+      svgPath('m7 9-2 1.5L7 12'),
+      svgPath('m11 9 2 1.5-2 1.5')
+    ], 'page-type-svg');
+  }
   return svgIcon('0 0 18 18', [
     svgLine(5, 13, 13, 5),
     svgLine(9, 5, 13, 5),
@@ -73,12 +81,13 @@ export function pageTypeLabel(page, navKind = 'page') {
   if (navKind === 'link') return '链接';
   if (navKind === 'dashboard') return '看板';
   if (navKind === 'markdown') return 'Markdown 文件';
+  if (navKind === 'webpage') return '网页';
   return '页面';
 }
 
 export function renderMobileSidebar(app, page) {
   const drawerHead = h('div', { class: 'mobile-drawer-head' }, [
-    h('span', { class: 'mobile-drawer-title', text: '表格与页面' }),
+    h('span', { class: 'mobile-drawer-title', text: '数据与页面' }),
     h('button', { class: 'ghost', text: '✕', onclick: () => { state.mobileDrawerOpen = false; renderRuntime(); } })
   ]);
   const pageList = h('div', { class: 'mobile-drawer-list' }, app.ui.pages.map((item) => {
@@ -110,51 +119,103 @@ export function renderMobileSidebar(app, page) {
     pageList,
     h('div', { class: 'mobile-drawer-actions' }, [
       h('button', { class: 'secondary', text: '+ 新建表', onclick: () => { state.mobileDrawerOpen = false; openCreateTableModal(); } }),
-      h('button', { class: 'secondary', text: '+ 新建页面', onclick: () => { state.mobileDrawerOpen = false; openCreatePageModal(page); } }),
+      h('button', { class: 'secondary', text: '+ 新增视图', onclick: () => { state.mobileDrawerOpen = false; openCreatePageModal(page); } }),
       h('button', { class: 'secondary', text: '+ 新建文档', onclick: () => { state.mobileDrawerOpen = false; openAddMarkdownFile(); } }),
       h('button', { class: 'secondary', text: '+ 新建看板', onclick: () => { state.mobileDrawerOpen = false; openCreateDashboardModal(); } }),
+      h('button', { class: 'secondary', text: '+ 新建网页', onclick: () => { state.mobileDrawerOpen = false; openAddHtmlPage(); } }),
       h('button', { class: 'secondary', text: '+ 新增链接', onclick: () => { state.mobileDrawerOpen = false; openCreateLinkModal(); } })
     ])
   ];
 }
 
+let sidebarCreatePopover = null;
+
+function closeSidebarCreateMenu() {
+  if (!sidebarCreatePopover) return;
+  sidebarCreatePopover.menu.remove();
+  sidebarCreatePopover.trigger.setAttribute('aria-expanded', 'false');
+  sidebarCreatePopover.controller.abort();
+  sidebarCreatePopover = null;
+}
+
+function openSidebarCreateMenu(event, page) {
+  event.stopPropagation();
+  const trigger = event.currentTarget;
+  if (sidebarCreatePopover?.trigger === trigger) {
+    closeSidebarCreateMenu();
+    return;
+  }
+  closeSidebarCreateMenu();
+
+  const controller = new AbortController();
+  const run = (action) => {
+    closeSidebarCreateMenu();
+    action();
+  };
+  const item = (label, kind, action) => h('button', {
+    class: 'ghost-menu sidebar-create-action',
+    onclick: () => run(action)
+  }, [
+    h('span', { class: `button-icon ${kind}-icon` }, [pageTypeIcon(kind)]),
+    h('span', { text: label })
+  ]);
+  const menu = h('div', { class: 'sidebar-create-dropdown', role: 'menu' }, [
+    item('新建表', 'table', openCreateTableModal),
+    item('新增视图', 'page', () => openCreatePageModal(page)),
+    item('新建看板', 'dashboard', openCreateDashboardModal),
+    item('新建文档', 'markdown', openAddMarkdownFile),
+    item('新建网页', 'webpage', openAddHtmlPage),
+    item('新增链接', 'link', openCreateLinkModal)
+  ]);
+  document.body.append(menu);
+
+  const rect = trigger.getBoundingClientRect();
+  const top = Math.min(rect.top, window.innerHeight - menu.offsetHeight - 8);
+  menu.style.left = `${rect.right + 6}px`;
+  menu.style.top = `${Math.max(8, top)}px`;
+  trigger.setAttribute('aria-expanded', 'true');
+  sidebarCreatePopover = { menu, trigger, controller };
+
+  document.addEventListener('pointerdown', (pointerEvent) => {
+    if (!menu.contains(pointerEvent.target) && pointerEvent.target !== trigger) closeSidebarCreateMenu();
+  }, { signal: controller.signal });
+  document.addEventListener('keydown', (keyEvent) => {
+    if (keyEvent.key === 'Escape') closeSidebarCreateMenu();
+  }, { signal: controller.signal });
+  window.addEventListener('resize', closeSidebarCreateMenu, { signal: controller.signal });
+  window.addEventListener('scroll', closeSidebarCreateMenu, { capture: true, signal: controller.signal });
+}
+
 export function renderSidebarContent(app, page) {
   const toggle = h('button', {
-    class: 'sidebar-toggle ghost',
+    class: 'sidebar-toggle ghost icon-button',
     title: state.sidebarCollapsed ? '展开页面列表' : '折叠页面列表',
+    'aria-label': state.sidebarCollapsed ? '展开页面列表' : '折叠页面列表',
     onclick: toggleSidebarCollapsed
-  }, [
-    h('span', { text: state.sidebarCollapsed ? '›' : '‹' }),
-    state.sidebarCollapsed ? null : h('span', { text: '折叠' })
-  ]);
-  if (state.sidebarCollapsed) return [toggle];
+  }, [svgIcon('0 0 18 18', [svgPath(state.sidebarCollapsed ? 'm7 4 5 5-5 5' : 'm11 4-5 5 5 5')], 'sidebar-toggle-icon')]);
+  const footer = h('div', { class: 'sidebar-footer' }, [toggle]);
+  if (state.sidebarCollapsed) {
+    return [
+      h('div', { class: 'page-list collapsed-page-list' }, app.ui.pages.map((item) => renderPageNavItem(app, page, item))),
+      footer
+    ];
+  }
+  const createMenu = h('button', {
+    class: 'sidebar-create-trigger',
+    title: '新建',
+    'aria-label': '打开新建菜单',
+    'aria-haspopup': 'menu',
+    'aria-expanded': 'false',
+    text: '+',
+    onclick: (event) => openSidebarCreateMenu(event, page)
+  });
   return [
     h('div', { class: 'sidebar-head' }, [
-      h('div', { class: 'sidebar-label', text: '表格与页面' }),
-      toggle
+      h('div', { class: 'sidebar-label', text: '数据与页面' }),
+      createMenu
     ]),
     h('div', { class: 'page-list' }, app.ui.pages.map((item) => renderPageNavItem(app, page, item))),
-    h('hr', { class: 'sidebar-divider' }),
-    h('button', { class: 'page-button create-table-button', onclick: openCreateTableModal }, [
-      h('span', { class: 'button-icon table-icon' }, [pageTypeIcon('table')]),
-      h('span', { text: '+ 新建表' })
-    ]),
-    h('button', { class: 'page-button create-page-button', onclick: () => openCreatePageModal(page) }, [
-      h('span', { class: 'button-icon page-icon' }, [pageTypeIcon('page')]),
-      h('span', { text: '+ 新建页面' })
-    ]),
-    h('button', { class: 'page-button add-markdown-button', onclick: openAddMarkdownFile }, [
-      h('span', { class: 'button-icon markdown-icon' }, [pageTypeIcon('markdown')]),
-      h('span', { text: '+ 新建文档' })
-    ]),
-    h('button', { class: 'page-button create-dashboard-button', onclick: openCreateDashboardModal }, [
-      h('span', { class: 'button-icon dashboard-icon' }, [pageTypeIcon('dashboard')]),
-      h('span', { text: '+ 新建看板' })
-    ]),
-    h('button', { class: 'page-button create-link-button', onclick: openCreateLinkModal }, [
-      h('span', { class: 'button-icon page-icon' }, [pageTypeIcon('link')]),
-      h('span', { text: '+ 新增链接' })
-    ])
+    footer
   ];
 }
 
@@ -167,30 +228,35 @@ export function renderPageNavItem(app, activePage, item) {
     onclick: (event) => {
       event.stopPropagation();
       closePageMenus();
-      const rect = event.currentTarget.getBoundingClientRect();
+      const trigger = event.currentTarget;
+      const rect = trigger.getBoundingClientRect();
+      const run = (action) => {
+        closePageMenus();
+        action();
+      };
       const popover = h('div', { class: 'page-menu-popover fixed-menu' }, [
         h('button', {
           class: 'ghost-menu', text: '重命名',
-          onclick: () => { popover.remove(); renamePage(item); }
+          onclick: () => run(() => renamePage(item))
         }),
         navKind !== 'link' ? h('button', {
           class: 'ghost-menu', text: '删除页面',
-          onclick: () => { popover.remove(); deletePage(item); }
+          onclick: () => run(() => deletePage(item))
         }) : h('button', {
           class: 'ghost-menu', text: '删除链接',
-          onclick: () => { popover.remove(); deletePage(item); }
+          onclick: () => run(() => deletePage(item))
         }),
         navKind === 'link' ? h('button', {
           class: 'ghost-menu', text: item.target === '_self' ? '切换：新页面打开' : '切换：当前页面打开',
-          onclick: () => { popover.remove(); toggleLinkTarget(item); }
+          onclick: () => run(() => toggleLinkTarget(item))
         }) : null,
         isTablePage && entity ? h('button', {
           class: 'ghost-menu', text: '清除数据',
-          onclick: () => { popover.remove(); clearTableData(entity); }
+          onclick: () => run(() => clearTableData(entity))
         }) : null,
         isTablePage && entity ? h('button', {
           class: 'ghost-menu danger', text: '删除表',
-          onclick: () => { popover.remove(); deleteTableAndData(entity); }
+          onclick: () => run(() => deleteTableAndData(entity))
         }) : null
       ].filter(Boolean));
       const popLeft = rect.right + 4;
@@ -198,6 +264,16 @@ export function renderPageNavItem(app, activePage, item) {
       popover.style.left = popRight > -10 ? `${popLeft}px` : `${window.innerWidth - 164}px`;
       popover.style.top = `${Math.min(rect.top, window.innerHeight - 200)}px`;
       document.body.append(popover);
+      const controller = new AbortController();
+      pageMenuController = controller;
+      document.addEventListener('pointerdown', (pointerEvent) => {
+        if (!popover.contains(pointerEvent.target) && pointerEvent.target !== trigger) closePageMenus();
+      }, { signal: controller.signal });
+      document.addEventListener('keydown', (keyEvent) => {
+        if (keyEvent.key === 'Escape') closePageMenus();
+      }, { signal: controller.signal });
+      window.addEventListener('resize', closePageMenus, { signal: controller.signal });
+      window.addEventListener('scroll', closePageMenus, { capture: true, signal: controller.signal });
     }
   });
   const row = h('div', {
@@ -267,12 +343,17 @@ export function renderPageNavItem(app, activePage, item) {
   return row;
 }
 
+let pageMenuController = null;
+
 function closePageMenus() {
   document.querySelectorAll('.page-menu-popover.fixed-menu').forEach((el) => el.remove());
+  pageMenuController?.abort();
+  pageMenuController = null;
 }
 
 export function closeAllMenus() {
-  document.querySelectorAll('.context-menu, .page-menu-popover.fixed-menu, .mobile-card-menu').forEach((el) => el.remove());
+  closePageMenus();
+  document.querySelectorAll('.context-menu, .mobile-card-menu').forEach((el) => el.remove());
 }
 
 function toggleLinkTarget(item) {
@@ -464,6 +545,33 @@ export function buildMarkdownPage(fileName, content = '') {
   };
 }
 
+export function buildHtmlPage(title, content = '') {
+  const normalizedTitle = title.trim() || '未命名网页';
+  return {
+    id: uniquePageId(normalizedTitle, 'webpage'),
+    title: normalizedTitle,
+    type: 'page',
+    navKind: 'webpage',
+    content: content || `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${normalizedTitle}</title>
+  <style>
+    body { margin: 0; padding: 40px; font-family: system-ui, sans-serif; color: #202938; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>${normalizedTitle}</h1>
+    <p>切换到编辑模式开始编写网页，或打开 AI 助理描述你想要的页面。</p>
+  </main>
+</body>
+</html>`
+  };
+}
+
 export async function openAddMarkdownFile() {
   const page = buildMarkdownPage('未命名文档');
   try {
@@ -473,6 +581,20 @@ export async function openAddMarkdownFile() {
     writeRoute(state.currentApp.id, page.id, false, '');
     renderRuntime();
     toast('Markdown 文件已创建');
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+export async function openAddHtmlPage() {
+  const page = buildHtmlPage('未命名网页');
+  try {
+    await saveCurrentPackage((pkg) => { pkg.ui.pages.push(page); });
+    state.currentPageId = page.id;
+    state.currentViewId = '';
+    writeRoute(state.currentApp.id, page.id, false, '');
+    renderRuntime();
+    toast('网页已创建');
   } catch (error) {
     toast(error.message);
   }
@@ -500,10 +622,11 @@ export function openCreatePageModal(sourcePage = null) {
   ]);
 
   const typeSelect = selectFromOptions([
+    ['', '— 请选择视图 —'],
     ['list', '表格视图'],
     ['quadrant', '四象限视图'],
     ['gantt', '甘特视图']
-  ], 'list');
+  ], '');
   typeSelect.style.width = '100%';
 
   const configWrapper = h('div', { class: 'view-type-config', style: 'margin-top:8px' });
@@ -513,8 +636,11 @@ export function openCreatePageModal(sourcePage = null) {
     configWrapper.innerHTML = '';
     const entityId = entitySelect.value;
     const entity = entityId ? entities.find((e) => e.id === entityId) : null;
-    if (!entity) return;
     const type = typeSelect.value;
+    if (!entity) {
+      if (createButton) createButton.disabled = true;
+      return;
+    }
 
     if (type === 'quadrant') {
       const fields = entity.fields.filter((f) => f.type === 'select' && (f.options || []).length >= 4);
@@ -551,7 +677,7 @@ export function openCreatePageModal(sourcePage = null) {
     if (createButton) {
       const invalidQuadrant = type === 'quadrant' && !configWrapper.querySelector('[data-view-config="quadrantField"]')?.value;
       const invalidGantt = type === 'gantt' && (dateFieldsInvalid());
-      createButton.disabled = invalidQuadrant || invalidGantt;
+      createButton.disabled = !entityId || !type || invalidQuadrant || invalidGantt;
     }
   };
 
@@ -568,15 +694,15 @@ export function openCreatePageModal(sourcePage = null) {
   const backdrop = h('div', { class: 'modal-backdrop' }, [
     h('div', { class: 'modal compact-modal' }, [
       h('div', { class: 'toolbar' }, [
-        h('h3', { text: '新建页面' }),
+        h('h3', { text: '新增视图' }),
         h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })
       ]),
-      h('div', { class: 'field' }, [h('label', { text: '页面名称' }), nameInput]),
+      h('div', { class: 'field' }, [h('label', { text: '视图名称' }), nameInput]),
       h('div', { class: 'field' }, [h('label', { text: '数据表' }), entitySelect]),
       h('div', { class: 'field' }, [h('label', { text: '视图类型' }), typeSelect, configWrapper]),
       h('div', { class: 'row', style: 'margin-top:14px' }, [
         h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
-        h('button', {
+        createButton = h('button', {
           text: '创建',
           onclick: async () => {
             const title = nameInput.value.trim() || (entitySelect.value ? entities.find((e) => e.id === entitySelect.value)?.name || '页面' : '页面');
@@ -584,6 +710,7 @@ export function openCreatePageModal(sourcePage = null) {
             if (!entityId) return toast('请选择一个数据表。');
             const entity = entities.find((e) => e.id === entityId);
             const type = typeSelect.value;
+            if (!type) return toast('请选择一个视图。');
             const view = { id: 'default', name: '全部记录', type };
             if (type === 'quadrant') {
               const field = entity.fields.find((f) => f.id === configWrapper.querySelector('[data-view-config="quadrantField"]')?.value);
@@ -609,7 +736,7 @@ export function openCreatePageModal(sourcePage = null) {
               writeRoute(state.currentApp.id, state.currentPageId, false, 'default');
               backdrop.remove();
               renderRuntime();
-              toast('页面已创建');
+              toast('视图已新增');
             } catch (error) {
               toast(error.message);
             }

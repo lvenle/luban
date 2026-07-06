@@ -3,6 +3,27 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { renderMarkdown, stripLegacyMarkdownStyles } from '../public/app-runtime/Markdown.js';
 import { wrapMarkdownSelection, applyMarkdownHeading, applyMarkdownLinePrefix, applyMarkdownOrderedList } from '../public/app-runtime/MarkdownFormatting.js';
+import { highlightHtmlSource } from '../public/app-runtime/HtmlPage.js';
+
+test('HTML source highlighter colors tags, attributes, values, declarations, and comments safely', () => {
+  const highlighted = highlightHtmlSource(`<!doctype html>
+<!-- 注释 -->
+<style>:root { --brand: #2563eb; } body { color: var(--brand); margin: 12px; }</style>
+<main class="hero">内容</main>
+<script>const title = "页面"; // 注释
+if (title) document.title = title;</script>`);
+  assert.match(highlighted, /html-token-doctype/);
+  assert.match(highlighted, /html-token-comment/);
+  assert.match(highlighted, /html-token-tag/);
+  assert.match(highlighted, /html-token-attribute/);
+  assert.match(highlighted, /html-token-value/);
+  assert.match(highlighted, /html-token-css-property/);
+  assert.match(highlighted, /html-token-css-variable/);
+  assert.match(highlighted, /html-token-js-keyword/);
+  assert.match(highlighted, /html-token-js-string/);
+  assert.match(highlighted, /html-token-js-comment/);
+  assert.doesNotMatch(highlighted, /<main class=/);
+});
 
 test('markdown renderer escapes HTML and renders common markdown syntax', () => {
   const html = renderMarkdown('# 标题\n\n**加粗** `代码` <script>');
@@ -140,4 +161,50 @@ test('sidebar creates an editable markdown file without opening a file picker', 
   const routeHelpers = readFileSync(new URL('../src/routes/_helpers.js', import.meta.url), 'utf8');
   assert.match(routeHelpers, /'\.html', '\.htm'/);
   assert.match(routeHelpers, /content-security-policy'[\s\S]*sandbox; default-src 'none'/);
+});
+
+test('sidebar creates standalone HTML pages with preview-first source editing', () => {
+  const sidebar = readFileSync(new URL('../public/app-runtime/Sidebar.js', import.meta.url), 'utf8');
+  const pageTypes = readFileSync(new URL('../public/app-runtime/PageTypes.js', import.meta.url), 'utf8');
+  const htmlPage = readFileSync(new URL('../public/app-runtime/HtmlPage.js', import.meta.url), 'utf8');
+  const addPage = readFileSync(new URL('../src/ai/tools/add-page.js', import.meta.url), 'utf8');
+  const updatePage = readFileSync(new URL('../src/ai/tools/update-page.js', import.meta.url), 'utf8');
+  assert.match(sidebar, /text: '\+ 新建网页'/);
+  assert.doesNotMatch(sidebar, /text: '\+ 新建页面'/);
+  assert.match(sidebar, /navKind: 'webpage'/);
+  assert.match(pageTypes, /page\.navKind === 'webpage'/);
+  assert.match(htmlPage, /sandbox: 'allow-scripts allow-forms allow-modals allow-popups'/);
+  assert.match(htmlPage, /markdown-mode-button active', text: '预览'/);
+  assert.match(htmlPage, /createPreviewFrame\(true\)[\s\S]*nextPreview\.addEventListener\('load'/);
+  assert.match(htmlPage, /activePreview\.remove\(\)[\s\S]*activePreview = nextPreview/);
+  assert.match(htmlPage, /previewWarmTimer = setTimeout\(refreshPreview, 220\)/);
+  assert.match(htmlPage, /textarea\.setSelectionRange\(0, 0\)[\s\S]*textarea\.scrollTop = 0/);
+  assert.match(htmlPage, /replaceChild\(syntaxEditor, textarea\);\n\s*syntaxEditor\.append\(textarea\)/);
+  assert.match(htmlPage, /title: '双击修改网页名称'/);
+  assert.match(htmlPage, /target\.title = title/);
+  assert.match(htmlPage, /page-nav-item\.active \.menu-item/);
+  assert.match(htmlPage, /text: '新窗口打开'/);
+  assert.match(htmlPage, /`\/html-preview\/\$\{encodeURIComponent\(decodeURIComponent\(appId\)\)\}\/\$\{encodeURIComponent\(page\.id\)\}`/);
+  assert.match(htmlPage, /previewWindow\.opener = null/);
+  assert.doesNotMatch(htmlPage, /URL\.createObjectURL\(new Blob/);
+  assert.match(addPage, /'webpage'/);
+  assert.match(addPage, /content: args\.content/);
+  assert.match(updatePage, /targetPage\.content = args\.content/);
+});
+
+test('sidebar restores explicit view creation and keeps page names when collapsed', () => {
+  const sidebar = readFileSync(new URL('../public/app-runtime/Sidebar.js', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  assert.match(sidebar, /item\('新增视图', 'page'/);
+  assert.match(sidebar, /\['', '— 请选择视图 —'\]/);
+  assert.match(sidebar, /createButton\.disabled = !entityId \|\| !type/);
+  assert.match(sidebar, /state\.sidebarCollapsed[\s\S]*collapsed-page-list[\s\S]*renderPageNavItem/);
+  assert.match(styles, /\.runtime\.sidebar-collapsed \.page-nav-item[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(sidebar, /document\.addEventListener\('pointerdown'[\s\S]*closePageMenus/);
+  assert.match(sidebar, /pageMenuController\?\.abort\(\)/);
+  assert.match(styles, /\.page-nav-item:hover,[\s\S]*background: #e4e9f0/);
+  assert.match(styles, /\.page-nav-item \.menu-item:hover,[\s\S]*background: transparent/);
+  assert.match(styles, /\.page-nav-item:hover \.page-menu\.ghost:not\(:hover\),[\s\S]*background: transparent/);
+  assert.match(styles, /\.page-nav-item \.page-menu\.ghost \{[\s\S]*width: 24px;[\s\S]*height: 24px/);
+  assert.match(styles, /\.page-nav-item \.page-menu\.ghost:hover \{[\s\S]*background: #cdd5df/);
 });
