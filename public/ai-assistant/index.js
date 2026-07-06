@@ -20,6 +20,18 @@ let currentContext = '';
 let currentMode = 'create';
 let currentAppName = '';
 
+async function loadSessions({ selectLatestModify = false, forceLatest = false } = {}) {
+  await sessionManager.load(currentAppId);
+  if (
+    selectLatestModify &&
+    currentMode === 'modify' &&
+    sessionManager.sessions.length &&
+    (forceLatest || !currentSessionId)
+  ) {
+    await sessionManager.onSwitch(sessionManager.sessions[0].id);
+  }
+}
+
 export function init() {
   chatView = new ChatView({
     onSend: handleSend,
@@ -210,12 +222,8 @@ export function setAssistantMode({ mode = 'create', appId = '', appName = '', co
     currentSessionId = '';
     chatView.clear();
     sessionManager.setCurrent('');
-    sessionManager.load(currentAppId).then(() => {
-      // modify 模式自动切换到最新会话，create 模式保持空会话
-      if (nextMode === 'modify' && sessionManager.sessions.length) {
-        sessionManager.onSwitch(sessionManager.sessions[0].id);
-      }
-    });
+    // modify 模式自动切换到最新会话，create 模式保持空会话
+    loadSessions({ selectLatestModify: true, forceLatest: true });
   }
   updateAssistantModeLabels();
 }
@@ -248,7 +256,7 @@ export function renderAssistantDrawer(onClose) {
     document.body.classList.add('assistant-open');
     updateAssistantModeLabels();
     // 确保会话列表刷新——当 loadApps() 触发重绘时 load() 可能还在进行中
-    sessionManager.load(currentAppId);
+    loadSessions();
     return existingDrawer;
   }
 
@@ -282,11 +290,10 @@ export function renderAssistantDrawer(onClose) {
     chatEl
   ]);
 
-  sessionManager.load(currentAppId);
-
   document.body.append(drawer);
   document.body.classList.add('assistant-open');
   updateAssistantModeLabels();
+  loadSessions({ selectLatestModify: true, forceLatest: true });
   return drawer;
 }
 

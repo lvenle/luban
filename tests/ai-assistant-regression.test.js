@@ -115,6 +115,12 @@ test('assistant mode follows home and app-detail navigation', () => {
   assert.match(assistantIndexJs, /应用创建助理/);
 });
 
+test('modify assistant opens the latest session by default', () => {
+  assert.match(assistantIndexJs, /async function loadSessions\(\{ selectLatestModify = false, forceLatest = false \} = \{\}\)/);
+  assert.match(assistantIndexJs, /currentMode === 'modify'[\s\S]*sessionManager\.sessions\.length[\s\S]*sessionManager\.onSwitch\(sessionManager\.sessions\[0\]\.id\)/);
+  assert.match(assistantIndexJs, /loadSessions\(\{ selectLatestModify: true, forceLatest: true \}\)/);
+});
+
 test('completed tool cards remain visible and are restored from session logs', () => {
   assert.match(assistantIndexJs, /body\.session\.logs/);
   assert.match(assistantIndexJs, /toolDisplay\.showHistoryLog\(entry\.item\)/);

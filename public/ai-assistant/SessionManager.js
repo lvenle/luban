@@ -34,6 +34,7 @@ export default class SessionManager {
       const time = session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
       this.selectEl.append(h('option', { value: session.id, text: `[${time}] ${preview} ${icon}` }));
     }
+    this.selectEl.value = this.currentSessionId || '';
   }
 
   render() {

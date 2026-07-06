@@ -620,7 +620,7 @@ textarea {
 }
 
 .app-card:has(.card-menu[open]) {
-  z-index: 15;
+  z-index: 80;
 }
 
 .clickable-card {
@@ -752,7 +752,11 @@ textarea {
 
 .card-menu {
   position: relative;
-  z-index: 16;
+  z-index: 1;
+}
+
+.card-menu[open] {
+  z-index: 90;
 }
 
 .card-menu summary {
@@ -780,7 +784,7 @@ textarea {
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
-  z-index: 30;
+  z-index: 100;
   min-width: 126px;
   display: grid;
   gap: 2px;
