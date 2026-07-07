@@ -33,7 +33,34 @@ export function startCellEdit(cell, entity, record, field) {
       try {
         const body = await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
         pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entityDisplayName(entity) });
+        // Update local data — for relation fields, construct display objects (same as server hydrateRelationValues)
         record.data = data;
+        if (field.type === 'relation') {
+          const targetEntity = state.currentApp.schema.entities.find(e => e.id === field.targetEntity);
+          const targets = recordsFor(field.targetEntity);
+          const items = (Array.isArray(newValue) ? newValue : [newValue]).filter(id => id);
+          if (items.length) {
+            record.data[field.id] = (field.multiple ? items : [items[0]]).map(item => {
+              // Already a display object with displayValue — preserve it
+              if (item && typeof item === 'object') {
+                if (item.displayValue) return item;
+                const id = item.targetRecordId || item.recordId || item.id;
+                if (id) {
+                  const target = targets.find(r => r.id === id);
+                  return { targetRecordId: id, displayValue: target ? relationDisplayValue(field, targetEntity, target) : id };
+                }
+                return item;
+              }
+              // Raw ID string — construct display object
+              const id = String(item);
+              const target = targets.find(r => r.id === id);
+              return { targetRecordId: id, displayValue: target ? relationDisplayValue(field, targetEntity, target) : id };
+            });
+            if (!field.multiple) record.data[field.id] = record.data[field.id][0];
+          } else {
+            record.data[field.id] = field.multiple ? [] : '';
+          }
+        }
         import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch((err) => console.error('[AI Trigger]', err));
         // Local update only — avoid full re-render flash, same as text input save
         cell.classList.remove('cell-editing', 'choice-cell-editing');
