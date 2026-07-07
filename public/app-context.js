@@ -3,7 +3,7 @@ import { api } from './common/api.js';
 import { toast } from './common/toast.js';
 import { openConfirmDialog, openTextModal, floatingMenus, closeFloatingMenus, bindFloatingMenu, setupModalAccessibility } from './common/modal.js';
 import { readStorage, writeStorage, globalStorageKey, clampSidebarWidth } from './common/storage.js';
-import { formatDateFieldValue } from './app-runtime/DateFormat.js';
+import { formatFieldValue as formatDisplayFieldValue } from './common/field-format.js';
 import { appCategory } from './common/app-metadata.js';
 import { entityDisplayName as resolveEntityDisplayName } from './common/entity-display.js';
 import { getClientRuntimeSettings } from './common/runtime-settings-store.js';
@@ -146,18 +146,7 @@ export function entityById(entityId) { return state.currentApp.schema.entities.f
 export function entityDisplayName(entityOrId, app = state.currentApp) { return resolveEntityDisplayName(app, entityOrId); }
 
 export function formatFieldValue(value, field) {
-  if (value == null || value === '') return '';
-  if (field.type === 'select') return (field.options || []).map(o => typeof o === 'string' ? { id: o, label: o, color: 'gray' } : o).find((o) => (o.id === (value?.optionId || value?.id || value)) || o.label === value)?.label || value?.optionId || value?.id || value || '';
-  if (field.type === 'multiSelect') return (Array.isArray(value) ? value : []).map((i) => formatFieldValue({ optionId: i.optionId || i.id || i }, { type: 'select', options: field.options })).filter(Boolean).join('、');
-  if (field.type === 'relation') return (Array.isArray(value) ? value : [value]).map((v) => v?.displayValue || v?.label || v?.name || '').filter(Boolean).join('、');
-  if (field.type === 'image' || field.type === 'file') return typeof value === 'object' ? (value.name || value.url?.split('/').pop() || '') : String(value);
-  if (field.type === 'formula') return formatFieldValue(value, { ...field, type: field.formula?.resultType || 'number' });
-  if (field.type === 'number') { const n = Number(value); if (Number.isNaN(n)) return String(value ?? ''); if (field.format === 'integer') return String(Math.round(n)); if (field.format === 'decimal2') return n.toFixed(2); if (field.format === 'currency') return `¥${n.toFixed(2)}`; if (field.format === 'percent') return `${(n * 100).toFixed(2)}%`; return Number.isInteger(n) ? String(n) : n.toFixed(2); }
-  if (field.type === 'date' || field.type === 'datetime') return formatDateFieldValue(value, field);
-  if (Array.isArray(value)) return value.map((i) => i?.displayValue || i?.label || i).join('、');
-  if (value && typeof value === 'object') return value.displayValue || value.label || value.name || value.optionId || '';
-  if (value === true) return '是'; if (value === false) return '否';
-  return String(value ?? '');
+  return formatDisplayFieldValue(value, field);
 }
 
 export function dateKey(value) {

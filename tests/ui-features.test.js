@@ -8,7 +8,16 @@ const appContextJs = readFileSync(new URL('../public/app-context.js', import.met
 const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const assistantCss = readFileSync(new URL('../public/ai-assistant/style.css', import.meta.url), 'utf8');
 const serverJs = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
-const runtimeRouteJs = readFileSync(new URL('../src/routes/runtime.js', import.meta.url), 'utf8');
+const runtimeRouteJs = [
+  '../src/routes/runtime.js',
+  '../src/routes/runtime-handlers/actions.js',
+  '../src/routes/runtime-handlers/ai-field.js',
+  '../src/routes/runtime-handlers/app-meta.js',
+  '../src/routes/runtime-handlers/exports.js',
+  '../src/routes/runtime-handlers/records.js',
+  '../src/routes/runtime-handlers/rules.js',
+  '../src/routes/runtime-handlers/tables.js'
+].map((file) => readFileSync(new URL(file, import.meta.url), 'utf8')).join('\n');
 const operationsJs = readFileSync(new URL('../src/services/operations.js', import.meta.url), 'utf8');
 const assistantIndexJs = readFileSync(new URL('../public/ai-assistant/index.js', import.meta.url), 'utf8');
 const assistantChatViewJs = readFileSync(new URL('../public/ai-assistant/ChatView.js', import.meta.url), 'utf8');
@@ -35,6 +44,9 @@ const sidebarJs = readFileSync(new URL('../public/app-runtime/Sidebar.js', impor
 const runtimeIndexJs = readFileSync(new URL('../public/app-runtime/index.js', import.meta.url), 'utf8');
 const runtimeFrameJs = readFileSync(new URL('../public/app-runtime/RuntimeFrame.js', import.meta.url), 'utf8');
 const pageTypesJs = readFileSync(new URL('../public/app-runtime/PageTypes.js', import.meta.url), 'utf8');
+const runtimeSettingsPanelJs = readFileSync(new URL('../public/app-runtime/settings/RuntimeSettingsPanel.js', import.meta.url), 'utf8');
+const runtimeSettingsJs = readFileSync(new URL('../public/common/runtime-settings.js', import.meta.url), 'utf8');
+const dateFormatJs = readFileSync(new URL('../public/common/date-format.js', import.meta.url), 'utf8');
 const appJs = [
   appShellJs,
   appContextJs,
@@ -54,7 +66,10 @@ const appJs = [
   sidebarJs,
   runtimeIndexJs,
   runtimeFrameJs,
-  pageTypesJs
+  pageTypesJs,
+  runtimeSettingsPanelJs,
+  runtimeSettingsJs,
+  dateFormatJs
 ].join('\n');
 
 test('frontend exposes required runtime configuration features', () => {

@@ -124,7 +124,7 @@ export function summaryCellClass(field) {
 export function formatNumberSummary(value, field) {
   if (field.format === 'integer') return String(Math.round(value));
   if (field.format === 'currency') return value.toFixed(2);
-  if (field.format === 'percent') return `${(value * 100).toFixed(2)}%`;
+  if (field.format === 'percent') return `${Math.round(value * 100)}%`;
   if (field.format === 'decimal2') return value.toFixed(2);
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(6)));
 }

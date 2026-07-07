@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { normalizeFieldType, preparePackage } from '../src/core/packageProtocol.js';
 import { numberInputValue, storedNumberValue } from '../public/app-runtime/NumberValues.js';
+import { formatFieldValue } from '../public/common/field-format.js';
 
 test('percent fields edit whole percentages while storing fractions', () => {
   const field = { type: 'number', format: 'percent' };
@@ -11,6 +12,8 @@ test('percent fields edit whole percentages while storing fractions', () => {
   assert.equal(storedNumberValue('1', field), 0.01);
   assert.equal(storedNumberValue('25', field), 0.25);
   assert.equal(storedNumberValue('', field), null);
+  assert.equal(formatFieldValue(0.25, field), '25%');
+  assert.equal(formatFieldValue(0.255, field), '26%');
 });
 
 test('url is a supported first-class field type', () => {

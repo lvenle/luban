@@ -41,7 +41,7 @@ function valueToText(raw, field) {
     const n = Number(raw);
     if (!Number.isNaN(n)) {
       if (field.format === 'currency') return `¥${n.toFixed(2)}`;
-      if (field.format === 'percent') return `${(n * 100).toFixed(1)}%`;
+      if (field.format === 'percent') return `${Math.round(n * 100)}%`;
       return Number.isInteger(n) ? String(n) : n.toFixed(2);
     }
     return String(raw);

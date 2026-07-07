@@ -1,10 +1,11 @@
 import { h, svgIcon, svgPath } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
+import { formatFieldValue as formatDisplayFieldValue } from '../common/field-format.js';
 import { state, entityDisplayName, recordsFor, dateKey } from '../app-context.js';
 import { loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
 import { optionObject, effectiveFieldType, clearActiveTableSelection, configureRuntimePorts } from './runtime-ports.js';
-import { dateInputValue, dateInputLocale, formatDateFieldValue, bindDateTimePicker, showDateTimePicker } from './DateFormat.js';
+import { dateInputValue, dateInputLocale, bindDateTimePicker, showDateTimePicker } from './DateFormat.js';
 import { normalizeChoiceInitialValue, relationChoicesFromValue, mergeChoiceOptions, relationValueId } from './ChoiceValues.js';
 import { renderMarkdown } from './Markdown.js';
 import { numberInputValue, storedNumberValue } from './NumberValues.js';
@@ -603,22 +604,7 @@ export function sampleFieldValue(field) {
 }
 
 export function formatFieldValue(value, field) {
-  if (value === null || value === undefined || value === '') return '';
-  if (field.type === 'select') return optionLabel(field, value);
-  if (field.type === 'multiSelect') return (Array.isArray(value) ? value : []).map((item) => optionLabel(field, item)).filter(Boolean).join('、');
-  if (field.type === 'relation') return (Array.isArray(value) ? value : [value]).map(relationFieldDisplayText).filter(Boolean).join('、');
-  if (field.type === 'image' || field.type === 'file') return normalizeFileValue(value)?.name || '';
-  if (field.type === 'formula') return formatFieldValue(value, { ...field, type: effectiveFieldType(field) });
-  if (field.type === 'number') {
-    const number = Number(value);
-    if (Number.isNaN(number)) return displayValue(value);
-    if (field.format === 'integer') return String(Math.round(number));
-    if (field.format === 'decimal2') return number.toFixed(2);
-    if (field.format === 'currency') return `¥${number.toFixed(2)}`;
-    if (field.format === 'percent') return `${(number * 100).toFixed(2)}%`;
-  }
-  if (field.type === 'date' || field.type === 'datetime') return formatDateFieldValue(value, field);
-  return displayValue(value);
+  return formatDisplayFieldValue(value, field, { effectiveFieldType });
 }
 
 export function defaultValueForField(field) {

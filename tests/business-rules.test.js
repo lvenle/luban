@@ -288,7 +288,14 @@ test('application rule APIs expose list, detail, runs, and status management', a
 
 test('runtime uses an application-settings entry with rules and execution-log tabs', () => {
   const appShell = `${readFileSync(join(process.cwd(), 'public/app.js'), 'utf8')}\n${readFileSync(join(process.cwd(), 'public/app-context.js'), 'utf8')}`;
-  const settings = readFileSync(join(process.cwd(), 'public/app-runtime/SettingsModal.js'), 'utf8');
+  const settings = [
+    'public/app-runtime/SettingsModal.js',
+    'public/app-runtime/settings/RuleSettingsPanels.js',
+    'public/app-runtime/settings/RuleListPanel.js',
+    'public/app-runtime/settings/RuleDetailPanel.js',
+    'public/app-runtime/settings/RuleRunsPanel.js',
+    'public/app-runtime/settings/ManualRuleEditor.js'
+  ].map((file) => readFileSync(join(process.cwd(), file), 'utf8')).join('\n');
   const recordModal = readFileSync(join(process.cwd(), 'public/app-runtime/RecordModal.js'), 'utf8');
   const ruleFeedback = readFileSync(join(process.cwd(), 'public/app-runtime/RuleFeedback.js'), 'utf8');
   const styles = readFileSync(join(process.cwd(), 'public/styles.css'), 'utf8');

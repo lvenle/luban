@@ -59,7 +59,11 @@ test('generated sample catalog contains the current applications and import meta
 });
 
 test('system settings exposes the sample import tab and batch import controls', () => {
-  const settings = readFileSync(new URL('../public/app-runtime/SettingsModal.js', import.meta.url), 'utf8');
+  const settings = [
+    '../public/app-runtime/SettingsModal.js',
+    '../public/app-runtime/settings/RuntimeSettingsPanel.js',
+    '../public/app-runtime/settings/SampleImportPanel.js'
+  ].map((file) => readFileSync(new URL(file, import.meta.url), 'utf8')).join('\n');
   assert.match(settings, /text: appId \? '应用设置' : '系统设置'/);
   assert.match(settings, /tab\('runtime', '运行参数'\)/);
   assert.match(settings, /paginationMax/);
