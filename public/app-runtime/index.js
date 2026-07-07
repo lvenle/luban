@@ -93,6 +93,7 @@ export function renderRuntime() {
     const tableWrap = document.querySelector('.table-wrap');
     const savedTop = tableWrap?.scrollTop || 0;
     const savedLeft = tableWrap?.scrollLeft || 0;
+    const savedWorkspaceHeight = document.querySelector('.workspace')?.offsetHeight || 0;
     const app = state.currentApp;
     const page = app.ui.pages.find((p) => p.id === state.currentPageId) || app.ui.pages[0];
     state.currentPageId = page?.id || state.currentPageId;
@@ -137,6 +138,11 @@ export function renderRuntime() {
       renderAssistantDrawer(() => { state.assistantOpen = false; const btn = document.querySelector('.assistant-topbar-button'); if (btn) btn.classList.remove('active'); });
     } else {
       removeAssistantDrawer();
+    }
+    // Preserve workspace height to reduce re-render flicker
+    if (savedWorkspaceHeight > 0) {
+      const ws = root.querySelector('.workspace');
+      if (ws && ws.offsetHeight < savedWorkspaceHeight) ws.style.minHeight = savedWorkspaceHeight + 'px';
     }
     if (savedTop > 0 || savedLeft > 0) setTimeout(() => { const w = document.querySelector('.table-wrap'); if (w) { w.scrollTop = savedTop; w.scrollLeft = savedLeft; } }, 0);
   }, { threshold: 80, meta: { appId: state.currentApp?.id, pageId: state.currentPageId, loading: state.loading } });

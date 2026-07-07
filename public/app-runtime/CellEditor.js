@@ -3,7 +3,6 @@ import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { formatFieldValue as formatDisplayFieldValue } from '../common/field-format.js';
 import { state, entityDisplayName, recordsFor, dateKey } from '../app-context.js';
-import { loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
 import { optionObject, effectiveFieldType, clearActiveTableSelection, configureRuntimePorts } from './runtime-ports.js';
 import { dateInputValue, dateInputLocale, bindDateTimePicker, showDateTimePicker } from './DateFormat.js';
 import { normalizeChoiceInitialValue, relationChoicesFromValue, mergeChoiceOptions, relationValueId } from './ChoiceValues.js';
@@ -25,7 +24,8 @@ export function startCellEdit(cell, entity, record, field) {
   if (field.type === 'select' || field.type === 'multiSelect' || field.type === 'relation') {
     const widget = createChoiceWidget(field, record.data[field.id], async (newValue) => {
       if (fieldValuesEqual(record.data[field.id], newValue)) {
-        renderRuntime();
+        cell.classList.remove('cell-editing', 'choice-cell-editing');
+        cell.replaceChildren(renderFieldValue(record.data[field.id], field));
         return;
       }
       const oldData = { ...record.data };
@@ -33,21 +33,27 @@ export function startCellEdit(cell, entity, record, field) {
       try {
         const body = await api(`/api/apps/${state.currentApp.id}/records/${record.id}`, { method: 'PUT', body: JSON.stringify({ data }) });
         pushUndo({ type: 'update', recordId: record.id, entityId: entity.id, oldData, newData: data, entityLabel: entityDisplayName(entity) });
-        record.data = data; // update local ref for AI trigger
+        record.data = data;
         import('./AITrigger.js').then((m) => m.checkAiTriggers(entity, record, oldData)).catch((err) => console.error('[AI Trigger]', err));
-        await loadCurrentPageRecords();
-        renderRuntime();
+        // Local update only — avoid full re-render flash, same as text input save
+        cell.classList.remove('cell-editing', 'choice-cell-editing');
+        cell.replaceChildren(renderFieldValue(record.data[field.id], field));
         notifyRuleResults(body.ruleResults || [], state.currentApp);
       } catch (error) {
         toast(error.message);
-        renderRuntime();
+        cell.classList.add('cell-error');
+        cell.classList.remove('cell-editing', 'choice-cell-editing');
+        cell.replaceChildren(renderFieldValue(record.data[field.id], field));
       }
     });
     clearActiveTableSelection();
     cell.classList.add('cell-editing', 'choice-cell-editing');
     cell.innerHTML = '';
     cell.append(widget);
-    widget._choiceCloseCallback = () => renderRuntime();
+    widget._choiceCloseCallback = () => {
+      cell.classList.remove('cell-editing', 'choice-cell-editing');
+      cell.replaceChildren(renderFieldValue(record.data[field.id], field));
+    };
     setTimeout(() => widget.click(), 0);
     return;
   }
