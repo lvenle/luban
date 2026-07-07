@@ -16,7 +16,7 @@ export const state = {
   assistantOpen: false, pageDragId: '', cellSelection: null, cellClipboard: null,
   sidebarCollapsed: false, sidebarWidth: initialRuntimeSettings.sidebarWidth, sidebarCollapsedWidth: initialRuntimeSettings.sidebarCollapsedWidth, recordPagination: {}, loadingRecordPages: {},
   isMobile: window.innerWidth < 768, mobileDrawerOpen: false,
-  runtimeSettings: initialRuntimeSettings
+  runtimeSettings: initialRuntimeSettings, activeRecordLoadToken: ''
 };
 
 export const root = document.querySelector('#app');

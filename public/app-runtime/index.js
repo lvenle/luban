@@ -7,6 +7,7 @@ import { renderAssistantDrawer, removeAssistantDrawer, setAssistantMode } from '
 import { loadSidebarLayout, startSidebarResize, toggleSidebarCollapsed } from './RuntimeFrame.js';
 import { renderSidebarContent, renderMobileSidebar } from './Sidebar.js';
 import { configureRuntimeActions } from './runtime-actions.js';
+import { measureAsync, measureSync } from '../common/perf.js';
 
 configureRuntimeActions({ renderRuntime, loadCurrentPageRecords, saveCurrentPackage, renderInfiniteLoadSentinel });
 
@@ -27,14 +28,13 @@ export async function openApp(appId, options = {}) {
   ]);
   document.body.append(loadingOverlay);
 
-  await registerPageRenderers();
-  const body = await api(`/api/apps/${appId}`);
+  await measureAsync('runtime.registerPageRenderers', registerPageRenderers);
+  const body = await measureAsync('runtime.fetchApp', () => api(`/api/apps/${appId}`), { meta: { appId } });
   loadingOverlay.remove();
 
   state.currentApp = body.app;
   state.currentPageId = options.pageId && body.app.ui.pages.some((p) => p.id === options.pageId) ? options.pageId : body.app.ui.pages[0]?.id;
   state.currentViewId = options.viewId || '';
-  await loadCurrentPageRecords();
   const page = body.app.ui.pages.find((p) => p.id === state.currentPageId) || body.app.ui.pages[0];
   if (page?.entity) {
     const { getViews } = await import('./ViewBar.js');
@@ -42,7 +42,22 @@ export async function openApp(appId, options = {}) {
     state.currentViewId = views.some((v) => v.id === state.currentViewId) ? state.currentViewId : views[0]?.id || '';
   }
   writeRoute(body.app.id, state.currentPageId, Boolean(options.replace), state.currentViewId);
+  const initialPageId = state.currentPageId;
+  const loadToken = `${body.app.id}:${state.currentPageId}:${Date.now()}`;
+  state.activeRecordLoadToken = loadToken;
+  state.loading = true;
   renderRuntime();
+  try {
+    await measureAsync('runtime.loadCurrentPageRecords.initial', loadCurrentPageRecords, { threshold: 120, meta: { appId: body.app.id, pageId: state.currentPageId } });
+  } catch (error) {
+    console.error('[Runtime] load records error:', error);
+    toast(error.message || '加载数据失败');
+  } finally {
+    if (state.activeRecordLoadToken === loadToken && state.currentApp?.id === body.app.id && state.currentPageId === initialPageId) {
+      state.loading = false;
+      renderRuntime();
+    }
+  }
 }
 
 function renderMobileBottomNav() {
@@ -74,55 +89,57 @@ function renderMobileBottomNav() {
 }
 
 export function renderRuntime() {
-  const tableWrap = document.querySelector('.table-wrap');
-  const savedTop = tableWrap?.scrollTop || 0;
-  const savedLeft = tableWrap?.scrollLeft || 0;
-  const app = state.currentApp;
-  const page = app.ui.pages.find((p) => p.id === state.currentPageId) || app.ui.pages[0];
-  state.currentPageId = page?.id || state.currentPageId;
-  setAssistantMode({ mode: 'modify', appId: app.id, appName: app.name, context: buildAssistantContext(), pageId: state.currentPageId });
-  loadSidebarLayout();
-  try {
-    root.innerHTML = '';
-    if (state.isMobile) {
-      const shell = h('div', { class: 'shell' }, [
-        topbar(),
-        h('main', { class: 'runtime mobile-runtime' }, [
-          h('section', { class: 'workspace' }, [renderPage(page)])
-        ]),
-        renderMobileBottomNav()
-      ]);
-      if (state.mobileDrawerOpen) {
-        shell.append(
-          h('div', { class: 'mobile-drawer-backdrop', onclick: () => { state.mobileDrawerOpen = false; renderRuntime(); } }),
-          h('aside', { class: 'mobile-drawer' }, renderMobileSidebar(app, page))
-        );
+  return measureSync('runtime.renderRuntime', () => {
+    const tableWrap = document.querySelector('.table-wrap');
+    const savedTop = tableWrap?.scrollTop || 0;
+    const savedLeft = tableWrap?.scrollLeft || 0;
+    const app = state.currentApp;
+    const page = app.ui.pages.find((p) => p.id === state.currentPageId) || app.ui.pages[0];
+    state.currentPageId = page?.id || state.currentPageId;
+    setAssistantMode({ mode: 'modify', appId: app.id, appName: app.name, context: buildAssistantContext(), pageId: state.currentPageId });
+    loadSidebarLayout();
+    try {
+      root.innerHTML = '';
+      if (state.isMobile) {
+        const shell = h('div', { class: 'shell' }, [
+          topbar(),
+          h('main', { class: 'runtime mobile-runtime' }, [
+            h('section', { class: 'workspace' }, [renderPage(page)])
+          ]),
+          renderMobileBottomNav()
+        ]);
+        if (state.mobileDrawerOpen) {
+          shell.append(
+            h('div', { class: 'mobile-drawer-backdrop', onclick: () => { state.mobileDrawerOpen = false; renderRuntime(); } }),
+            h('aside', { class: 'mobile-drawer' }, renderMobileSidebar(app, page))
+          );
+        }
+        root.append(shell);
+      } else {
+        root.append(h('div', { class: 'shell desktop-runtime-shell' }, [
+          topbar(),
+          h('main', { class: `runtime ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`, style: `--sidebar-width:${state.sidebarWidth}px;--sidebar-collapsed-width:${state.sidebarCollapsedWidth}px` }, [
+            h('aside', { class: 'sidebar' }, renderSidebarContent(app, page)),
+            h('div', { class: 'sidebar-resizer', title: state.sidebarCollapsed ? '拖动调整折叠列表宽度，双击展开' : '拖动调整页面列表宽度，双击折叠', onpointerdown: startSidebarResize, ondblclick: toggleSidebarCollapsed }),
+            h('section', { class: 'workspace' }, [renderPage(page)])
+          ])
+        ]));
       }
-      root.append(shell);
-    } else {
-      root.append(h('div', { class: 'shell desktop-runtime-shell' }, [
-        topbar(),
-        h('main', { class: `runtime ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`, style: `--sidebar-width:${state.sidebarWidth}px;--sidebar-collapsed-width:${state.sidebarCollapsedWidth}px` }, [
-          h('aside', { class: 'sidebar' }, renderSidebarContent(app, page)),
-          h('div', { class: 'sidebar-resizer', title: state.sidebarCollapsed ? '拖动调整折叠列表宽度，双击展开' : '拖动调整页面列表宽度，双击折叠', onpointerdown: startSidebarResize, ondblclick: toggleSidebarCollapsed }),
-          h('section', { class: 'workspace' }, [renderPage(page)])
-        ])
+    } catch (err) {
+      console.error('[Runtime] render error:', err);
+      root.innerHTML = '';
+      root.append(h('div', { class: 'panel', style: 'padding:40px;text-align:center' }, [
+        h('p', { text: '渲染出错，请刷新重试。' }),
+        h('p', { class: 'muted', style: 'font-size:13px', text: err.message })
       ]));
     }
-  } catch (err) {
-    console.error('[Runtime] render error:', err);
-    root.innerHTML = '';
-    root.append(h('div', { class: 'panel', style: 'padding:40px;text-align:center' }, [
-      h('p', { text: '渲染出错，请刷新重试。' }),
-      h('p', { class: 'muted', style: 'font-size:13px', text: err.message })
-    ]));
-  }
-  if (state.assistantOpen) {
-    renderAssistantDrawer(() => { state.assistantOpen = false; const btn = document.querySelector('.assistant-topbar-button'); if (btn) btn.classList.remove('active'); });
-  } else {
-    removeAssistantDrawer();
-  }
-  if (savedTop > 0 || savedLeft > 0) setTimeout(() => { const w = document.querySelector('.table-wrap'); if (w) { w.scrollTop = savedTop; w.scrollLeft = savedLeft; } }, 0);
+    if (state.assistantOpen) {
+      renderAssistantDrawer(() => { state.assistantOpen = false; const btn = document.querySelector('.assistant-topbar-button'); if (btn) btn.classList.remove('active'); });
+    } else {
+      removeAssistantDrawer();
+    }
+    if (savedTop > 0 || savedLeft > 0) setTimeout(() => { const w = document.querySelector('.table-wrap'); if (w) { w.scrollTop = savedTop; w.scrollLeft = savedLeft; } }, 0);
+  }, { threshold: 80, meta: { appId: state.currentApp?.id, pageId: state.currentPageId, loading: state.loading } });
 }
 
 export async function saveAppMetadata(name, category, description = state.currentApp.description || '') {
@@ -140,20 +157,23 @@ export async function loadRecords(entityId = '') {
 
 export async function loadRecordPage(entityId = '', options = {}) {
   if (!state.currentApp) return;
-  const page = currentPage();
-  const runtime = state.runtimeSettings;
-  const requestedLimit = Number(options.limit || (page?.entity === entityId ? page.pageSize : runtime.paginationDefault) || runtime.paginationDefault);
-  const limit = Math.max(1, Math.min(runtime.paginationMax, requestedLimit));
-  const previous = state.recordPagination[entityId || '*'];
-  const offset = options.append ? Number(previous?.nextOffset || 0) : 0;
-  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-  if (entityId) params.set('entity', entityId);
-  const body = await api(`/api/apps/${state.currentApp.id}/records?${params.toString()}`);
-  const existing = options.append ? (entityId ? state.records.filter((record) => record.entityId === entityId) : state.records) : [];
-  const merged = options.append ? [...existing, ...body.records.filter((record) => !existing.some((item) => item.id === record.id))] : body.records;
-  state.records = entityId ? [...state.records.filter((record) => record.entityId !== entityId), ...merged] : merged;
-  state.recordPagination[entityId || '*'] = body.pagination || { hasMore: false, nextOffset: merged.length, total: merged.length, limit };
-  return body;
+  return measureAsync('runtime.loadRecordPage', async () => {
+    const page = currentPage();
+    const runtime = state.runtimeSettings;
+    const requestedLimit = Number(options.limit || (page?.entity === entityId ? page.pageSize : runtime.paginationDefault) || runtime.paginationDefault);
+    const limit = Math.max(1, Math.min(runtime.paginationMax, requestedLimit));
+    const previous = state.recordPagination[entityId || '*'];
+    const offset = options.append ? Number(previous?.nextOffset || 0) : 0;
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (entityId) params.set('entity', entityId);
+    const body = await api(`/api/apps/${state.currentApp.id}/records?${params.toString()}`);
+    const existing = options.append ? (entityId ? state.records.filter((record) => record.entityId === entityId) : state.records) : [];
+    const existingIds = options.append ? new Set(existing.map((record) => record.id)) : null;
+    const merged = options.append ? [...existing, ...body.records.filter((record) => !existingIds.has(record.id))] : body.records;
+    state.records = entityId ? [...state.records.filter((record) => record.entityId !== entityId), ...merged] : merged;
+    state.recordPagination[entityId || '*'] = body.pagination || { hasMore: false, nextOffset: merged.length, total: merged.length, limit };
+    return body;
+  }, { threshold: 120, meta: { entityId: entityId || '*', append: Boolean(options.append) } });
 }
 
 export async function loadNextRecordPage(entityId) {

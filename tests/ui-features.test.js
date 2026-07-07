@@ -247,7 +247,8 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /deleteField/);
   assert.match(appJs, /loadCurrentPageRecords/);
   assert.match(appJs, /pageEntityForRecordLoad/);
-  assert.match(appJs, /await loadCurrentPageRecords\(\);\n  const page = body\.app\.ui\.pages/);
+  assert.match(appJs, /state\.loading = true;\n  renderRuntime\(\);/);
+  assert.match(appJs, /runtime\.loadCurrentPageRecords\.initial/);
   assert.match(appJs, /async function quickAddRecord[\s\S]*await loadCurrentPageRecords\(\);/);
   assert.doesNotMatch(appJs, /document\.querySelectorAll\('\\.cell-editing'\)\.forEach/);
   assert.match(commonDomJs, /export function h\(/);

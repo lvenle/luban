@@ -1,10 +1,11 @@
 import { humanizeMessage } from './messages.js';
+import { measureAsync, apiPerfOptions } from './perf.js';
 
 export async function api(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: options.body instanceof ArrayBuffer ? options.headers : { 'content-type': 'application/json', ...(options.headers || {}) }
-  });
+  const response = await measureAsync(`api ${options.method || 'GET'}`, () => fetch(path, {
+      ...options,
+      headers: options.body instanceof ArrayBuffer ? options.headers : { 'content-type': 'application/json', ...(options.headers || {}) }
+    }), apiPerfOptions(path));
   if (!response.ok) {
     const body = await response.json().catch(() => ({ error: response.statusText }));
     const technicalMessage = body.error || '请求失败';

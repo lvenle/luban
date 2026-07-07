@@ -16,6 +16,7 @@ import { openRecordModal, quickAddRecord, bulkDeleteRecords } from './RecordModa
 import { renderTypedTableView } from './TypedViews.js';
 import { summaryMode } from './SummaryValues.js';
 import { renderMobileRecordList } from './MobileRecordList.js';
+import { measureSync } from '../common/perf.js';
 
 export function renderExportMenu(entity, exportSelectedLink) {
   return bindFloatingMenu(h('details', { class: 'export-menu', onclick: (event) => event.stopPropagation() }, [
@@ -99,6 +100,10 @@ export function importTableData(entity) {
 }
 
 export function renderListPage(page) {
+  return measureSync('table.renderListPage', () => renderListPageContent(page), { threshold: 80, meta: { pageId: page?.id, entityId: page?.entity } });
+}
+
+function renderListPageContent(page) {
   const entity = entityFor(page);
   const records = recordsFor(entity.id);
   const listConfig = getListConfig(entity);
@@ -177,75 +182,79 @@ export function renderListPage(page) {
     setListConfig(entity, listConfig);
     renderRuntime();
   };
-  const drawRows = (items) => {
-    tableBody.innerHTML = '';
-    currentRenderedIds = [];
-    const filteredItems = applyViewFilters(items, entity, listConfig);
-    const sortedItems = sortRecords(filteredItems, listConfig);
-    if (sortedItems.length === 0) {
-      tableBody.append(h('tr', {}, [h('td', { colspan: visibleFields.length + 3, class: 'empty-illustration' }, [
-        h('p', { text: '暂无记录' })
-      ])]));
-      tableBody.append(renderQuickAddRow(entity, visibleFields, listConfig));
-      updateSelectionState();
-      return;
-    }
-    if (listConfig.group?.field) {
-      let rowNumber = 1;
-      for (const group of groupRecords(sortedItems, entity, listConfig.group)) {
-        const collapsed = (listConfig.group.collapsed || []).includes(group.key);
-        tableBody.append(h('tr', { class: 'group-row summary-group-row' }, [
-          h('td', { colspan: 2 }, [
-            h('button', {
-              class: 'ghost group-toggle',
-              text: `${collapsed ? '▶' : '▼'} ${group.label} (${group.records.length})`,
-              onclick: () => {
-                const collapsedKeys = new Set(listConfig.group.collapsed || []);
-                collapsed ? collapsedKeys.delete(group.key) : collapsedKeys.add(group.key);
-                listConfig.group.collapsed = [...collapsedKeys];
-                setListConfig(entity, listConfig);
-                renderRuntime();
-              }
-            })
-          ]),
-          ...visibleFields.map((field, index) => h('td', {
-            class: `${summaryCellClass(field)} ${frozenFieldClass(listConfig, visibleFields, index)}`.trim(),
-            style: `${columnWidthStyle(listConfig, field)};${frozenFieldStyle(listConfig, visibleFields, index)}`,
-            'data-field-id': field.id
-          }, [renderSummaryValue(group.records, field, summaryMode(field, listConfig.summaries), '小计')])),
-          h('td', { class: 'sticky-action-cell action-cell summary-action-cell', style: actionColumnStyle(listConfig) })
-        ]));
-        if (!collapsed) {
-          for (const record of group.records) {
-            currentRenderedIds.push(record.id);
-            tableBody.append(renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, selectedIds, syncSelection, updateSelectionState, rowNumber - 1));
-            rowNumber += 1;
+  const drawRows = (items, reason = 'render') => {
+    measureSync('table.drawRows', () => {
+      tableBody.innerHTML = '';
+      currentRenderedIds = [];
+      const filteredItems = applyViewFilters(items, entity, listConfig);
+      const sortedItems = sortRecords(filteredItems, listConfig);
+      if (sortedItems.length === 0) {
+        tableBody.append(h('tr', {}, [h('td', { colspan: visibleFields.length + 3, class: 'empty-illustration' }, [
+          h('p', { text: '暂无记录' })
+        ])]));
+        tableBody.append(renderQuickAddRow(entity, visibleFields, listConfig));
+        updateSelectionState();
+        return;
+      }
+      if (listConfig.group?.field) {
+        let rowNumber = 1;
+        for (const group of groupRecords(sortedItems, entity, listConfig.group)) {
+          const collapsed = (listConfig.group.collapsed || []).includes(group.key);
+          tableBody.append(h('tr', { class: 'group-row summary-group-row' }, [
+            h('td', { colspan: 2 }, [
+              h('button', {
+                class: 'ghost group-toggle',
+                text: `${collapsed ? '▶' : '▼'} ${group.label} (${group.records.length})`,
+                onclick: () => {
+                  const collapsedKeys = new Set(listConfig.group.collapsed || []);
+                  collapsed ? collapsedKeys.delete(group.key) : collapsedKeys.add(group.key);
+                  listConfig.group.collapsed = [...collapsedKeys];
+                  setListConfig(entity, listConfig);
+                  renderRuntime();
+                }
+              })
+            ]),
+            ...visibleFields.map((field, index) => h('td', {
+              class: `${summaryCellClass(field)} ${frozenFieldClass(listConfig, visibleFields, index)}`.trim(),
+              style: `${columnWidthStyle(listConfig, field)};${frozenFieldStyle(listConfig, visibleFields, index)}`,
+              'data-field-id': field.id
+            }, [renderSummaryValue(group.records, field, summaryMode(field, listConfig.summaries), '小计')])),
+            h('td', { class: 'sticky-action-cell action-cell summary-action-cell', style: actionColumnStyle(listConfig) })
+          ]));
+          if (!collapsed) {
+            for (const record of group.records) {
+              currentRenderedIds.push(record.id);
+              tableBody.append(renderRecordRow(entity, visibleFields, record, listConfig, rowNumber, selectedIds, syncSelection, updateSelectionState, rowNumber - 1));
+              rowNumber += 1;
+            }
           }
         }
+        tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计', updateSummaryMode));
+        tableBody.append(renderQuickAddRow(entity, visibleFields, listConfig));
+        updateSelectionState();
+        return;
+      }
+      for (const [index, record] of sortedItems.entries()) {
+        currentRenderedIds.push(record.id);
+        tableBody.append(renderRecordRow(entity, visibleFields, record, listConfig, index + 1, selectedIds, syncSelection, updateSelectionState, index));
       }
       tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计', updateSummaryMode));
       tableBody.append(renderQuickAddRow(entity, visibleFields, listConfig));
       updateSelectionState();
-      return;
-    }
-    for (const [index, record] of sortedItems.entries()) {
-      currentRenderedIds.push(record.id);
-      tableBody.append(renderRecordRow(entity, visibleFields, record, listConfig, index + 1, selectedIds, syncSelection, updateSelectionState, index));
-    }
-    tableBody.append(renderSummaryRow(sortedItems, visibleFields, listConfig, '合计', updateSummaryMode));
-    tableBody.append(renderQuickAddRow(entity, visibleFields, listConfig));
-    updateSelectionState();
+    }, { threshold: 80, meta: { entityId: entity.id, rows: items.length, fields: visibleFields.length, reason } });
   };
   const applySearch = () => {
-    const globalQuery = globalSearch.value.toLowerCase();
-    const fieldsById = new Map(entity.fields.map((field) => [field.id, field]));
-    const activeConditions = [...searchInputs.entries()]
-      .map(([fieldId, input]) => [fieldId, String(input.value || '').toLowerCase()])
-      .filter(([, value]) => value);
-    drawRows(records.filter((record) => {
-      if (globalQuery && !JSON.stringify(record.data).toLowerCase().includes(globalQuery)) return false;
-      return activeConditions.every(([fieldId, value]) => formatFieldValue(record.data[fieldId], fieldsById.get(fieldId) || {}).toLowerCase().includes(value));
-    }));
+    measureSync('table.applySearch', () => {
+      const globalQuery = globalSearch.value.toLowerCase();
+      const fieldsById = new Map(entity.fields.map((field) => [field.id, field]));
+      const activeConditions = [...searchInputs.entries()]
+        .map(([fieldId, input]) => [fieldId, String(input.value || '').toLowerCase()])
+        .filter(([, value]) => value);
+      drawRows(records.filter((record) => {
+        if (globalQuery && !JSON.stringify(record.data).toLowerCase().includes(globalQuery)) return false;
+        return activeConditions.every(([fieldId, value]) => formatFieldValue(record.data[fieldId], fieldsById.get(fieldId) || {}).toLowerCase().includes(value));
+      }), 'search');
+    }, { threshold: 80, meta: { entityId: entity.id, records: records.length } });
   };
   globalSearch.addEventListener('input', applySearch);
   globalSearch.addEventListener('change', applySearch);
@@ -289,7 +298,7 @@ export function renderListPage(page) {
     ]),
     tableBody
   ]);
-  drawRows(records);
+  drawRows(records, 'initial');
   requestAnimationFrame(() => stretchTableToWrap(table, visibleFields, listConfig));
   return h('div', { class: 'panel table-panel' }, [
     renderViewBar(entity, listConfig),
