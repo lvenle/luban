@@ -151,6 +151,12 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(css, /\.page-card-resize/);
   assert.match(operationsJs, /navKind: 'table'/);
   assert.match(css, /\.page-type-icon\.table/);
+  assert.match(css, /\.button-icon\.table-icon \{[\s\S]*border-color: #c8d8ff;[\s\S]*background: #eef4ff;[\s\S]*color: var\(--brand\);/);
+  assert.match(css, /\.page-type-icon\.table \{[\s\S]*border-color: #c8d8ff;[\s\S]*background: #eef4ff;[\s\S]*color: var\(--brand\);/);
+  assert.match(css, /\.button-icon\.dashboard-icon \{[\s\S]*border-color: #fed7aa;[\s\S]*background: #fff7ed;[\s\S]*color: #c2410c;/);
+  assert.match(css, /\.page-type-icon\.dashboard \{[\s\S]*border-color: #fed7aa;[\s\S]*background: #fff7ed;[\s\S]*color: #c2410c;/);
+  assert.match(css, /\.button-icon\.webpage-icon \{[\s\S]*border-color: #bae6fd;[\s\S]*background: #f0f9ff;[\s\S]*color: #0369a1;/);
+  assert.match(css, /\.page-type-icon\.webpage \{[\s\S]*border-color: #bae6fd;[\s\S]*background: #f0f9ff;[\s\S]*color: #0369a1;/);
   assert.match(css, /\.blank-page-canvas/);
   assert.match(css, /\.page-card-canvas/);
   assert.match(appJs, /一行 \$\{value\} 列/);
@@ -258,6 +264,9 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.assistant-fab/);
   assert.match(css, /\.icon-label-button/);
   assert.match(css, /\.ui-icon/);
+  assert.match(css, /button\.secondary \{[\s\S]*border-color: var\(--line\);[\s\S]*background: var\(--panel\);/);
+  assert.doesNotMatch(css, /button\.secondary \{[\s\S]{0,80}background: transparent/);
+  assert.match(css, /button\.ghost \{[\s\S]*border-color: #d8dee8;[\s\S]*background: #f8fafc;/);
   assert.match(css, /\.assistant-topbar-button\.active/);
   assert.match(css, /\.table-action-groups/);
   assert.match(css, /\.toolbar-action-group::after/);
@@ -274,6 +283,9 @@ test('frontend has styles for list config, form layout, inline edit, and logs', 
   assert.match(css, /\.resize-edge/);
   assert.match(css, /\.resizing-column/);
   assert.match(css, /\.sidebar-label/);
+  assert.match(css, /\.sidebar-head \{[\s\S]*display: grid;[\s\S]*grid-template-columns: 24px minmax\(max-content, 1fr\) 24px/);
+  assert.match(css, /\.sidebar-head \.sidebar-label \{[\s\S]*text-align: center;[\s\S]*white-space: nowrap/);
+  assert.match(css, /\.sidebar-head::before \{[\s\S]*content: ""/);
   assert.doesNotMatch(css, /\.page-drag-handle/);
   assert.match(css, /\.topbar-app-info/);
   assert.match(css, /\.inline-edit-text/);

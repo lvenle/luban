@@ -268,6 +268,26 @@ export function renderHtmlPage(page) {
   };
   editButton.addEventListener('click', () => switchMode('edit'));
   previewButton.addEventListener('click', () => switchMode('preview'));
+  const fullscreenButton = h('button', {
+    type: 'button',
+    class: 'secondary markdown-mode-button html-fullscreen-button',
+    text: '全屏',
+    title: '全屏预览当前网页',
+    onclick: async () => {
+      if (previewPane.hidden) {
+        switchMode('preview');
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      const target = activePreview;
+      const requestFullscreen = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
+      if (!requestFullscreen) return toast('当前环境不支持全屏预览。');
+      try {
+        await requestFullscreen.call(target);
+      } catch {
+        toast('无法进入全屏，请重试。');
+      }
+    }
+  });
 
   const pageTitleLabel = h('strong', {
     class: 'markdown-file-name',
@@ -339,8 +359,13 @@ export function renderHtmlPage(page) {
         pageTitleLabel,
         status
       ]),
-      h('div', { class: 'markdown-file-mode-switch markdown-mode-switch', role: 'group', 'aria-label': '网页显示模式' }, [editButton, previewButton, openWindowButton]),
-      h('div', { class: 'markdown-file-actions' }, [saveButton])
+      h('div', { class: 'markdown-file-mode-switch markdown-mode-switch html-file-controls', role: 'group', 'aria-label': '网页显示模式' }, [
+        editButton,
+        previewButton,
+        openWindowButton,
+        fullscreenButton,
+        saveButton
+      ])
     ]),
     h('div', { class: 'html-file-layout' }, [editPane, previewPane])
   ]);

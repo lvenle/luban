@@ -127,6 +127,26 @@ export function renderMarkdownPage(page) {
   };
   editButton.addEventListener('click', () => switchMode('edit'));
   previewButton.addEventListener('click', () => switchMode('preview'));
+  const fullscreenButton = h('button', {
+    type: 'button',
+    class: 'secondary markdown-mode-button markdown-fullscreen-button',
+    text: '全屏',
+    title: '全屏预览当前 Markdown 文档',
+    onclick: async () => {
+      if (previewPane.hidden) {
+        switchMode('preview');
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      const target = preview;
+      const requestFullscreen = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
+      if (!requestFullscreen) return toast('当前环境不支持全屏预览。');
+      try {
+        await requestFullscreen.call(target);
+      } catch {
+        toast('无法进入全屏，请重试。');
+      }
+    }
+  });
   const fileNameLabel = h('strong', { class: 'markdown-file-name', text: page.fileName || page.title, title: '双击修改文件名' });
   fileNameLabel.addEventListener('dblclick', () => {
     const input = h('input', { class: 'markdown-file-name-input', value: page.fileName || page.title, 'aria-label': 'Markdown 文件名' });
@@ -190,8 +210,10 @@ export function renderMarkdownPage(page) {
         fileNameLabel,
         status
       ]),
-      h('div', { class: 'markdown-file-mode-switch markdown-mode-switch', role: 'group', 'aria-label': 'Markdown 显示模式' }, [editButton, previewButton]),
-      h('div', { class: 'markdown-file-actions' }, [
+      h('div', { class: 'markdown-file-mode-switch markdown-mode-switch markdown-file-controls', role: 'group', 'aria-label': 'Markdown 显示模式' }, [
+        editButton,
+        previewButton,
+        fullscreenButton,
         formatToolbar
       ])
     ]),
