@@ -4,6 +4,7 @@ import { createId } from '../core/ids.js';
 import { calculateFormulaFields } from '../core/formula.js';
 import { notFound, badRequest } from '../core/errors.js';
 import { isSingleChoiceField, isMultiChoiceField, isRelationField, isFormulaField, isTemporalField, isFileLikeField } from '../core/fieldTypeHelpers.js';
+import { getRuntimeSettings } from './runtime-settings.js';
 import { allocateAutoNumberValues } from './auto-number.js';
 
 function now() {
@@ -104,8 +105,9 @@ function escapeLike(value) {
 }
 
 export function clampPageLimit(value, fallback = 100) {
+  const runtime = getRuntimeSettings();
   const parsed = Number.parseInt(value, 10);
-  return Math.max(1, Math.min(1000, Number.isFinite(parsed) ? parsed : fallback));
+  return Math.max(1, Math.min(runtime.paginationMax, Number.isFinite(parsed) ? parsed : fallback));
 }
 
 export function createRecord(appId, entityId, data, customCreatedAt, options = {}) {

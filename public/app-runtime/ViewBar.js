@@ -81,7 +81,7 @@ export function normalizeView(entity, view = {}) {
     searchFields: [],
     columnWidths: {},
     frozenFieldId: '',
-    actionWidth: 112,
+    actionWidth: state.runtimeSettings.actionWidth,
     allFields: entity.fields.map((field) => field.id),
     filters: [],
     sorts: [],
@@ -112,7 +112,7 @@ export function normalizeView(entity, view = {}) {
   for (const id of Object.keys(next.columnWidths)) {
     if (!fieldSet.has(id)) delete next.columnWidths[id];
   }
-  next.actionWidth = Math.max(84, Number(next.actionWidth || 112));
+  next.actionWidth = Math.max(84, Number(state.runtimeSettings.actionWidth));
   next.frozenFieldId = fieldSet.has(next.frozenFieldId) ? next.frozenFieldId : '';
   next.filters = (next.filters || []).filter((filter) => fieldSet.has(filter.field));
   next.sorts = (next.sorts || []).filter((sort) => fieldSet.has(sort.field));

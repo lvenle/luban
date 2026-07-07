@@ -1,5 +1,6 @@
 import { getDb } from '../storage/db.js';
 import { createId } from '../core/ids.js';
+import { getRuntimeSettings } from './runtime-settings.js';
 
 function parseJson(value) {
   return value ? JSON.parse(value) : undefined;
@@ -71,7 +72,8 @@ export class RuleRunRepository {
       conditions.push('ruleId = ?');
       params.push(options.ruleId);
     }
-    const limit = Math.max(1, Math.min(100, Number(options.limit) || 50));
+    const runtime = getRuntimeSettings();
+    const limit = Math.max(1, Math.min(runtime.ruleRunListLimit, Number(options.limit) || runtime.ruleRunDefaultLimit));
     params.push(limit);
     return this.database.prepare(
       `SELECT * FROM rule_runs WHERE ${conditions.join(' AND ')} ORDER BY createdAt DESC, rowid DESC LIMIT ?`

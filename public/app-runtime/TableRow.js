@@ -132,7 +132,8 @@ export function formatNumberSummary(value, field) {
 export function openListConfigModal(entity) {
   const config = getListConfig(entity);
   const page = currentPage();
-  const pageSizeInput = h('input', { type: 'number', min: '1', max: '1000', step: '1', value: String(page?.pageSize || 100) });
+  const runtime = state.runtimeSettings;
+  const pageSizeInput = h('input', { type: 'number', min: '1', max: String(runtime.paginationMax), step: '1', value: String(page?.pageSize || runtime.paginationDefault) });
   const rowHeightSelect = h('select', {}, ['low', 'medium', 'high'].map((v) =>
     h('option', { value: v, text: { low: '低（默认）', medium: '中', high: '高' }[v] })
   ));
@@ -190,7 +191,7 @@ export function openListConfigModal(entity) {
       h('label', { class: 'field page-size-field' }, [
         h('span', { text: '每批加载条数' }),
         pageSizeInput,
-        h('small', { class: 'field-hint', text: '滚动到底部自动加载下一批，单批最多 1000 条。' })
+        h('small', { class: 'field-hint', text: `滚动到底部自动加载下一批，单批最多 ${runtime.paginationMax} 条。` })
       ]),
       h('label', { class: 'field page-size-field' }, [
         h('span', { text: '行高' }),
@@ -205,7 +206,7 @@ export function openListConfigModal(entity) {
             const visibleFields = order.filter((fieldId) => visibleChecks.get(fieldId)?.checked);
             const searchFields = order.filter((fieldId) => searchChecks.get(fieldId)?.checked);
             if (visibleFields.length === 0) return toast('至少保留一个显示字段。');
-            const pageSize = Math.max(1, Math.min(1000, Number.parseInt(pageSizeInput.value, 10) || 100));
+            const pageSize = Math.max(1, Math.min(runtime.paginationMax, Number.parseInt(pageSizeInput.value, 10) || runtime.paginationDefault));
             const button = event.currentTarget;
             button.disabled = true;
             try {

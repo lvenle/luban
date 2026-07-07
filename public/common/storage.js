@@ -15,12 +15,12 @@ export function globalStorageKey(scope) {
   return `luban-ai:${scope}`;
 }
 
-export function clampSidebarWidth(value) {
-  return Math.max(132, Math.min(360, Number(value) || 168));
+export function clampSidebarWidth(value, fallback) {
+  return Math.max(132, Math.min(480, Number(value) || fallback));
 }
 
-export function clampCollapsedSidebarWidth(value) {
-  return Math.max(88, Math.min(240, Number(value) || 112));
+export function clampCollapsedSidebarWidth(value, fallback) {
+  return Math.max(88, Math.min(320, Number(value) || fallback));
 }
 
 export function clamp(value, min, max) {

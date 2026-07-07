@@ -1,4 +1,5 @@
 import { getDb } from '../storage/db.js';
+import { getRuntimeSettings } from './runtime-settings.js';
 
 function parseJson(value, fallback = []) {
   try { return JSON.parse(value); } catch { return fallback; }
@@ -50,7 +51,8 @@ export function listRuleRecordStates(appId, options = {}, database = getDb()) {
   if (options.ruleId) { conditions.push('ruleId = ?'); params.push(options.ruleId); }
   if (options.sourceRecordId) { conditions.push('sourceRecordId = ?'); params.push(options.sourceRecordId); }
   if (options.state) { conditions.push('state = ?'); params.push(options.state); }
-  const limit = Math.max(1, Math.min(200, Number(options.limit) || 100));
+  const runtime = getRuntimeSettings();
+  const limit = Math.max(1, Math.min(runtime.ruleStateMaxLimit, Number(options.limit) || runtime.ruleStateDisplayLimit));
   params.push(limit);
   return database.prepare(`
     SELECT * FROM rule_record_states

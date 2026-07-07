@@ -1,5 +1,6 @@
 import { FIELD_TYPES, PAGE_TYPES, ACTION_TYPES } from '../core/contract.js';
 import { configurationError } from '../core/errors.js';
+import { getRuntimeSettings } from '../models/runtime-settings.js';
 
 // ── Exported prompt-building helpers ──
 // These produce structured descriptions from contract.js metadata,
@@ -146,7 +147,7 @@ async function requestChatCompletion(settings, messages) {
 
 function sendChatCompletion(settings, payload) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  const timeout = setTimeout(() => controller.abort(), getRuntimeSettings().aiRequestTimeoutMs);
   return fetch(chatCompletionsUrl(settings.baseUrl), {
     method: 'POST',
     signal: controller.signal,

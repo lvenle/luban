@@ -277,7 +277,7 @@ export function columnWidthStyle(listConfig, field) {
 }
 
 export function actionColumnWidth(listConfig) {
-  return Math.max(84, Number(listConfig.actionWidth || 112));
+  return Math.max(84, Number(state.runtimeSettings.actionWidth));
 }
 
 export function actionColumnStyle(listConfig) {

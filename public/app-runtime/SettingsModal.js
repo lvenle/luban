@@ -5,6 +5,8 @@ import { formatRuleChanges } from './RuleFeedback.js';
 import { humanizeMessage } from '../common/messages.js';
 import { entityDisplayName } from '../common/entity-display.js';
 import { loadApps } from '../app-home/home-actions.js';
+import { normalizeRuntimeSettings } from '../common/runtime-settings.js';
+import { getClientRuntimeSettings, setClientRuntimeSettings } from '../common/runtime-settings-store.js';
 
 function formatTime(value) {
   if (!value) return '暂无';
@@ -200,8 +202,8 @@ async function showRuleDetail(container, appId, app, rule, onBack) {
   const summary = ruleSummary(rule);
   container.replaceChildren(h('div', { class: 'business-rule-detail-loading', text: '正在读取执行记录…' }));
   const [runsBody, statesBody] = await Promise.all([
-    api(`/api/apps/${encodeURIComponent(appId)}/rules/${encodeURIComponent(rule.id)}/runs?limit=20`),
-    api(`/api/apps/${encodeURIComponent(appId)}/rules/${encodeURIComponent(rule.id)}/states?limit=100`)
+    api(`/api/apps/${encodeURIComponent(appId)}/rules/${encodeURIComponent(rule.id)}/runs?limit=${getClientRuntimeSettings().ruleRunDetailLimit}`),
+    api(`/api/apps/${encodeURIComponent(appId)}/rules/${encodeURIComponent(rule.id)}/states?limit=${getClientRuntimeSettings().ruleStateDisplayLimit}`)
   ]);
   const waitingStates = (statesBody.states || []).filter((state) => state.state === 'waiting');
   const toggle = h('button', {
@@ -323,6 +325,52 @@ function renderAiPanel(ai, backdrop) {
   ]);
 }
 
+function renderRuntimePanel(runtime = {}, onSaved = () => {}) {
+  const values = normalizeRuntimeSettings(runtime);
+  const fields = [
+    ['paginationMax', '分页上限', '单次列表请求允许加载的最大记录数。'],
+    ['paginationDefault', '默认分页', '数据表默认每批加载条数。'],
+    ['ruleRunDetailLimit', '规则详情日志 limit', '单条业务规则详情里默认读取的执行记录数量。'],
+    ['ruleRunDefaultLimit', '规则日志默认 limit', '后端规则日志接口未传 limit 时使用的默认值。'],
+    ['ruleRunListLimit', '规则日志列表 limit', '系统设置/应用设置中执行记录列表默认读取数量，也是规则日志查询上限。'],
+    ['ruleStateDisplayLimit', '规则状态展示 limit', '等待条件/成功状态默认展示数量。'],
+    ['ruleStateMaxLimit', '规则状态最大 limit', '等待条件/成功状态接口允许的最大数量。'],
+    ['sidebarWidth', '侧边栏宽度', '左侧页面列表默认展开宽度。'],
+    ['sidebarCollapsedWidth', '侧边栏收起宽度', '左侧页面列表收起后的默认宽度。'],
+    ['actionWidth', '操作列宽度', '数据表操作列默认宽度。'],
+    ['aiRequestTimeoutMs', 'AI 请求超时', '非流式 AI 请求超时时间，单位毫秒。'],
+    ['aiStreamReadTimeoutMs', 'AI 流式/工具超时', 'AI 流式响应和工具执行等待时间，单位毫秒。'],
+    ['apiRateLimitMax', 'API 限流次数', '普通 API 在限流窗口内允许的最大请求数。'],
+    ['confirmRateLimitMax', '确认操作限流次数', 'AI 高风险确认接口在限流窗口内允许的最大请求数。'],
+    ['rateLimitWindowMs', '限流窗口', '限流统计窗口，单位毫秒。']
+  ];
+  const inputs = new Map();
+  const rows = fields.map(([key, label, hint]) => {
+    const input = h('input', { type: 'number', step: '1', value: String(values[key]) });
+    inputs.set(key, input);
+    return h('label', { class: 'runtime-setting-row' }, [
+      h('span', { class: 'runtime-setting-label', text: label }),
+      input,
+      h('small', { class: 'field-hint', text: hint })
+    ]);
+  });
+  return h('div', { class: 'runtime-settings-panel' }, [
+    h('p', { class: 'muted', text: '这些参数保存后立即生效；后端限流、分页和 AI 超时会在下一次请求时读取最新值。' }),
+    h('div', { class: 'runtime-settings-grid' }, rows),
+    h('div', { class: 'row settings-actions' }, [
+      h('button', { text: '保存运行参数', onclick: async () => {
+        const next = {};
+        for (const [key, input] of inputs) next[key] = input.value;
+        const body = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ runtime: next }) });
+        const saved = setClientRuntimeSettings(body.runtime || next);
+        onSaved(saved);
+        document.dispatchEvent(new CustomEvent('runtime-settings-updated', { detail: saved }));
+        toast('运行参数已保存');
+      } })
+    ])
+  ]);
+}
+
 function createSampleImporter(samples, onImported) {
   const selected = new Set();
   const imported = new Set();
@@ -416,11 +464,11 @@ export async function openSettingsModal(appId = '', initialTab = 'rules') {
   const [settings, rulesBody, runsBody, appBody, samplesBody] = await Promise.all([
     appId ? Promise.resolve({ ai: {} }) : api('/api/settings'),
     appId ? api(`/api/apps/${encodeURIComponent(appId)}/rules`) : Promise.resolve({ rules: [] }),
-    appId ? api(`/api/apps/${encodeURIComponent(appId)}/rule-runs?limit=100`) : Promise.resolve({ runs: [] }),
+    appId ? api(`/api/apps/${encodeURIComponent(appId)}/rule-runs?limit=${getClientRuntimeSettings().ruleRunListLimit}`) : Promise.resolve({ runs: [] }),
     appId ? api(`/api/apps/${encodeURIComponent(appId)}`) : Promise.resolve({ app: null }),
     appId ? Promise.resolve({ samples: [] }) : api('/api/samples')
   ]);
-  let activeTab = appId ? (initialTab === 'runs' ? 'runs' : 'rules') : (initialTab === 'samples' ? 'samples' : 'ai');
+  let activeTab = appId ? (initialTab === 'runs' ? 'runs' : 'rules') : (['samples', 'runtime'].includes(initialTab) ? initialTab : 'ai');
   let samplesImported = false;
   const content = h('div', { class: 'settings-modal-content' });
   const tabs = h('div', { class: 'settings-tabs' });
@@ -435,6 +483,7 @@ export async function openSettingsModal(appId = '', initialTab = 'rules') {
     if (activeTab === 'rules') renderRulesPanel(content, appId, appBody.app, rulesBody.rules || []);
     else if (activeTab === 'runs') renderAllRunsPanel(content, rulesBody.rules || [], runsBody.runs || [], appBody.app);
     else if (activeTab === 'samples') sampleImporter.render(content);
+    else if (activeTab === 'runtime') content.replaceChildren(renderRuntimePanel(settings.runtime || {}, (next) => { settings.runtime = next; }));
     else content.replaceChildren(renderAiPanel(settings.ai || {}, backdrop));
   };
   const tab = (id, text) => h('button', { class: 'settings-tab', text, 'data-tab': id, onclick: () => { activeTab = id; render(); } });
@@ -443,6 +492,7 @@ export async function openSettingsModal(appId = '', initialTab = 'rules') {
     tabs.append(tab('runs', `执行记录 ${runsBody.runs?.length ? `(${runsBody.runs.length})` : ''}`));
   } else {
     tabs.append(tab('ai', 'AI 设置'));
+    tabs.append(tab('runtime', '运行参数'));
     tabs.append(tab('samples', `样例导入 (${samplesBody.samples?.length || 0})`));
   }
   backdrop.append(h('div', { class: 'modal app-settings-modal' }, [

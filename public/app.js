@@ -5,6 +5,8 @@ import {
   state, root, configureAppShell, currentRoute, topbar
 } from './app-context.js';
 import { renderHome, loadApps, goHome } from './app-home/index.js';
+import { setClientRuntimeSettings } from './common/runtime-settings-store.js';
+import { writeStorage } from './common/storage.js';
 
 export * from './app-context.js';
 
@@ -51,6 +53,12 @@ async function boot() {
     (await import('./rules/pages.js')).renderRuleDetail(root, decodeURIComponent(ruleDetailMatch[1]));
     return;
   }
+  try {
+    const settings = await api('/api/settings');
+    state.runtimeSettings = setClientRuntimeSettings(settings.runtime || {});
+    state.sidebarWidth = state.runtimeSettings.sidebarWidth;
+    state.sidebarCollapsedWidth = state.runtimeSettings.sidebarCollapsedWidth;
+  } catch {}
   state.apps = (await api('/api/apps')).apps;
   const route = currentRoute();
   if (route.appId) {
@@ -88,6 +96,19 @@ window.addEventListener('popstate', () => boot().catch((error) => { root.textCon
 document.addEventListener('click', (event) => { if (!event.target.closest?.('details.card-menu, details.view-menu, details.export-menu, details.page-menu')) closeFloatingMenus(); });
 document.addEventListener('pointerdown', (event) => { if (event.target instanceof HTMLElement && event.target.classList.contains('modal-backdrop')) event.target.remove(); }, true);
 document.addEventListener('focusin', (event) => { if (!event.target.closest?.('details.card-menu, details.view-menu, details.export-menu, details.page-menu')) closeFloatingMenus(); });
+document.addEventListener('runtime-settings-updated', async (event) => {
+  state.runtimeSettings = setClientRuntimeSettings(event.detail || {});
+  state.sidebarWidth = state.runtimeSettings.sidebarWidth;
+  state.sidebarCollapsedWidth = state.runtimeSettings.sidebarCollapsedWidth;
+  if (state.currentApp?.id) {
+    writeStorage(`luban-ai:${state.currentApp.id}:sidebar-width`, state.sidebarWidth);
+    writeStorage(`luban-ai:${state.currentApp.id}:sidebar-collapsed-width`, state.sidebarCollapsedWidth);
+    const runtime = await import('./app-runtime/index.js');
+    runtime.renderRuntime();
+  } else {
+    renderHome();
+  }
+});
 import('./app-runtime/CellSelection.js')
   .then(({ bindCellSelectionEvents }) => bindCellSelectionEvents())
   .then(() => boot())

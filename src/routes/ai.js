@@ -4,6 +4,7 @@ import { chatCompletionsUrl, generateOptions } from '../ai/service.js';
 import { getToolDefinitions, getTool, discoverTools } from '../ai/registry.js';
 import { readJson, sendJson } from './_helpers.js';
 import { listRules } from '../models/rule.js';
+import { getRuntimeSettings } from '../models/runtime-settings.js';
 
 discoverTools();
 
@@ -11,19 +12,18 @@ const PENDING_CONFIRMS = new Map();
 
 // Confirm 端点的独立限流（10 次/分钟/IP，比全局 100 次/分钟更严格）
 const CONFIRM_RATE_BUCKETS = new Map();
-const CONFIRM_RATE_LIMIT = 10;
-const CONFIRM_RATE_WINDOW = 60_000;
 
 function rateLimitConfirm(ip) {
+  const runtime = getRuntimeSettings();
   const now = Date.now();
-  const cutoff = now - CONFIRM_RATE_WINDOW;
+  const cutoff = now - runtime.rateLimitWindowMs;
   let entries = CONFIRM_RATE_BUCKETS.get(ip);
   if (!entries) {
     entries = [];
     CONFIRM_RATE_BUCKETS.set(ip, entries);
   }
   while (entries.length && entries[0] <= cutoff) entries.shift();
-  if (entries.length >= CONFIRM_RATE_LIMIT) return false;
+  if (entries.length >= runtime.confirmRateLimitMax) return false;
   entries.push(now);
   return true;
 }
@@ -49,7 +49,7 @@ function sseEvent(res, event, data) {
  * If no data arrives within timeoutMs, rejects so the caller can propagate an error.
  * This prevents the AI assistant from hanging silently when the AI provider stalls mid-stream.
  */
-function readWithTimeout(reader, timeoutMs = 120_000) {
+function readWithTimeout(reader, timeoutMs = getRuntimeSettings().aiStreamReadTimeoutMs) {
   let timer;
   const read = reader.read().finally(() => clearTimeout(timer));
   const timeout = new Promise((_, reject) => {
@@ -386,8 +386,8 @@ export async function handleAiApi(req, res, method, parts, url) {
             addAiExecutionLog(session.id, `执行 ${tc.function.name}`, 'running', { toolName: tc.function.name, input: args });
             const result = await withTimeout(
               tool.handler(args, { app, session: getAiSession(session.id) }),
-              120_000,
-              `工具 ${tc.function.name} 执行超时（120秒）`
+              getRuntimeSettings().aiStreamReadTimeoutMs,
+              `工具 ${tc.function.name} 执行超时`
             );
             addAiExecutionLog(session.id, `执行 ${tc.function.name}`, 'success', { toolName: tc.function.name, output: result });
             const resultStr = typeof result === 'string' ? result : JSON.stringify(result);

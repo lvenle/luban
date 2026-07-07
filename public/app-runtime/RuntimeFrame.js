@@ -22,10 +22,10 @@ export function startSidebarResize(event) {
   const update = (moveEvent) => {
     const nextWidth = startWidth + moveEvent.clientX - startX;
     if (collapsed) {
-      state.sidebarCollapsedWidth = clampCollapsedSidebarWidth(nextWidth);
+      state.sidebarCollapsedWidth = clampCollapsedSidebarWidth(nextWidth, state.runtimeSettings.sidebarCollapsedWidth);
       document.querySelector('.runtime')?.style.setProperty('--sidebar-collapsed-width', `${state.sidebarCollapsedWidth}px`);
     } else {
-      state.sidebarWidth = clampSidebarWidth(nextWidth);
+      state.sidebarWidth = clampSidebarWidth(nextWidth, state.runtimeSettings.sidebarWidth);
       document.querySelector('.runtime')?.style.setProperty('--sidebar-width', `${state.sidebarWidth}px`);
     }
   };
@@ -41,8 +41,8 @@ export function startSidebarResize(event) {
 
 export function loadSidebarLayout() {
   state.sidebarCollapsed = Boolean(readStorage(sidebarLayoutKey('sidebar-collapsed'), false));
-  state.sidebarWidth = clampSidebarWidth(readStorage(sidebarLayoutKey('sidebar-width'), 168));
-  state.sidebarCollapsedWidth = clampCollapsedSidebarWidth(readStorage(sidebarLayoutKey('sidebar-collapsed-width'), 112));
+  state.sidebarWidth = clampSidebarWidth(readStorage(sidebarLayoutKey('sidebar-width'), state.runtimeSettings.sidebarWidth), state.runtimeSettings.sidebarWidth);
+  state.sidebarCollapsedWidth = clampCollapsedSidebarWidth(readStorage(sidebarLayoutKey('sidebar-collapsed-width'), state.runtimeSettings.sidebarCollapsedWidth), state.runtimeSettings.sidebarCollapsedWidth);
 }
 
 export function saveSidebarLayout() {

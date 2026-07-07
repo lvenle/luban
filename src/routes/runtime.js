@@ -15,10 +15,12 @@ import { createRecordWithRules, updateRecordWithRules } from '../services/rule-r
 import { compileBusinessRule, updateCompiledRule } from '../services/rule-creation.js';
 import { exportAppPayload } from '../services/package-transfer.js';
 import { sendJson, sendText, sendBinary, readJson, readBuffer, requireFields, notFound, badRequest, saveUploadedFile } from './_helpers.js';
+import { getRuntimeSettings } from '../models/runtime-settings.js';
 
 export async function handleRuntimeApi(req, res, method, url) {
   const parts = url.pathname.split('/').filter(Boolean);
   const appId = parts[2];
+  const runtime = getRuntimeSettings();
 
   const app = getApp(appId);
   if (!app) throw notFound('找不到应用。');
@@ -139,7 +141,7 @@ export async function handleRuntimeApi(req, res, method, url) {
 
   if (parts[3] === 'rules' && parts[4] && parts[5] === 'runs' && method === 'GET') {
     if (!getRule(appId, parts[4])) throw notFound('找不到业务规则。');
-    sendJson(res, 200, { runs: listRuleRuns(appId, { ruleId: parts[4], limit: url.searchParams.get('limit') || 50 }) });
+    sendJson(res, 200, { runs: listRuleRuns(appId, { ruleId: parts[4], limit: url.searchParams.get('limit') || runtime.ruleRunDefaultLimit }) });
     return;
   }
 
@@ -149,7 +151,7 @@ export async function handleRuntimeApi(req, res, method, url) {
       states: listRuleRecordStates(appId, {
         ruleId: parts[4],
         state: url.searchParams.get('state') || undefined,
-        limit: url.searchParams.get('limit') || 100
+        limit: url.searchParams.get('limit') || runtime.ruleStateDisplayLimit
       })
     });
     return;
@@ -159,7 +161,7 @@ export async function handleRuntimeApi(req, res, method, url) {
     sendJson(res, 200, {
       runs: listRuleRuns(appId, {
         ruleId: url.searchParams.get('ruleId') || undefined,
-        limit: url.searchParams.get('limit') || 50
+        limit: url.searchParams.get('limit') || runtime.ruleRunDefaultLimit
       })
     });
     return;
@@ -179,7 +181,7 @@ export async function handleRuntimeApi(req, res, method, url) {
 
   if (method === 'GET' && parts[3] === 'records' && parts.length === 4) {
     const entityId = url.searchParams.get('entity');
-    const limit = clampPageLimit(url.searchParams.get('limit'), 100);
+    const limit = clampPageLimit(url.searchParams.get('limit'), runtime.paginationDefault);
     const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset'), 10) || 0);
     const options = { entityId: entityId || undefined };
     const query = url.searchParams.get('q') || '';

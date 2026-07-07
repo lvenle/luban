@@ -89,6 +89,15 @@ test('request limits and settings responses do not expose secrets', async () => 
   const body = JSON.parse(response.body);
   assert.equal(body.ai.apiKey, '');
   assert.equal(body.ai.hasApiKey, true);
+  assert.equal(body.runtime.paginationMax, 1000);
+
+  const saveRuntime = mockResponse();
+  await handleSettingsApi(mockJsonRequest({ runtime: { paginationMax: 25, paginationDefault: 50, aiRequestTimeoutMs: 3000 } }), saveRuntime, 'PUT');
+  const saved = JSON.parse(saveRuntime.body);
+  assert.equal(saved.runtime.paginationMax, 25);
+  assert.equal(saved.runtime.paginationDefault, 25, 'default page size is clamped to the configured max');
+  assert.equal(saved.runtime.aiRequestTimeoutMs, 3000);
+  assert.equal(clampPageLimit(5000), 25);
 });
 
 function mockResponse() {
@@ -98,6 +107,14 @@ function mockResponse() {
     writeHead(status) { this.status = status; },
     end(body = '') { this.body = String(body); }
   };
+}
+
+function mockJsonRequest(body) {
+  const request = new PassThrough();
+  const text = JSON.stringify(body);
+  request.headers = { 'content-length': String(Buffer.byteLength(text)) };
+  request.end(text);
+  return request;
 }
 
 function testPackage(id) {

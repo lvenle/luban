@@ -296,7 +296,7 @@ test('runtime uses an application-settings entry with rules and execution-log ta
   assert.match(appShell, /system-settings-button[\s\S]*系统设置/);
   assert.match(settings, /tab\('rules',[\s\S]*业务规则/);
   assert.match(settings, /tab\('runs',[\s\S]*执行记录/);
-  assert.match(settings, /\/rule-runs\?limit=100/);
+  assert.match(settings, /rule-runs\?limit=\$\{getClientRuntimeSettings\(\)\.ruleRunListLimit\}/);
   assert.match(settings, /让 AI 修改/);
   assert.match(settings, /手动修改业务规则/);
   assert.match(settings, /禁用规则/);
@@ -316,7 +316,7 @@ test('runtime uses an application-settings entry with rules and execution-log ta
   assert.match(settings, /所需信息填写完整后自动处理一次/);
   assert.match(settings, /处理范围/);
   assert.doesNotMatch(settings, /Schema Mapping/);
-  assert.match(settings, /\/states\?limit=100/);
+  assert.match(settings, /states\?limit=\$\{getClientRuntimeSettings\(\)\.ruleStateDisplayLimit\}/);
   assert.match(ruleFeedback, /beforeValue/);
   assert.match(ruleFeedback, /afterValue/);
   assert.match(ruleFeedback, /已完成/);

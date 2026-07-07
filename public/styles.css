@@ -3523,6 +3523,12 @@ thead .frozen-column {
 .settings-tab.active { border-color: #d6e1f2; background: #eef4ff; color: var(--brand); }
 .settings-modal-content { min-height: 280px; max-height: calc(100vh - 180px); overflow: auto; padding: 20px; }
 .settings-actions { margin-top: 14px; }
+.runtime-settings-panel { display: grid; gap: 14px; }
+.runtime-settings-panel > p { margin: 0; }
+.runtime-settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.runtime-setting-row { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: var(--surface-radius); background: #fbfcfe; }
+.runtime-setting-label { font-weight: 650; color: #27313f; }
+.runtime-setting-row input { height: 32px; }
 .sample-import-panel { display: grid; gap: 14px; }
 .sample-import-toolbar { position: sticky; top: -20px; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); background: var(--panel); }
 .sample-import-toolbar > .muted { flex: 1; }

@@ -141,7 +141,9 @@ export async function loadRecords(entityId = '') {
 export async function loadRecordPage(entityId = '', options = {}) {
   if (!state.currentApp) return;
   const page = currentPage();
-  const limit = Math.max(1, Math.min(1000, Number(options.limit || (page?.entity === entityId ? page.pageSize : 100) || 100)));
+  const runtime = state.runtimeSettings;
+  const requestedLimit = Number(options.limit || (page?.entity === entityId ? page.pageSize : runtime.paginationDefault) || runtime.paginationDefault);
+  const limit = Math.max(1, Math.min(runtime.paginationMax, requestedLimit));
   const previous = state.recordPagination[entityId || '*'];
   const offset = options.append ? Number(previous?.nextOffset || 0) : 0;
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
@@ -193,19 +195,19 @@ export async function loadCurrentPageRecords() {
   state.recordPagination = {};
   if (!entity) {
     await loadRecords();
-    while (state.recordPagination['*']?.hasMore) await loadRecordPage('', { append: true, limit: 1000 });
+    while (state.recordPagination['*']?.hasMore) await loadRecordPage('', { append: true, limit: state.runtimeSettings.paginationMax });
     return;
   }
   await loadRecords(entity.id);
   if (!['list', 'editor', 'form', 'detail'].includes(page?.type)) {
-    while (state.recordPagination[entity.id]?.hasMore) await loadRecordPage(entity.id, { append: true, limit: 1000 });
+    while (state.recordPagination[entity.id]?.hasMore) await loadRecordPage(entity.id, { append: true, limit: state.runtimeSettings.paginationMax });
   }
   const targets = [...new Set(entity.fields.filter((f) => f.type === 'relation' && f.targetEntity && f.targetEntity !== entity.id).map((f) => f.targetEntity))];
   for (const tid of targets) await mergeEntityRecords(tid);
 }
 
 export async function mergeEntityRecords(entityId) {
-  const body = await api(`/api/apps/${state.currentApp.id}/records?entity=${encodeURIComponent(entityId)}&limit=1000&offset=0`);
+  const body = await api(`/api/apps/${state.currentApp.id}/records?entity=${encodeURIComponent(entityId)}&limit=${state.runtimeSettings.paginationMax}&offset=0`);
   state.records = [...state.records.filter((r) => r.entityId !== entityId), ...body.records];
   state.recordPagination[entityId] = body.pagination;
 }

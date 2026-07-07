@@ -6,13 +6,17 @@ import { readStorage, writeStorage, globalStorageKey, clampSidebarWidth } from '
 import { formatDateFieldValue } from './app-runtime/DateFormat.js';
 import { appCategory } from './common/app-metadata.js';
 import { entityDisplayName as resolveEntityDisplayName } from './common/entity-display.js';
+import { getClientRuntimeSettings } from './common/runtime-settings-store.js';
+
+const initialRuntimeSettings = getClientRuntimeSettings();
 
 export const state = {
   apps: [], currentApp: null, currentPageId: null, records: [],
   inlineEditId: null, loading: false, appCategory: '全部', appSearch: '', appDragId: '', currentViewId: '',
   assistantOpen: false, pageDragId: '', cellSelection: null, cellClipboard: null,
-  sidebarCollapsed: false, sidebarWidth: 168, sidebarCollapsedWidth: 112, recordPagination: {}, loadingRecordPages: {},
-  isMobile: window.innerWidth < 768, mobileDrawerOpen: false
+  sidebarCollapsed: false, sidebarWidth: initialRuntimeSettings.sidebarWidth, sidebarCollapsedWidth: initialRuntimeSettings.sidebarCollapsedWidth, recordPagination: {}, loadingRecordPages: {},
+  isMobile: window.innerWidth < 768, mobileDrawerOpen: false,
+  runtimeSettings: initialRuntimeSettings
 };
 
 export const root = document.querySelector('#app');
@@ -165,7 +169,7 @@ export function dateKey(value) {
 // View system helpers (used by runtime modules)
 export function defaultView(entity) {
   const legacy = readStorage(storageKey('list', entity.id), null);
-  const fb = { id: 'default', name: '全部记录', visibleFields: entity.fields.map(f => f.id), fieldOrder: entity.fields.map(f => f.id), searchFields: [], columnWidths: {}, actionWidth: 112, allFields: entity.fields.map(f => f.id), filters: [], sorts: [], group: null };
+  const fb = { id: 'default', name: '全部记录', visibleFields: entity.fields.map(f => f.id), fieldOrder: entity.fields.map(f => f.id), searchFields: [], columnWidths: {}, actionWidth: state.runtimeSettings.actionWidth, allFields: entity.fields.map(f => f.id), filters: [], sorts: [], group: null };
   return normalizeView(entity, { ...fb, visibleFields: legacy?.visibleFields, fieldOrder: legacy?.fieldOrder, searchFields: legacy?.searchFields, columnWidths: legacy?.columnWidths, sorts: legacy?.sort?.field ? [{ field: legacy.sort.field, direction: legacy.sort.direction || 'asc' }] : [] });
 }
 
@@ -295,7 +299,7 @@ function getFormDesignFromPatch(entity, design = {}) {
 
 function normalizeView(entity, view) {
   const fIds = entity.fields.map(f => f.id), fSet = new Set(fIds);
-  const fb = { visibleFields: [...fIds], fieldOrder: [...fIds], searchFields: [], columnWidths: {}, actionWidth: 112, allFields: [...fIds], filters: [], sorts: [], group: null, id: `view_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`, name: '全部记录' };
+  const fb = { visibleFields: [...fIds], fieldOrder: [...fIds], searchFields: [], columnWidths: {}, actionWidth: state.runtimeSettings.actionWidth, allFields: [...fIds], filters: [], sorts: [], group: null, id: `view_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`, name: '全部记录' };
   const next = { ...fb, ...view };
   next.name = String(next.name || '未命名视图').trim() || '未命名视图';
   next.visibleFields = (next.visibleFields || []).filter(id => fSet.has(id));
@@ -305,7 +309,7 @@ function normalizeView(entity, view) {
   fIds.forEach(id => { if (!next.fieldOrder.includes(id)) next.fieldOrder.push(id); });
   next.searchFields = (next.searchFields || []).filter(id => fSet.has(id));
   next.columnWidths ||= {}; Object.keys(next.columnWidths).forEach(id => { if (!fSet.has(id)) delete next.columnWidths[id]; });
-  next.actionWidth = Math.max(84, Number(next.actionWidth || 112));
+  next.actionWidth = Math.max(84, Number(state.runtimeSettings.actionWidth));
   next.filters = (next.filters || []).filter(f => fSet.has(f.field));
   next.sorts = (next.sorts || []).filter(s => fSet.has(s.field));
   if (next.group && !fSet.has(next.group.field)) next.group = null;

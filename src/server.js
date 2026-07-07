@@ -7,11 +7,10 @@ import { handleSettingsApi } from './routes/settings.js';
 import { handleSamplesApi } from './routes/samples.js';
 import { initDb, closeDb } from './storage/db.js';
 import { getApp } from './models/app.js';
+import { getRuntimeSettings } from './models/runtime-settings.js';
 
 const APP_VERSION = '2026.06.25';
 const PORT = Number(process.env.PORT || 5173);
-const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 100);
-const RATE_LIMIT_WINDOW = 60_000;
 const DESKTOP_TOKEN = process.env.LUBAN_DESKTOP_TOKEN || '';
 
 // Simple in-memory sliding-window rate limiter (per IP)
@@ -19,18 +18,21 @@ const rateBuckets = new Map();
 let rateLimitCleanup = null;
 
 function rateLimit(ip) {
+  const settings = getRuntimeSettings();
+  const maxRequests = Number(process.env.RATE_LIMIT_MAX || settings.apiRateLimitMax);
+  const windowMs = settings.rateLimitWindowMs;
   if (!rateLimitCleanup) {
     rateLimitCleanup = setInterval(() => {
-      const cutoff = Date.now() - RATE_LIMIT_WINDOW * 2;
+      const cutoff = Date.now() - getRuntimeSettings().rateLimitWindowMs * 2;
       for (const [key, entries] of rateBuckets) {
         const valid = entries.filter((t) => t > cutoff);
         if (valid.length) rateBuckets.set(key, valid);
         else rateBuckets.delete(key);
       }
-    }, RATE_LIMIT_WINDOW).unref();
+    }, getRuntimeSettings().rateLimitWindowMs).unref();
   }
   const now = Date.now();
-  const cutoff = now - RATE_LIMIT_WINDOW;
+  const cutoff = now - windowMs;
   let entries = rateBuckets.get(ip);
   if (!entries) {
     entries = [];
@@ -38,7 +40,7 @@ function rateLimit(ip) {
   }
   // Prune entries outside the current window
   while (entries.length && entries[0] <= cutoff) entries.shift();
-  if (entries.length >= RATE_LIMIT_MAX) return false;
+  if (entries.length >= maxRequests) return false;
   entries.push(now);
   return true;
 }
