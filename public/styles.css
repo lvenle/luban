@@ -4776,6 +4776,97 @@ button.assistant-send {
   overflow: auto;
 }
 
+.calendar-scroll {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(132px, 1fr));
+  min-width: 924px;
+  background: var(--line);
+  gap: 1px;
+}
+
+.calendar-weekday {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--soft);
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.calendar-cell {
+  min-height: 126px;
+  min-width: 0;
+  background: var(--panel);
+  padding: 8px;
+}
+
+.calendar-cell.outside-month {
+  background: #f8fafc;
+}
+
+.calendar-date-label {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.calendar-cell.today .calendar-date-label {
+  background: var(--brand);
+  color: white;
+}
+
+.calendar-events {
+  display: grid;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.calendar-event,
+.calendar-more {
+  width: 100%;
+  min-height: 24px;
+  border: 1px solid #c8d8ff;
+  border-radius: var(--radius-sm);
+  background: #eef4ff;
+  color: #1d4ed8;
+  padding: 3px 6px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.calendar-event span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-event:hover,
+.calendar-more:hover {
+  background: #dbeafe;
+}
+
+.calendar-more {
+  text-align: center;
+  color: #475569;
+  background: #f8fafc;
+  border-color: var(--line);
+}
+
 .gantt-chart {
   width: calc(180px + var(--timeline-width));
   min-width: 100%;

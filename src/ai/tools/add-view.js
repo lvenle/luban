@@ -6,7 +6,7 @@ import { isSingleChoiceField, isTemporalField, isNumericField } from '../../core
 
 register({
   name: 'add_view',
-  description: 'Add a persisted list, quadrant, or gantt view to an existing table page.',
+  description: 'Add a persisted list, quadrant, gantt, or calendar view to an existing table page.',
   risk: 'low',
   schema: {
     type: 'function',
@@ -20,12 +20,13 @@ register({
           entityId: { type: 'string', description: 'Table ID' },
           pageId: { type: 'string', description: 'Bound list page ID; optional when the table has one list page' },
           name: { type: 'string', description: 'View name' },
-          type: { type: 'string', enum: ['list', 'quadrant', 'gantt'] },
+          type: { type: 'string', enum: ['list', 'quadrant', 'gantt', 'calendar'] },
           fieldId: { type: 'string', description: 'Select field for quadrant view' },
           titleField: { type: 'string', description: 'Title field for gantt view' },
           startField: { type: 'string', description: 'Start date field for gantt view' },
           endField: { type: 'string', description: 'End date field for gantt view' },
-          progressField: { type: 'string', description: 'Optional numeric progress field for gantt view' }
+          progressField: { type: 'string', description: 'Optional numeric progress field for gantt view' },
+          dateField: { type: 'string', description: 'Date field for calendar view' }
         },
         required: ['appId', 'entityId', 'name', 'type']
       }
@@ -55,6 +56,13 @@ register({
       if (args.progressField && !numberLike(progress)) throw new Error('甘特视图的进度字段必须是数值字段。');
       view.gantt = { titleField: title.id, startField: start.id, endField: end.id, progressField: progress?.id || '' };
     }
+    if (args.type === 'calendar') {
+      const title = entity.fields.find((item) => item.id === args.titleField) || entity.fields.find((item) => item.type !== 'formula');
+      const date = entity.fields.find((item) => item.id === (args.dateField || args.startField));
+      const end = args.endField ? entity.fields.find((item) => item.id === args.endField) : null;
+      if (!title || !dateLike(date) || (args.endField && !dateLike(end))) throw new Error('日历视图需要标题字段和日期字段。');
+      view.calendar = { titleField: title.id, dateField: date.id, endField: end?.id || '' };
+    }
     page.views ||= [{ id: 'default', name: '全部记录', type: 'list' }];
     page.views.push(view);
     const nextApp = updateAppPackage(app.id, pkg, { expectedUpdatedAt: app.updatedAt });
@@ -62,7 +70,7 @@ register({
   }
 });
 
-function dateLike(field) { return isTemporalField(field) || (field?.type === 'formula' && field.formula?.resultType === 'date'); }
+function dateLike(field) { return isTemporalField(field) || (field?.type === 'formula' && ['date', 'datetime'].includes(field.formula?.resultType)); }
 function numberLike(field) { return isNumericField(field) || (field?.type === 'formula' && field.formula?.resultType === 'number'); }
 function uniqueViewId(page, name) {
   const base = normalizeFieldId(name, 'view');

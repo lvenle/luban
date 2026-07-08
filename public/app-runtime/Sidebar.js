@@ -620,7 +620,8 @@ export function openCreatePageModal(sourcePage = null) {
     ['', '— 请选择视图 —'],
     ['list', '表格视图'],
     ['quadrant', '四象限视图'],
-    ['gantt', '甘特视图']
+    ['gantt', '甘特视图'],
+    ['calendar', '日历视图']
   ], '');
   typeSelect.style.width = '100%';
 
@@ -669,10 +670,28 @@ export function openCreatePageModal(sourcePage = null) {
         ].filter(Boolean));
     }
 
+    if (type === 'calendar') {
+      const titleFields = entity.fields.filter((f) => f.type !== 'formula' || f.formula?.resultType === 'text');
+      const dateFields = entity.fields.filter((f) => ['date', 'datetime'].includes(f.type) || (f.type === 'formula' && ['date', 'datetime'].includes(f.formula?.resultType)));
+      const title = selectFromOptions(titleFields.map((f) => [f.id, f.label]), titleFields[0]?.id || '');
+      const date = selectFromOptions(dateFields.map((f) => [f.id, f.label]), dateFields[0]?.id || '');
+      const end = selectFromOptions([['', '不设置结束日期'], ...dateFields.map((f) => [f.id, f.label])], '');
+      title.dataset.viewConfig = 'calendarTitleField'; date.dataset.viewConfig = 'calendarDateField'; end.dataset.viewConfig = 'calendarEndField';
+      configWrapper.append(
+        h('label', { class: 'field' }, [h('span', { text: '标题字段' }), title]),
+        h('label', { class: 'field' }, [h('span', { text: '日期字段' }), date]),
+        h('label', { class: 'field' }, [h('span', { text: '结束日期（可选）' }), end]),
+        dateFields.length
+          ? h('p', { class: 'muted field-hint', text: '记录会显示在对应日期；设置结束日期后会覆盖整个日期区间。' })
+          : h('p', { class: 'field-error', text: '日历视图需要至少一个日期或日期时间字段。' })
+      );
+    }
+
     if (createButton) {
       const invalidQuadrant = type === 'quadrant' && !configWrapper.querySelector('[data-view-config="quadrantField"]')?.value;
       const invalidGantt = type === 'gantt' && (dateFieldsInvalid());
-      createButton.disabled = !entityId || !type || invalidQuadrant || invalidGantt;
+      const invalidCalendar = type === 'calendar' && !configWrapper.querySelector('[data-view-config="calendarDateField"]')?.value;
+      createButton.disabled = !entityId || !type || invalidQuadrant || invalidGantt || invalidCalendar;
     }
   };
 
@@ -720,6 +739,13 @@ export function openCreatePageModal(sourcePage = null) {
               const progressField = configWrapper.querySelector('[data-view-config="progressField"]')?.value || '';
               if (!titleField || !startField || !endField || startField === endField) return toast('请选择标题字段以及两个不同的日期字段。');
               view.gantt = { titleField, startField, endField, progressField };
+            }
+            if (type === 'calendar') {
+              const titleField = configWrapper.querySelector('[data-view-config="calendarTitleField"]')?.value;
+              const dateField = configWrapper.querySelector('[data-view-config="calendarDateField"]')?.value;
+              const endField = configWrapper.querySelector('[data-view-config="calendarEndField"]')?.value || '';
+              if (!titleField || !dateField) return toast('请选择标题字段和日期字段。');
+              view.calendar = { titleField, dateField, endField };
             }
             const page = buildPageForEntity({ entity, title, view });
             try {

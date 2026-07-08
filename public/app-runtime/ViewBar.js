@@ -92,7 +92,7 @@ export function normalizeView(entity, view = {}) {
   const next = { ...fallback, ...view };
   next.id = next.id || makeViewId();
   next.name = String(next.name || '未命名视图').trim() || '未命名视图';
-  next.type = ['list', 'quadrant', 'gantt'].includes(next.type) ? next.type : 'list';
+  next.type = ['list', 'quadrant', 'gantt', 'calendar'].includes(next.type) ? next.type : 'list';
   next.visibleFields = (next.visibleFields || []).filter((id) => fieldSet.has(id));
   const inputHadVisibleFields = Array.isArray(view.visibleFields);
   if (!inputHadVisibleFields || next.visibleFields.length === 0) {
@@ -131,6 +131,14 @@ export function normalizeView(entity, view = {}) {
       endField: next.gantt?.endField || '',
       progressField: next.gantt?.progressField || '',
       scaleType: next.gantt?.scaleType || 'day'
+    };
+  }
+  if (next.type === 'calendar') {
+    next.calendar = {
+      titleField: next.calendar?.titleField || '',
+      dateField: next.calendar?.dateField || '',
+      endField: next.calendar?.endField || '',
+      focusMonth: /^\d{4}-\d{2}$/.test(String(next.calendar?.focusMonth || '')) ? next.calendar.focusMonth : ''
     };
   }
   next.allFields = fieldIds;
@@ -306,7 +314,8 @@ export function openCreateViewModal(entity) {
   const typeSelect = selectFromOptions([
     ['list', '表格视图'],
     ['quadrant', '四象限视图'],
-    ['gantt', '甘特视图']
+    ['gantt', '甘特视图'],
+    ['calendar', '日历视图']
   ], 'list');
   const config = h('div', { class: 'view-type-config' });
   let createButton = null;
@@ -339,12 +348,27 @@ export function openCreateViewModal(entity) {
         dateFields.length >= 2 ? null : h('p', { class: 'field-error', text: '甘特视图需要至少两个日期或日期时间字段。' })
       );
     }
+    if (typeSelect.value === 'calendar') {
+      const titleFields = entity.fields.filter((field) => field.type !== 'formula' || field.formula?.resultType === 'text');
+      const dateFields = entity.fields.filter((field) => ['date', 'datetime'].includes(field.type) || (field.type === 'formula' && ['date', 'datetime'].includes(field.formula?.resultType)));
+      const title = selectFromOptions(titleFields.map((field) => [field.id, field.label]), titleFields[0]?.id || '');
+      const date = selectFromOptions(dateFields.map((field) => [field.id, field.label]), dateFields[0]?.id || '');
+      const end = selectFromOptions([['', '不设置结束日期'], ...dateFields.map((field) => [field.id, field.label])], '');
+      title.dataset.viewConfig = 'calendarTitleField'; date.dataset.viewConfig = 'calendarDateField'; end.dataset.viewConfig = 'calendarEndField';
+      config.append(
+        h('label', { class: 'field' }, [h('span', { text: '标题字段' }), title]),
+        h('label', { class: 'field' }, [h('span', { text: '日期字段' }), date]),
+        h('label', { class: 'field' }, [h('span', { text: '结束日期（可选）' }), end]),
+        dateFields.length ? h('p', { class: 'muted field-hint', text: '记录会显示在对应日期；设置结束日期后会覆盖整个日期区间。' }) : h('p', { class: 'field-error', text: '日历视图需要至少一个日期或日期时间字段。' })
+      );
+    }
     if (createButton) {
       const invalidQuadrant = typeSelect.value === 'quadrant' && !config.querySelector('[data-view-config="quadrantField"]')?.value;
       const start = config.querySelector('[data-view-config="startField"]')?.value;
       const end = config.querySelector('[data-view-config="endField"]')?.value;
       const invalidGantt = typeSelect.value === 'gantt' && (!start || !end || start === end);
-      createButton.disabled = invalidQuadrant || invalidGantt;
+      const invalidCalendar = typeSelect.value === 'calendar' && !config.querySelector('[data-view-config="calendarDateField"]')?.value;
+      createButton.disabled = invalidQuadrant || invalidGantt || invalidCalendar;
     }
   };
   typeSelect.addEventListener('change', renderConfig);
@@ -365,6 +389,13 @@ export function openCreateViewModal(entity) {
       const progressField = config.querySelector('[data-view-config="progressField"]')?.value || '';
       if (!titleField || !startField || !endField || startField === endField) return toast('请选择标题字段以及两个不同的日期字段。');
       patch.gantt = { titleField, startField, endField, progressField };
+    }
+    if (type === 'calendar') {
+      const titleField = config.querySelector('[data-view-config="calendarTitleField"]')?.value;
+      const dateField = config.querySelector('[data-view-config="calendarDateField"]')?.value;
+      const endField = config.querySelector('[data-view-config="calendarEndField"]')?.value || '';
+      if (!titleField || !dateField) return toast('请选择标题字段和日期字段。');
+      patch.calendar = { titleField, dateField, endField };
     }
     createView(entity, viewName, patch);
     backdrop.remove();

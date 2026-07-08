@@ -344,7 +344,15 @@ export function normalizeTableView(view = {}, entity, index = 0) {
       scaleType: next.gantt?.scaleType || 'day'
     };
   }
-  delete next.fieldId; delete next.optionIds; delete next.titleField; delete next.startField; delete next.endField; delete next.progressField;
+  if (next.type === 'calendar') {
+    next.calendar = {
+      titleField: next.calendar?.titleField || next.titleField || '',
+      dateField: next.calendar?.dateField || next.dateField || next.startField || '',
+      endField: next.calendar?.endField || next.endField || '',
+      focusMonth: /^\d{4}-\d{2}$/.test(String(next.calendar?.focusMonth || '')) ? next.calendar.focusMonth : ''
+    };
+  }
+  delete next.fieldId; delete next.optionIds; delete next.titleField; delete next.startField; delete next.endField; delete next.progressField; delete next.dateField;
   next.allFields = fieldIds;
   return next;
 }
@@ -544,6 +552,12 @@ export function validatePackage(pkg) {
         if (!title || !['date', 'datetime'].includes(start?.type) || !['date', 'datetime'].includes(end?.type)) errors.push(`甘特视图 ${view.id} 配置无效。`);
         if (view.gantt?.progressField && !isNumericField(progress)) errors.push(`甘特视图 ${view.id} 的进度字段必须是数值字段。`);
       }
+      if (view.type === 'calendar') {
+        const title = entity?.fields?.find((item) => item.id === view.calendar?.titleField);
+        const date = entity?.fields?.find((item) => item.id === view.calendar?.dateField);
+        const end = view.calendar?.endField ? entity?.fields?.find((item) => item.id === view.calendar.endField) : null;
+        if (!title || !isDateLikeField(date) || (view.calendar?.endField && !isDateLikeField(end))) errors.push(`日历视图 ${view.id} 配置无效。`);
+      }
     }
   }
   for (const action of pkg?.actions?.actions || []) {
@@ -559,6 +573,10 @@ export function validatePackage(pkg) {
 
 function isNumericField(field) {
   return !!(FIELD_TYPES[field?.type]?.isNumericType) || (!!FIELD_TYPES[field?.type]?.isFormulaType && field.formula?.resultType === 'number');
+}
+
+function isDateLikeField(field) {
+  return !!FIELD_TYPES[field?.type]?.isTemporalType || (!!FIELD_TYPES[field?.type]?.isFormulaType && ['date', 'datetime'].includes(field.formula?.resultType));
 }
 
 export function preparePackage(pkg) {

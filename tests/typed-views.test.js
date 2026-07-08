@@ -22,19 +22,24 @@ test('missing table view type normalizes to the default list view', () => {
   assert.equal(clean.ui.pages[0].views[0].type, 'list');
 });
 
-test('quadrant and gantt view definitions are normalized and validated', () => {
+test('quadrant, gantt, and calendar view definitions are normalized and validated', () => {
   const clean = preparePackage(viewPackage([
     { id: 'quadrant', name: '四象限', type: 'quadrant', quadrant: { fieldId: 'priority', optionIds: ['a', 'b', 'c', 'd'] } },
-    { id: 'gantt', name: '排期', type: 'gantt', gantt: { titleField: 'name', startField: 'start', endField: 'end', progressField: 'progress' } }
+    { id: 'gantt', name: '排期', type: 'gantt', gantt: { titleField: 'name', startField: 'start', endField: 'end', progressField: 'progress' } },
+    { id: 'calendar', name: '日历', type: 'calendar', calendar: { titleField: 'name', dateField: 'start', endField: 'end' } }
   ]));
-  assert.deepEqual(clean.ui.pages[0].views.map((view) => view.type), ['quadrant', 'gantt']);
+  assert.deepEqual(clean.ui.pages[0].views.map((view) => view.type), ['quadrant', 'gantt', 'calendar']);
   assert.equal(clean.ui.pages[0].views[1].gantt.progressField, 'progress');
+  assert.equal(clean.ui.pages[0].views[2].calendar.dateField, 'start');
   const legacy = preparePackage(viewPackage([{ id: 'legacy-gantt', name: '旧排期', type: 'gantt', titleField: 'name', startField: 'start', endField: 'end', progressField: 'progress' }]));
   assert.equal(legacy.ui.pages[0].views[0].gantt.progressField, 'progress');
   assert.equal('progressField' in legacy.ui.pages[0].views[0], false);
+  const legacyCalendar = preparePackage(viewPackage([{ id: 'legacy-calendar', name: '旧日历', type: 'calendar', titleField: 'name', dateField: 'start' }]));
+  assert.equal(legacyCalendar.ui.pages[0].views[0].calendar.dateField, 'start');
   assert.throws(() => preparePackage(viewPackage([{ id: 'bad', name: '坏象限', type: 'quadrant', quadrant: { fieldId: 'priority', optionIds: ['a'] } }])), /四象限视图/);
   assert.throws(() => preparePackage(viewPackage([{ id: 'bad-gantt', name: '坏甘特', type: 'gantt', gantt: { titleField: 'name', startField: 'name', endField: 'end' } }])), /甘特视图/);
   assert.throws(() => preparePackage(viewPackage([{ id: 'bad-progress', name: '坏进度', type: 'gantt', gantt: { titleField: 'name', startField: 'start', endField: 'end', progressField: 'name' } }])), /进度字段必须是数值字段/);
+  assert.throws(() => preparePackage(viewPackage([{ id: 'bad-calendar', name: '坏日历', type: 'calendar', calendar: { titleField: 'name', dateField: 'priority' } }])), /日历视图/);
 });
 
 test('add_view creates a persisted typed view without merging other tools', async () => {
@@ -49,6 +54,11 @@ test('add_view creates a persisted typed view without merging other tools', asyn
   assert.equal(result.type, 'gantt');
   const saved = getPackageFromApp(getApp(result.appId));
   assert.equal(saved.ui.pages[0].views.at(-1).gantt.progressField, 'progress');
+  const calendar = await getTool('add_view').handler({
+    appId: app.id, entityId: 'task', pageId: 'task-list', name: '任务日历', type: 'calendar',
+    titleField: 'name', dateField: 'start', endField: 'end'
+  });
+  assert.equal(calendar.type, 'calendar');
   await assert.rejects(() => getTool('add_view').handler({
     appId: app.id, entityId: 'task', pageId: 'task-list', name: '错误排期', type: 'gantt',
     titleField: 'name', startField: 'start', endField: 'end', progressField: 'name'
@@ -67,11 +77,15 @@ test('typed view UI persists package views and exposes both renderers', () => {
   assert.match(viewBarSource, /\['list', '表格视图'\]/);
   assert.match(viewBarSource, /\['quadrant', '四象限视图'\]/);
   assert.match(viewBarSource, /\['gantt', '甘特视图'\]/);
+  assert.match(viewBarSource, /\['calendar', '日历视图'\]/);
   assert.match(viewBarSource, /进度字段（可选）/);
+  assert.match(viewBarSource, /patch\.calendar = \{ titleField, dateField, endField \}/);
   assert.match(viewBarSource, /patch\.gantt = \{ titleField, startField, endField, progressField \}/);
   assert.match(dataTableSource, /renderTypedTableView/);
   assert.match(typedViewsSource, /export function renderQuadrantView/);
   assert.match(typedViewsSource, /export function renderGanttView/);
+  assert.match(typedViewsSource, /export function renderCalendarView/);
+  assert.match(typedViewsSource, /openCalendarConfigModal/);
   assert.match(typedViewsSource, /export function ganttProgressPercent/);
   assert.match(typedViewsSource, /days <= 45/);
   assert.match(typedViewsSource, /days <= 270/);
@@ -83,6 +97,8 @@ test('typed view UI persists package views and exposes both renderers', () => {
   assert.match(cssSource, /\.quadrant-cell:nth-child\(3\) \{ grid-column: 1; grid-row: 2; \}/);
   assert.match(cssSource, /\.quadrant-cell:nth-child\(4\) \{ grid-column: 2; grid-row: 2; \}/);
   assert.match(cssSource, /\.gantt-scroll/);
+  assert.match(cssSource, /\.calendar-grid/);
+  assert.match(cssSource, /\.calendar-event/);
   assert.match(cssSource, /@media \(max-width: 760px\)[\s\S]*\.quadrant-grid[\s\S]*grid-template-columns: 1fr/);
 });
 

@@ -59,7 +59,8 @@ export function fieldTypeId(type) {
 const TABLE_VIEW_TYPES_RECORD = [
   { id: 'list',     label: '列表',   category: 'standard',    description: '标准数据表格' },
   { id: 'quadrant', label: '四象限',  category: 'specialized', description: '四象限看板（基于 select 字段）' },
-  { id: 'gantt',    label: '甘特图',  category: 'specialized', description: '甘特图（需两个日期字段）' }
+  { id: 'gantt',    label: '甘特图',  category: 'specialized', description: '甘特图（需两个日期字段）' },
+  { id: 'calendar', label: '日历',    category: 'specialized', description: '日历视图（基于日期字段）' }
 ];
 
 export const TABLE_VIEW_TYPES = createRegistry(TABLE_VIEW_TYPES_RECORD);

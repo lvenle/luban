@@ -17,6 +17,7 @@ export function renderTypedTableView(page, entity, records, view) {
   const filtered = sortRecords(applyViewFilters(records, entity, view), view);
   if (view.type === 'quadrant') return renderQuadrantView(page, entity, filtered, view);
   if (view.type === 'gantt') return renderGanttView(page, entity, filtered, view);
+  if (view.type === 'calendar') return renderCalendarView(page, entity, filtered, view);
   return null;
 }
 
@@ -101,6 +102,112 @@ export function renderGanttView(page, entity, records, view) {
       renderInfiniteLoadSentinel(entity)
     ])
   ]);
+}
+
+export function renderCalendarView(page, entity, records, view) {
+  const config = view.calendar || {};
+  const titleField = entity.fields.find((field) => field.id === config.titleField) || entity.fields[0];
+  const dateField = entity.fields.find((field) => field.id === config.dateField);
+  const endField = entity.fields.find((field) => field.id === config.endField);
+  const invalid = [];
+  const monthKey = validMonthKey(config.focusMonth) || monthKeyForDate(new Date());
+  const monthStart = new Date(`${monthKey}-01T00:00:00`);
+  const gridStart = calendarGridStart(monthStart);
+  const cells = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + index);
+    return { date, key: localDateKey(date), records: [] };
+  });
+  const cellMap = new Map(cells.map((cell) => [cell.key, cell]));
+
+  for (const record of records) {
+    const start = calendarDate(record.data[dateField?.id]);
+    const end = endField ? calendarDate(record.data[endField.id]) : start;
+    if (!start || !end || end < start) { invalid.push(record); continue; }
+    let cursor = new Date(start);
+    let days = 0;
+    while (cursor <= end && days < 370) {
+      const cell = cellMap.get(localDateKey(cursor));
+      if (cell) cell.records.push(record);
+      cursor.setDate(cursor.getDate() + 1);
+      days++;
+    }
+  }
+
+  if (invalidMode.has(view.id)) return renderInvalidRecords(entity, view, invalid, '无日期或日期无效');
+  const monthLabel = `${monthStart.getFullYear()}年${monthStart.getMonth() + 1}月`;
+  return h('div', { class: `${TYPED_PANEL_CLASS} calendar-view` }, [
+    ...renderTypedHeader(entity, view, invalid, '无效记录', monthLabel, [
+      h('button', { class: 'secondary icon-label-button', onclick: () => shiftCalendarMonth(entity, view, -1) }, buttonLabel('sort', '上月')),
+      h('button', { class: 'secondary icon-label-button', onclick: () => shiftCalendarMonth(entity, view, 0) }, buttonLabel('view', '本月')),
+      h('button', { class: 'secondary icon-label-button', onclick: () => shiftCalendarMonth(entity, view, 1) }, buttonLabel('sort', '下月')),
+      h('button', { class: 'secondary icon-label-button', onclick: () => openCalendarConfigModal(entity, view) }, buttonLabel('settings', '日历设置'))
+    ]),
+    h('div', { class: 'typed-view-body calendar-scroll' }, [
+      h('div', { class: 'calendar-grid' }, [
+        ...['一', '二', '三', '四', '五', '六', '日'].map((label) => h('div', { class: 'calendar-weekday', text: label })),
+        ...cells.map((cell) => renderCalendarCell(entity, titleField, monthStart, cell))
+      ]),
+      renderInfiniteLoadSentinel(entity)
+    ])
+  ]);
+}
+
+function renderCalendarCell(entity, titleField, monthStart, cell) {
+  const inMonth = cell.date.getMonth() === monthStart.getMonth();
+  const today = localDateKey(new Date()) === cell.key;
+  const shown = cell.records.slice(0, 4);
+  return h('section', { class: `calendar-cell${inMonth ? '' : ' outside-month'}${today ? ' today' : ''}` }, [
+    h('div', { class: 'calendar-date-label', text: String(cell.date.getDate()) }),
+    h('div', { class: 'calendar-events' }, [
+      ...shown.map((record) => h('button', { class: 'calendar-event', title: formatFieldValue(record.data[titleField?.id], titleField || {}) || '未命名记录', onclick: () => openRecordModal(entity, record) }, [
+        h('span', { text: formatFieldValue(record.data[titleField?.id], titleField || {}) || '未命名记录' })
+      ])),
+      cell.records.length > shown.length ? h('button', { class: 'calendar-more', onclick: () => openCalendarDayModal(entity, titleField, cell) }, `+${cell.records.length - shown.length}`) : null
+    ])
+  ]);
+}
+
+function openCalendarDayModal(entity, titleField, cell) {
+  openConfirmDialog({
+    title: `${cell.key} 的记录`,
+    message: cell.records.map((record) => formatFieldValue(record.data[titleField?.id], titleField || {}) || '未命名记录').join('\n'),
+    confirmText: '知道了'
+  });
+}
+
+function shiftCalendarMonth(entity, view, delta) {
+  const current = delta === 0 ? new Date() : new Date(`${validMonthKey(view.calendar?.focusMonth) || monthKeyForDate(new Date())}-01T00:00:00`);
+  if (delta !== 0) current.setMonth(current.getMonth() + delta);
+  updateCurrentView(entity, { calendar: { ...(view.calendar || {}), focusMonth: monthKeyForDate(current) } });
+  renderRuntime();
+}
+
+function openCalendarConfigModal(entity, view) {
+  const config = view.calendar || {};
+  const titleFields = entity.fields.filter((field) => field.type !== 'formula' || field.formula?.resultType === 'text');
+  const dateFields = entity.fields.filter((field) => ['date', 'datetime'].includes(field.type) || (field.type === 'formula' && ['date', 'datetime'].includes(field.formula?.resultType)));
+  const title = selectFromOptions(titleFields.map((field) => [field.id, field.label]), config.titleField || titleFields[0]?.id || '');
+  const date = selectFromOptions(dateFields.map((field) => [field.id, field.label]), config.dateField || dateFields[0]?.id || '');
+  const end = selectFromOptions([['', '不设置结束日期'], ...dateFields.map((field) => [field.id, field.label])], config.endField || '');
+  const backdrop = h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal compact-modal' }, [
+      h('div', { class: 'toolbar' }, [h('h3', { text: '日历设置' }), h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })]),
+      h('label', { class: 'field' }, [h('span', { text: '标题字段' }), title]),
+      h('label', { class: 'field' }, [h('span', { text: '日期字段' }), date]),
+      h('label', { class: 'field' }, [h('span', { text: '结束日期（可选）' }), end]),
+      h('div', { class: 'row', style: 'margin-top:14px' }, [
+        h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
+        h('button', { text: '保存', onclick: () => {
+          if (!title.value || !date.value) return toast('请选择标题字段和日期字段。');
+          updateCurrentView(entity, { calendar: { ...config, titleField: title.value, dateField: date.value, endField: end.value } });
+          backdrop.remove();
+          renderRuntime();
+        } })
+      ])
+    ])
+  ]);
+  document.body.append(backdrop);
 }
 
 export function ganttScale(start, end, type) {
@@ -254,6 +361,27 @@ function dateTimestamp(value) {
 }
 function dayStart(value) { const date = new Date(value); return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()); }
 function formatDate(value) { return new Date(value).toISOString().slice(0, 10); }
+function validMonthKey(value) { return /^\d{4}-\d{2}$/.test(String(value || '')) ? String(value) : ''; }
+function monthKeyForDate(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; }
+function localDateKey(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
+function calendarGridStart(monthStart) {
+  const start = new Date(monthStart);
+  const weekday = start.getDay() || 7;
+  start.setDate(start.getDate() - weekday + 1);
+  return start;
+}
+function calendarDate(value) {
+  if (!value) return null;
+  const text = String(value).trim();
+  const match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!match) {
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) return null;
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
+  }
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
 function ganttTicks(start, end, type) {
   const ticks = [];
   let cursor = start;
