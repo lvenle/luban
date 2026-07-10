@@ -8,6 +8,7 @@ import { handleExportsApi } from './runtime-handlers/exports.js';
 import { handleRecordsApi } from './runtime-handlers/records.js';
 import { handleRulesApi } from './runtime-handlers/rules.js';
 import { handleFieldsApi, handleTablesApi } from './runtime-handlers/tables.js';
+import { handleScheduledTasksApi } from './runtime-handlers/scheduled-tasks.js';
 
 export async function handleRuntimeApi(req, res, method, url) {
   const parts = url.pathname.split('/').filter(Boolean);
@@ -22,6 +23,7 @@ export async function handleRuntimeApi(req, res, method, url) {
   if (await handleTablesApi(req, res, method, parts, app, url)) return;
   if (await handleFieldsApi(req, res, method, parts, app, appId, url)) return;
   if (await handleRulesApi(req, res, method, parts, app, appId, url, runtime)) return;
+  if (await handleScheduledTasksApi(req, res, method, parts, appId, url)) return;
   if (await handleRecordsApi(req, res, method, parts, app, appId, url, runtime)) return;
   if (await handleExportsApi(res, method, parts, app, appId, url)) return;
   if (await handleActionsApi(res, method, parts, app)) return;

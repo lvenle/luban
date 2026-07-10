@@ -29,6 +29,9 @@ const commonApiJs = readFileSync(new URL('../public/common/api.js', import.meta.
 const commonModalJs = readFileSync(new URL('../public/common/modal.js', import.meta.url), 'utf8');
 const commonToastJs = readFileSync(new URL('../public/common/toast.js', import.meta.url), 'utf8');
 const commonStorageJs = readFileSync(new URL('../public/common/storage.js', import.meta.url), 'utf8');
+const notificationAdapterJs = readFileSync(new URL('../public/common/notification-adapter.js', import.meta.url), 'utf8');
+const desktopMainJs = readFileSync(new URL('../desktop/main.js', import.meta.url), 'utf8');
+const desktopPreloadJs = readFileSync(new URL('../desktop/preload.js', import.meta.url), 'utf8');
 const homeIndexJs = readFileSync(new URL('../public/app-home/index.js', import.meta.url), 'utf8');
 const homeAppCardJs = readFileSync(new URL('../public/app-home/AppCard.js', import.meta.url), 'utf8');
 const homeImportModalJs = readFileSync(new URL('../public/app-home/ImportModal.js', import.meta.url), 'utf8');
@@ -44,6 +47,7 @@ const sidebarJs = readFileSync(new URL('../public/app-runtime/Sidebar.js', impor
 const runtimeIndexJs = readFileSync(new URL('../public/app-runtime/index.js', import.meta.url), 'utf8');
 const runtimeFrameJs = readFileSync(new URL('../public/app-runtime/RuntimeFrame.js', import.meta.url), 'utf8');
 const pageTypesJs = readFileSync(new URL('../public/app-runtime/PageTypes.js', import.meta.url), 'utf8');
+const scheduledTasksPrototypeJs = readFileSync(new URL('../public/app-runtime/ScheduledTasksPrototype.js', import.meta.url), 'utf8');
 const runtimeSettingsPanelJs = readFileSync(new URL('../public/app-runtime/settings/RuntimeSettingsPanel.js', import.meta.url), 'utf8');
 const runtimeSettingsJs = readFileSync(new URL('../public/common/runtime-settings.js', import.meta.url), 'utf8');
 const dateFormatJs = readFileSync(new URL('../public/common/date-format.js', import.meta.url), 'utf8');
@@ -55,6 +59,7 @@ const appJs = [
   commonModalJs,
   commonToastJs,
   commonStorageJs,
+  notificationAdapterJs,
   dataTableJs,
   viewBarJs,
   tableHeaderJs,
@@ -98,7 +103,51 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(assistantIndexJs, /class: 'assistant drawer'/);
   assert.match(commonDomJs, /export function uiIcon/);
   assert.match(commonDomJs, /export function buttonLabel/);
+  assert.match(commonDomJs, /schedule:/);
+  assert.match(commonDomJs, /bell:/);
   assert.match(appJs, /assistant-topbar-button/);
+  assert.match(appJs, /scheduled-reminder-button/);
+  assert.match(appJs, /scheduled-reminder-count/);
+  assert.match(appJs, /openScheduledReminderPopover/);
+  assert.match(appJs, /loadUnreadScheduledReminders/);
+  assert.match(appJs, /markScheduledReminderRead/);
+  assert.match(appJs, /showScheduledReminderBubble/);
+  assert.match(appJs, /requestBrowserReminderPermission/);
+  assert.match(appJs, /notifyBrowserScheduledReminder/);
+  assert.match(appContextJs, /requestReminderNotificationPermission/);
+  assert.match(appContextJs, /showReminderNotification/);
+  assert.match(appJs, /new Notification/);
+  assert.match(appJs, /shownBrowserReminderNotifications/);
+  assert.match(appJs, /activeReminderNotifications/);
+  assert.match(appJs, /acknowledgeScheduledReminder/);
+  assert.match(notificationAdapterJs, /lubanDesktopNotifications/);
+  assert.match(notificationAdapterJs, /requestReminderNotificationPermission/);
+  assert.match(notificationAdapterJs, /showReminderNotification/);
+  assert.match(desktopMainJs, /ipcMain\.handle\('notifications:show'/);
+  assert.match(desktopMainJs, /new Notification/);
+  assert.match(desktopMainJs, /preload: join\(app\.getAppPath\(\), 'desktop\/preload\.js'\)/);
+  assert.match(desktopPreloadJs, /contextBridge\.exposeInMainWorld\('lubanDesktopNotifications'/);
+  assert.match(desktopPreloadJs, /notifications:action/);
+  assert.match(appJs, /ensureScheduledReminderPolling/);
+  assert.match(appJs, /activeReminderBubbles/);
+  assert.match(appJs, /dismissedReminderBubbles/);
+  assert.match(appJs, /dismissScheduledReminderBubble/);
+  assert.match(appJs, /ensureScheduledReminderBubbleStack/);
+  assert.match(appJs, /scheduled-tasks-button/);
+  assert.match(appJs, /ScheduledTasksPrototype\.js/);
+  assert.match(scheduledTasksPrototypeJs, /export function openScheduledTasksPrototype/);
+  assert.match(scheduledTasksPrototypeJs, /tableReminder/);
+  assert.match(scheduledTasksPrototypeJs, /tableUpdate/);
+  assert.match(scheduledTasksPrototypeJs, /\/scheduled-tasks/);
+  assert.match(scheduledTasksPrototypeJs, /luban-scheduled-reminders-updated/);
+  assert.match(scheduledTasksPrototypeJs, /requestBrowserReminderPermission/);
+  assert.match(scheduledTasksPrototypeJs, /触发一次/);
+  assert.match(scheduledTasksPrototypeJs, /后端调度器/);
+  assert.match(css, /\.scheduled-tasks-modal/);
+  assert.match(css, /\.schedule-layout/);
+  assert.match(css, /\.scheduled-reminder-popover/);
+  assert.match(css, /\.scheduled-reminder-bubble/);
+  assert.match(css, /\.scheduled-reminder-bubble-stack/);
   assert.match(appJs, /state\.assistantOpen \? 'active' : ''/);
   assert.match(dataTableJs, /toolbar-action-group data-entry-group/);
   assert.match(dataTableJs, /toolbar-action-group data-mutation-group/);

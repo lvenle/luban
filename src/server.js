@@ -8,6 +8,7 @@ import { handleSamplesApi } from './routes/samples.js';
 import { initDb, closeDb } from './storage/db.js';
 import { getApp } from './models/app.js';
 import { getRuntimeSettings } from './models/runtime-settings.js';
+import { startScheduledTaskRunner, stopScheduledTaskRunner } from './services/scheduled-task-runner.js';
 
 const APP_VERSION = '2026.06.25';
 const PORT = Number(process.env.PORT || 5173);
@@ -227,6 +228,7 @@ if (isMain) {
   // configured, the SQLite database is synced to Supabase Storage so data survives
   // redeploys.  Locally (no env vars), everything works with the local SQLite file.
   initDb().then(() => {
+    startScheduledTaskRunner();
     const server = createAppServer().listen(PORT, '0.0.0.0', () => {
       console.log(`luban-ai MVP running at http://localhost:${PORT}`);
     });
@@ -234,6 +236,7 @@ if (isMain) {
     // Graceful shutdown — upload the database to Supabase before exiting
     const shutdown = async (signal) => {
       console.log(`\n收到 ${signal}，正在关闭服务...`);
+      stopScheduledTaskRunner();
       server.close(() => {
         closeDb().then(() => process.exit(0)).catch(() => process.exit(1));
       });

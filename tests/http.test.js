@@ -218,6 +218,34 @@ test('bidirectional relation fields stay synchronized from either table', async 
   });
 });
 
+test('HTTP API supports scheduled tasks and reminders', async () => {
+  await withServer(async (base) => {
+    const created = await installTemplate(base, '帮我创建一个日程管理工具');
+    const appId = created.appId;
+    const task = await post(`${base}/api/apps/${appId}/scheduled-tasks`, {
+      name: '站立会议提醒',
+      type: 'reminder',
+      schedule: { mode: 'daily', time: '09:00' },
+      action: { message: '准备站立会议' }
+    });
+    assert.equal(task.task.name, '站立会议提醒');
+
+    const tasks = await getJson(`${base}/api/apps/${appId}/scheduled-tasks`);
+    assert.equal(tasks.tasks.length, 1);
+
+    const run = await post(`${base}/api/apps/${appId}/scheduled-tasks/${task.task.id}/run`, {});
+    assert.equal(run.result.remindersCreated, 1);
+
+    const reminders = await getJson(`${base}/api/apps/${appId}/scheduled-reminders?unread=true`);
+    assert.equal(reminders.reminders.length, 1);
+    assert.equal(reminders.reminders[0].message, '准备站立会议');
+
+    await post(`${base}/api/apps/${appId}/scheduled-reminders/${reminders.reminders[0].id}/read`, {});
+    const afterRead = await getJson(`${base}/api/apps/${appId}/scheduled-reminders?unread=true`);
+    assert.equal(afterRead.reminders.length, 0);
+  });
+});
+
 test('AI generation without configuration is explicit', async () => {
   await withServer(async (base) => {
     const response = await fetch(`${base}/api/apps/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: '帮我创建一个客户管理系统' }) });

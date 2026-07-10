@@ -53,6 +53,8 @@ export function uiIcon(name) {
     fields: [svgPath('M4.5 5h11v10h-11z'), svgLine(8, 5, 8, 15), svgLine(12, 5, 12, 15)],
     form: [svgPath('M5 4.5h10v11H5z'), svgLine(7, 8, 13, 8), svgLine(7, 11, 11, 11)],
     view: [svgPath('M4.5 5.5h11v9h-11z'), svgLine(4.5, 8.5, 15.5, 8.5), svgLine(8, 8.5, 8, 14.5)],
+    schedule: [svgPath('M5 4.5h10v11H5z'), svgLine(5, 8, 15, 8), svgLine(8, 3.5, 8, 6), svgLine(12, 3.5, 12, 6), svgPath('M9.5 10.2v2.1l1.8 1')],
+    bell: [svgPath('M6 8.5a4 4 0 0 1 8 0v3.1l1.4 2.2H4.6L6 11.6V8.5Z'), svgPath('M8.6 13.8a1.6 1.6 0 0 0 2.8 0')],
     close: [svgLine(5.5, 5.5, 14.5, 14.5), svgLine(14.5, 5.5, 5.5, 14.5)]
   };
   return svgIcon('0 0 20 20', icons[name] || icons.view, 'ui-icon');

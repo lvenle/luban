@@ -1,12 +1,13 @@
 import { h, uiIcon, buttonLabel, svgIcon, svgPath, svgLine } from './common/dom.js';
 import { api } from './common/api.js';
 import { toast } from './common/toast.js';
-import { openConfirmDialog, openTextModal, floatingMenus, closeFloatingMenus, bindFloatingMenu, setupModalAccessibility } from './common/modal.js';
+import { openConfirmDialog, openTextModal, floatingMenus, closeFloatingMenus, bindFloatingMenu, bindDismissiblePopover, setupModalAccessibility } from './common/modal.js';
 import { readStorage, writeStorage, globalStorageKey, clampSidebarWidth } from './common/storage.js';
 import { formatFieldValue as formatDisplayFieldValue } from './common/field-format.js';
 import { appCategory } from './common/app-metadata.js';
 import { entityDisplayName as resolveEntityDisplayName } from './common/entity-display.js';
 import { getClientRuntimeSettings } from './common/runtime-settings-store.js';
+import { requestReminderNotificationPermission, showReminderNotification } from './common/notification-adapter.js';
 
 const initialRuntimeSettings = getClientRuntimeSettings();
 
@@ -29,6 +30,16 @@ const shellActions = {
   saveCurrentPackage: async () => {}
 };
 export function configureAppShell(actions = {}) { Object.assign(shellActions, actions); }
+
+const reminderCounts = new Map();
+const knownReminderIds = new Set();
+const shownReminderBubbles = new Set();
+const shownBrowserReminderNotifications = new Set();
+const activeReminderBubbles = new Map();
+const activeReminderNotifications = new Map();
+const dismissedReminderBubbles = new Set();
+let reminderPollTimer = null;
+let reminderPollAppId = '';
 
 export function toggleMobileDrawer() {
   state.mobileDrawerOpen = !state.mobileDrawerOpen;
@@ -99,10 +110,255 @@ export function topbar() {
         onclick: () => { state.assistantOpen = !state.assistantOpen; if (state.currentApp) shellActions.renderRuntime(); else shellActions.renderHome(); }
       }, buttonLabel('assistant', 'AI 助理')),
       inRuntime
+        ? h('button', {
+            class: 'secondary icon-label-button scheduled-tasks-button',
+            title: '定时任务',
+            onclick: async () => {
+              await requestBrowserReminderPermission();
+              import('./app-runtime/ScheduledTasksPrototype.js').then(m => m.openScheduledTasksPrototype());
+            }
+          }, buttonLabel('schedule', '定时任务'))
+        : null,
+      inRuntime
         ? h('button', { class: 'secondary icon-label-button app-settings-button', title: '应用设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal(state.currentApp.id, 'rules')) }, buttonLabel('settings', '应用设置'))
-        : h('button', { class: 'secondary icon-label-button system-settings-button', title: '系统设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal()) }, buttonLabel('settings', '系统设置'))
+        : h('button', { class: 'secondary icon-label-button system-settings-button', title: '系统设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal()) }, buttonLabel('settings', '系统设置')),
+      inRuntime ? renderReminderBell(state.currentApp) : null
     ])
   ]);
+}
+
+function renderReminderBell(app) {
+  ensureScheduledReminderPolling(app.id);
+  queueMicrotask(() => refreshScheduledReminderIndicators(app.id, { showBubble: false, showBrowserNotification: false }).catch(() => {}));
+  return h('div', { class: 'scheduled-reminder-entry' }, [
+    h('button', {
+      class: 'scheduled-reminder-button',
+      title: '提醒列表',
+      'aria-label': '提醒列表，当前 0 条',
+      'data-scheduled-reminder-app': app.id,
+      onclick: async (event) => {
+        event.stopPropagation();
+        await requestBrowserReminderPermission();
+        openScheduledReminderPopover(event.currentTarget, app).catch((error) => toast(error.message));
+      }
+    }, [
+      h('span', { class: 'scheduled-reminder-icon' }, [uiIcon('bell')]),
+      h('span', { class: 'scheduled-reminder-count', 'data-scheduled-reminder-count': app.id, text: '0' })
+    ])
+  ]);
+}
+
+async function openScheduledReminderPopover(trigger, app) {
+  document.querySelectorAll('.scheduled-reminder-popover').forEach((item) => item.remove());
+  const reminders = await loadUnreadScheduledReminders(app.id);
+  const popover = h('div', { class: 'scheduled-reminder-popover', role: 'dialog', 'aria-label': '提醒列表' }, [
+    h('div', { class: 'scheduled-reminder-popover-head' }, [
+      h('div', {}, [
+        h('strong', { text: '提醒' }),
+        h('span', { class: 'muted', text: `${reminders.length} 条记录` })
+      ]),
+      reminders.length
+        ? h('button', {
+            class: 'ghost',
+            text: '清空',
+            onclick: async () => {
+              await markAllScheduledRemindersRead(app.id);
+              await refreshScheduledReminderIndicators(app.id, { showBubble: false });
+              popover.remove();
+            }
+          })
+        : null
+    ]),
+    reminders.length
+      ? h('div', { class: 'scheduled-reminder-popover-list' }, reminders.map((reminder) => renderReminderPopoverItem(reminder, async () => {
+          await markScheduledReminderRead(app.id, reminder.id);
+          await refreshScheduledReminderIndicators(app.id, { showBubble: false });
+          popover.remove();
+          openScheduledReminderPopover(trigger, app).catch((error) => toast(error.message));
+        })))
+      : h('div', { class: 'scheduled-reminder-popover-empty' }, [
+          h('strong', { text: '暂无提醒' }),
+          h('p', { class: 'muted', text: '定时任务触发后，会在这里集中展示。' })
+        ])
+  ]);
+  document.body.append(popover);
+  positionScheduledReminderPopover(popover, trigger);
+  bindDismissiblePopover(popover, trigger);
+}
+
+function renderReminderPopoverItem(reminder, onRead) {
+  return h('button', { class: 'scheduled-reminder-popover-item', onclick: onRead, title: '标记为已读' }, [
+    h('div', { class: 'scheduled-reminder-popover-item-head' }, [
+      h('strong', { text: reminder.title || '定时提醒' }),
+      h('span', { class: 'muted', text: reminder.timeText || '' })
+    ]),
+    h('p', { text: reminder.message || '提醒已触发。' }),
+    h('span', { class: 'schedule-type-pill', text: reminder.typeLabel || '定时任务' })
+  ]);
+}
+
+function positionScheduledReminderPopover(popover, trigger) {
+  const rect = trigger.getBoundingClientRect();
+  const width = Math.min(280, window.innerWidth - 16);
+  popover.style.width = `${width}px`;
+  popover.style.left = `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`;
+  popover.style.top = `${Math.min(rect.bottom + 8, window.innerHeight - 120)}px`;
+}
+
+async function loadUnreadScheduledReminders(appId) {
+  const body = await api(`/api/apps/${encodeURIComponent(appId)}/scheduled-reminders?unread=true&limit=50`);
+  return body.reminders || [];
+}
+
+async function markScheduledReminderRead(appId, reminderId) {
+  await api(`/api/apps/${encodeURIComponent(appId)}/scheduled-reminders/${encodeURIComponent(reminderId)}/read`, { method: 'POST' });
+}
+
+async function markAllScheduledRemindersRead(appId) {
+  await api(`/api/apps/${encodeURIComponent(appId)}/scheduled-reminders/read-all`, { method: 'POST' });
+}
+
+export async function requestBrowserReminderPermission() {
+  return requestReminderNotificationPermission();
+}
+
+export async function refreshScheduledReminderIndicators(appId = state.currentApp?.id, options = {}) {
+  if (!appId) return;
+  const reminders = await loadUnreadScheduledReminders(appId);
+  const count = reminders.length;
+  const newReminders = reminders.filter((reminder) => !knownReminderIds.has(reminder.id));
+  reminders.forEach((reminder) => knownReminderIds.add(reminder.id));
+  reminderCounts.set(appId, count);
+  document.querySelectorAll(`[data-scheduled-reminder-count="${CSS.escape(appId)}"]`).forEach((item) => {
+    item.textContent = String(count);
+    item.closest('.scheduled-reminder-button')?.classList.toggle('has-reminders', count > 0);
+    item.closest('.scheduled-reminder-button')?.setAttribute('aria-label', `提醒列表，当前 ${count} 条`);
+  });
+  const currentUnreadIds = new Set(reminders.map((reminder) => reminder.id));
+  for (const [reminderId, bubble] of activeReminderBubbles.entries()) {
+    if (!currentUnreadIds.has(reminderId)) {
+      bubble.remove();
+      activeReminderBubbles.delete(reminderId);
+    }
+  }
+  if (options.showBrowserNotification !== false) {
+    for (const reminder of newReminders.slice().reverse()) {
+      notifyBrowserScheduledReminder(appId, reminder);
+    }
+  }
+  if (options.showBubble !== false && count > 0) {
+    for (const reminder of newReminders.slice().reverse()) {
+      if (!dismissedReminderBubbles.has(reminder.id) && !shownReminderBubbles.has(reminder.id)) {
+        showScheduledReminderBubble(appId, reminder);
+      }
+    }
+  }
+}
+
+window.addEventListener('luban-scheduled-reminders-updated', (event) => {
+  refreshScheduledReminderIndicators(event.detail?.appId, { showBubble: true, showBrowserNotification: true }).catch(() => {});
+});
+
+function ensureScheduledReminderPolling(appId) {
+  if (reminderPollTimer && reminderPollAppId === appId) return;
+  if (reminderPollTimer) clearInterval(reminderPollTimer);
+  reminderPollAppId = appId;
+  reminderPollTimer = setInterval(() => {
+    if (state.currentApp?.id !== reminderPollAppId) return;
+    refreshScheduledReminderIndicators(reminderPollAppId, { showBubble: false, showBrowserNotification: true }).catch(() => {});
+  }, 5000);
+}
+
+async function notifyBrowserScheduledReminder(appId, reminder) {
+  if (shownBrowserReminderNotifications.has(reminder.id) || dismissedReminderBubbles.has(reminder.id)) return;
+  const notification = await showReminderNotification({
+    id: reminder.id,
+    title: reminder.title || '定时提醒',
+    body: reminder.message || '提醒已触发。',
+    onClick: () => {
+      window.focus();
+      const trigger = document.querySelector(`[data-scheduled-reminder-app="${CSS.escape(appId)}"]`);
+      if (trigger && state.currentApp) openScheduledReminderPopover(trigger, state.currentApp).catch((error) => toast(error.message));
+    },
+    onClose: () => {
+      activeReminderNotifications.delete(reminder.id);
+      if (dismissedReminderBubbles.has(reminder.id)) return;
+      acknowledgeScheduledReminder(appId, reminder.id).catch((error) => toast(error.message));
+    }
+  });
+  if (!notification) return;
+  shownBrowserReminderNotifications.add(reminder.id);
+  activeReminderNotifications.set(reminder.id, notification);
+}
+
+function showScheduledReminderBubble(appId, reminder) {
+  if (activeReminderBubbles.has(reminder.id) || shownReminderBubbles.has(reminder.id)) return;
+  shownReminderBubbles.add(reminder.id);
+  const container = ensureScheduledReminderBubbleStack();
+  const bubble = h('div', {
+    class: 'scheduled-reminder-bubble',
+    role: 'button',
+    tabindex: '0',
+    title: '查看提醒',
+    onclick: () => {
+      const trigger = document.querySelector(`[data-scheduled-reminder-app="${CSS.escape(appId)}"]`);
+      dismissScheduledReminderBubble(reminder.id);
+      if (trigger && state.currentApp) openScheduledReminderPopover(trigger, state.currentApp).catch((error) => toast(error.message));
+    },
+    onkeydown: (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      bubble.click();
+    }
+  }, [
+    h('span', { class: 'scheduled-reminder-bubble-kicker', text: reminder.typeLabel || '定时提醒' }),
+    h('strong', { text: reminder.title || '提醒' }),
+    h('span', { text: reminder.message || '提醒已触发。' })
+  ]);
+  const close = h('button', {
+    class: 'scheduled-reminder-bubble-close',
+    title: '关闭提醒',
+    onclick: async (event) => {
+      event.stopPropagation();
+      acknowledgeScheduledReminder(appId, reminder.id).catch((error) => toast(error.message));
+    }
+  }, '×');
+  bubble.append(close);
+  container.append(bubble);
+  activeReminderBubbles.set(reminder.id, bubble);
+}
+
+function ensureScheduledReminderBubbleStack() {
+  let stack = document.querySelector('.scheduled-reminder-bubble-stack');
+  if (!stack) {
+    stack = h('div', { class: 'scheduled-reminder-bubble-stack' });
+    document.body.append(stack);
+  }
+  return stack;
+}
+
+function removeScheduledReminderBubble(reminderId) {
+  const bubble = activeReminderBubbles.get(reminderId);
+  if (bubble) {
+    bubble.remove();
+    activeReminderBubbles.delete(reminderId);
+  }
+}
+
+function dismissScheduledReminderBubble(reminderId) {
+  dismissedReminderBubbles.add(reminderId);
+  removeScheduledReminderBubble(reminderId);
+}
+
+async function acknowledgeScheduledReminder(appId, reminderId) {
+  dismissScheduledReminderBubble(reminderId);
+  const notification = activeReminderNotifications.get(reminderId);
+  if (notification) {
+    activeReminderNotifications.delete(reminderId);
+    notification.close();
+  }
+  await markScheduledReminderRead(appId, reminderId);
+  await refreshScheduledReminderIndicators(appId, { showBubble: false, showBrowserNotification: false });
 }
 
 function renderTopbarAppInfo(app) {

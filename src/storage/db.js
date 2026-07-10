@@ -250,7 +250,7 @@ export function withTransaction(callback) {
   }
 }
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 /*
  * Migration strategy:
@@ -458,6 +458,12 @@ function migrate(database) {
     database.exec(`CREATE INDEX IF NOT EXISTS idx_apps_enabled_order ON apps(enabled DESC, sortOrder ASC)`);
   }
 
+  if (currentVersion < 8) {
+    ensureScheduledTaskSchema(database);
+  }
+
+  ensureScheduledTaskSchema(database);
+
   if (currentVersion < SCHEMA_VERSION) {
     database.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   }
@@ -473,6 +479,80 @@ function migrate(database) {
   const orphans = pendingStmt.all();
   for (const row of orphans) {
     failStmt.run('Server restarted — pending confirmation expired.', row.id);
+  }
+}
+
+function ensureScheduledTaskSchema(database) {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS scheduled_tasks (
+      id TEXT PRIMARY KEY,
+      appId TEXT NOT NULL,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('reminder', 'tableReminder', 'tableUpdate')),
+      enabled INTEGER NOT NULL DEFAULT 1,
+      scheduleJson TEXT NOT NULL,
+      actionJson TEXT NOT NULL,
+      nextRunAt TEXT,
+      lastRunAt TEXT,
+      lastError TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS scheduled_reminders (
+      id TEXT PRIMARY KEY,
+      appId TEXT NOT NULL,
+      taskId TEXT,
+      title TEXT NOT NULL,
+      typeLabel TEXT NOT NULL,
+      message TEXT NOT NULL,
+      dedupeKey TEXT,
+      readAt TEXT,
+      createdAt TEXT NOT NULL,
+      FOREIGN KEY (appId) REFERENCES apps(id) ON DELETE CASCADE,
+      FOREIGN KEY (taskId) REFERENCES scheduled_tasks(id) ON DELETE SET NULL
+    );
+  `);
+
+  ensureColumns(database, 'scheduled_tasks', {
+    appId: "TEXT NOT NULL DEFAULT ''",
+    name: "TEXT NOT NULL DEFAULT '定时任务'",
+    type: "TEXT NOT NULL DEFAULT 'reminder'",
+    enabled: 'INTEGER NOT NULL DEFAULT 1',
+    scheduleJson: "TEXT NOT NULL DEFAULT '{}'",
+    actionJson: "TEXT NOT NULL DEFAULT '{}'",
+    nextRunAt: 'TEXT',
+    lastRunAt: 'TEXT',
+    lastError: 'TEXT',
+    createdAt: "TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'",
+    updatedAt: "TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'"
+  });
+  ensureColumns(database, 'scheduled_reminders', {
+    appId: "TEXT NOT NULL DEFAULT ''",
+    taskId: 'TEXT',
+    title: "TEXT NOT NULL DEFAULT '提醒'",
+    typeLabel: "TEXT NOT NULL DEFAULT '定时任务'",
+    message: "TEXT NOT NULL DEFAULT ''",
+    dedupeKey: 'TEXT',
+    readAt: 'TEXT',
+    createdAt: "TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'"
+  });
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_due ON scheduled_tasks(enabled, nextRunAt);
+    CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_app ON scheduled_tasks(appId, updatedAt DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_scheduled_reminders_dedupe
+      ON scheduled_reminders(appId, dedupeKey) WHERE dedupeKey IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_scheduled_reminders_app_unread
+      ON scheduled_reminders(appId, readAt, createdAt DESC);
+  `);
+}
+
+function ensureColumns(database, table, columns) {
+  const existing = new Set(database.prepare(`PRAGMA table_info(${table})`).all().map((column) => column.name));
+  for (const [name, definition] of Object.entries(columns)) {
+    if (!existing.has(name)) database.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
   }
 }
 

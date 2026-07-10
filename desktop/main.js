@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import { app, BrowserWindow, dialog, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Notification, session, shell } from 'electron';
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -9,6 +9,7 @@ let localServer = null;
 let closeDatabase = null;
 let localOrigin = '';
 let shuttingDown = false;
+const activeNotifications = new Map();
 
 if (!gotSingleInstanceLock) {
   app.quit();
@@ -27,6 +28,7 @@ async function startDesktopApp() {
   configureRuntimePaths();
   await startLocalServer();
   protectLocalServerRequests();
+  setupNotificationBridge();
   createMainWindow();
 
   app.on('activate', () => {
@@ -82,7 +84,8 @@ function createMainWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      preload: join(app.getAppPath(), 'desktop/preload.js')
     }
   });
 
@@ -100,6 +103,42 @@ function createMainWindow() {
   });
 
   void mainWindow.loadURL(localOrigin);
+}
+
+function setupNotificationBridge() {
+  app.setAppUserModelId('ai.luban.desktop');
+  ipcMain.handle('notifications:request-permission', () => {
+    return Notification.isSupported() ? 'granted' : 'unsupported';
+  });
+  ipcMain.handle('notifications:show', (event, options = {}) => {
+    if (!Notification.isSupported()) return null;
+    const notificationId = String(options.id || randomBytes(8).toString('hex'));
+    const notification = new Notification({
+      title: options.title || '定时提醒',
+      body: options.body || '提醒已触发。',
+      silent: false
+    });
+    activeNotifications.set(notificationId, notification);
+    notification.on('click', () => {
+      event.sender.send('notifications:action', { id: notificationId, type: 'click' });
+      mainWindow?.show();
+      mainWindow?.focus();
+      notification.close();
+    });
+    notification.on('close', () => {
+      activeNotifications.delete(notificationId);
+      event.sender.send('notifications:action', { id: notificationId, type: 'close' });
+    });
+    notification.show();
+    return notificationId;
+  });
+  ipcMain.handle('notifications:close', (_event, id) => {
+    const notification = activeNotifications.get(String(id));
+    if (!notification) return false;
+    activeNotifications.delete(String(id));
+    notification.close();
+    return true;
+  });
 }
 
 async function showStartupError(error) {
