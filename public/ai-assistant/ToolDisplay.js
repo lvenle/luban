@@ -89,29 +89,36 @@ export default class ToolDisplay {
       entityId: '表', fieldId: '字段', name: '名称', label: '显示名',
       type: '类型', description: '说明', sourceEntityId: '源表',
       targetEntityId: '目标表', recordId: '记录', multiple: '允许多选',
-      pageId: '页面', title: '标题', value: '值', intent: '业务规则', ruleId: '规则'
+      pageId: '页面', title: '标题', value: '值', intent: '业务规则', ruleId: '规则',
+      taskId: '定时任务', taskName: '定时任务', schedule: '触发时间', action: '任务内容'
     };
     const TITLES = {
       add_entity: '创建表', add_field: '添加字段', add_relation: '添加关联',
       remove_entity: '删除表', remove_field: '删除字段', delete_record: '删除记录',
       update_entity: '修改表', update_field: '修改字段', add_page: '添加页面', add_view: '添加视图',
-      remove_page: '删除页面', add_record: '添加记录', update_record: '修改记录', create_rule: '创建业务规则', update_rule: '修改业务规则'
+      remove_page: '删除页面', add_record: '添加记录', update_record: '修改记录', create_rule: '创建业务规则', update_rule: '修改业务规则',
+      create_scheduled_task: '创建定时任务', stop_scheduled_task: '停止定时任务', test_scheduled_task: '测试定时任务'
     };
     const args = data.friendlyArgs || data.arguments || {};
     const entries = Object.entries(args).filter(([k]) => k !== 'appId');
     const body = h('div', { class: 'confirm-body' });
-    for (const [key, value] of entries) {
-      const label = LABELS[key] || key;
-      const display = Array.isArray(value) ? value.join(', ') : String(value);
-      body.append(h('p', { text: `${label}: ${display}` }));
+    const confirmationLines = Array.isArray(data.display?.confirmationLines) ? data.display.confirmationLines.filter(Boolean) : [];
+    if (confirmationLines.length) {
+      for (const line of confirmationLines) body.append(h('p', { text: line }));
+    } else {
+      for (const [key, value] of entries) {
+        const label = LABELS[key] || key;
+        const display = formatConfirmValue(value);
+        if (display) body.append(h('p', { text: `${label}: ${display}` }));
+      }
     }
     const title = data.display?.title || TITLES[data.name] || '执行操作';
     const confirmBtn = h('button', { class: 'tool-confirm-btn', text: '确认' });
-    const rejectBtn = h('button', { class: 'tool-reject-btn', text: ['create_rule', 'update_rule'].includes(data.name) ? '修改' : '拒绝' });
+    const rejectBtn = h('button', { class: 'tool-reject-btn', text: ['create_rule', 'update_rule'].includes(data.name) ? '修改' : '取消' });
     const card = h('div', { class: 'tool-card tool-confirm-card' }, [
       h('div', { class: 'tool-card-header' }, [
         h('span', { class: 'tool-card-icon', text: '📋' }),
-        h('span', { class: 'tool-card-name', text: `确认${title}` }),
+        h('span', { class: 'tool-card-name', text: `请确认：${title}` }),
         h('span', { class: 'tool-card-business', text: data.display?.detail || '' })
       ]),
       body,
@@ -132,6 +139,19 @@ export default class ToolDisplay {
     }
     return h('pre', { text: lines.join('\n') });
   }
+}
+
+function formatConfirmValue(value) {
+  if (value === null || value === undefined || value === '') return '';
+  if (Array.isArray(value)) return value.map(formatConfirmValue).filter(Boolean).join('、');
+  if (typeof value === 'object') {
+    return Object.entries(value)
+      .map(([key, item]) => `${key}: ${formatConfirmValue(item)}`)
+      .filter((item) => !item.endsWith(': '))
+      .join('；');
+  }
+  if (typeof value === 'boolean') return value ? '是' : '否';
+  return String(value);
 }
 
 /**

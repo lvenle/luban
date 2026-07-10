@@ -75,6 +75,41 @@ test('tool display info contains app, table, and field business names', () => {
   assert.equal(display.detail, '客户管理 · 客户 · 邮箱、来源');
 });
 
+test('scheduled task confirmation copy uses business language', () => {
+  const app = {
+    id: 'app_confirm',
+    name: '内容创作',
+    schema: { entities: [] },
+    scheduledTasks: [{ id: 'task_water', name: '喝水提醒', type: 'reminder' }]
+  };
+  const createDisplay = buildToolDisplayInfo('create_scheduled_task', {
+    name: '喝水提醒',
+    type: 'reminder',
+    schedule: { mode: 'once', date: '2026-07-10', time: '12:45' },
+    action: { message: '提醒我喝水' }
+  }, app);
+  assert.equal(createDisplay.title, '创建定时任务');
+  assert.deepEqual(createDisplay.confirmationLines, [
+    '将创建定时任务「喝水提醒」。',
+    '任务类型：定时提醒',
+    '提醒时间：2026-07-10 12:45',
+    '提醒内容：提醒我喝水',
+    '创建后立即启用。'
+  ]);
+
+  const stopDisplay = buildToolDisplayInfo('stop_scheduled_task', { taskId: 'task_water' }, app);
+  assert.match(stopDisplay.confirmationLines.join('\n'), /将停止定时任务「喝水提醒」/);
+  assert.doesNotMatch(stopDisplay.confirmationLines.join('\n'), /task_water|\[object Object\]/);
+});
+
+test('confirm cards render business copy and avoid raw object strings', () => {
+  assert.match(toolDisplayJs, /confirmationLines/);
+  assert.match(toolDisplayJs, /formatConfirmValue/);
+  assert.match(toolDisplayJs, /请确认：/);
+  assert.match(toolDisplayJs, /text: \['create_rule', 'update_rule'\]\.includes\(data\.name\) \? '修改' : '取消'/);
+  assert.doesNotMatch(toolDisplayJs, /String\(value\);[\s\S]*body\.append\(h\('p'/);
+});
+
 test('completed app creation refreshes the home list with the created app id', () => {
   assert.match(assistantIndexJs, /if \(data\.appId\) \{\s*if \(currentMode === 'create'\) \{[\s\S]*chatView\.setMode\(currentMode\)/);
   assert.match(assistantIndexJs, /detail: \{ appId: data\.appId \|\| currentAppId \}/);

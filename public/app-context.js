@@ -243,7 +243,10 @@ export async function refreshScheduledReminderIndicators(appId = state.currentAp
   }
   if (options.showBrowserNotification !== false) {
     for (const reminder of newReminders.slice().reverse()) {
-      notifyBrowserScheduledReminder(appId, reminder);
+      const notified = await notifyBrowserScheduledReminder(appId, reminder);
+      if (!notified && !dismissedReminderBubbles.has(reminder.id) && !shownReminderBubbles.has(reminder.id)) {
+        showScheduledReminderBubble(appId, reminder);
+      }
     }
   }
   if (options.showBubble !== false && count > 0) {
@@ -270,7 +273,7 @@ function ensureScheduledReminderPolling(appId) {
 }
 
 async function notifyBrowserScheduledReminder(appId, reminder) {
-  if (shownBrowserReminderNotifications.has(reminder.id) || dismissedReminderBubbles.has(reminder.id)) return;
+  if (shownBrowserReminderNotifications.has(reminder.id) || dismissedReminderBubbles.has(reminder.id)) return true;
   const notification = await showReminderNotification({
     id: reminder.id,
     title: reminder.title || '定时提醒',
@@ -286,9 +289,10 @@ async function notifyBrowserScheduledReminder(appId, reminder) {
       acknowledgeScheduledReminder(appId, reminder.id).catch((error) => toast(error.message));
     }
   });
-  if (!notification) return;
+  if (!notification) return false;
   shownBrowserReminderNotifications.add(reminder.id);
   activeReminderNotifications.set(reminder.id, notification);
+  return true;
 }
 
 function showScheduledReminderBubble(appId, reminder) {

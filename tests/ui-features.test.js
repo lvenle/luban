@@ -114,6 +114,8 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /showScheduledReminderBubble/);
   assert.match(appJs, /requestBrowserReminderPermission/);
   assert.match(appJs, /notifyBrowserScheduledReminder/);
+  assert.match(appContextJs, /const notified = await notifyBrowserScheduledReminder/);
+  assert.match(appContextJs, /if \(!notified[\s\S]*showScheduledReminderBubble/);
   assert.match(appContextJs, /requestReminderNotificationPermission/);
   assert.match(appContextJs, /showReminderNotification/);
   assert.match(appJs, /new Notification/);
