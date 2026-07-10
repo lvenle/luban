@@ -1,4 +1,5 @@
 import { listRules } from '../../models/rule.js';
+import { listScheduledTasks } from '../../models/scheduled-task.js';
 
 export function buildMessages(session, userMessage, context = '', app = null) {
   let systemContent = `You are Software Garden's AI assistant. You help users build and manage their apps.
@@ -27,6 +28,14 @@ Guidelines:
   systemContent += `
 - **Business rules:** A request where creating a record or changing a record field should automatically update a field in the same or a related table is a business rule, not a schema change. First explain your understanding in business language: when it runs, which related record is affected, which field changes, and how its value changes. For a new rule call create_rule with the original intent. To change a listed existing rule call update_rule with its exact rule ID and the requested complete behavior. Both tools are high-risk and cannot execute before confirmation. Never generate or expose a Contract yourself. If Schema or the target rule is ambiguous, ask a question instead of calling a tool.`;
 
+  systemContent += `
+- **Scheduled tasks:** When the user asks to create, stop, or test a timed reminder/task, use the scheduled task tools instead of explaining manual steps. Creating, stopping, or testing scheduled tasks requires user confirmation. Supported task types:
+  - create_scheduled_task type:"reminder": fixed-time reminder. schedule uses {mode:"once"|"daily"|"weekly"|"monthly", date:"YYYY-MM-DD" for once, time:"HH:mm", weekdays:[1-7] for weekly where 1=Monday and 7=Sunday, monthDay:1-31 for monthly}; action uses {message}.
+  - create_scheduled_task type:"tableReminder": scan a date/datetime field and create reminders. schedule uses {intervalMinutes}; action uses {entityId, fieldId, leadMinutes, messageTemplate}. Use exact entity and field IDs from Current App Schema.
+  - create_scheduled_task type:"tableUpdate": update records on a schedule. schedule uses the same fixed-time format as reminder; action uses {entityId, updateFieldId, updateValue}. Warn in your response that testing this task will mutate matching records.
+  - stop_scheduled_task disables an existing task by taskId or exact taskName.
+  - test_scheduled_task runs an existing task once immediately by taskId or exact taskName.`;
+
   if (app) {
     const entityDescs = (app.schema?.entities || []).map((entity) => {
       const fields = (entity.fields || []).map((field) => {
@@ -43,6 +52,18 @@ Guidelines:
     }
     const rules = listRules(app.id).map((rule) => ({ id: rule.id, name: rule.name, status: rule.status, sourceText: rule.sourceText }));
     systemContent += `\n\n## Current Business Rules\n${rules.length ? JSON.stringify(rules) : 'No business rules yet'}`;
+    const scheduledTasks = listScheduledTasks(app.id).map((task) => ({
+      id: task.id,
+      name: task.name,
+      type: task.type,
+      enabled: task.enabled,
+      schedule: task.schedule,
+      action: task.action,
+      nextRunAt: task.nextRunAt,
+      lastRunAt: task.lastRunAt,
+      lastError: task.lastError
+    }));
+    systemContent += `\n\n## Current Scheduled Tasks\n${scheduledTasks.length ? JSON.stringify(scheduledTasks) : 'No scheduled tasks yet'}`;
   }
 
   if (context) {

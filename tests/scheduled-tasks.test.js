@@ -6,12 +6,20 @@ import { resetDbForTests } from '../src/storage/db.js';
 import { getDb } from '../src/storage/db.js';
 import { createAppFromPackage } from '../src/models/app.js';
 import { createRecord, getRecord } from '../src/models/record.js';
+import { getTool } from '../src/ai/registry.js';
+import { buildMessages } from '../src/services/ai/message-builder.js';
 import {
   createScheduledTask,
+  getScheduledTask,
+  listScheduledTasks,
   listScheduledReminders,
   markScheduledReminderRead,
   runScheduledTaskNow
 } from '../src/models/scheduled-task.js';
+
+await import('../src/ai/tools/create-scheduled-task.js');
+await import('../src/ai/tools/stop-scheduled-task.js');
+await import('../src/ai/tools/test-scheduled-task.js');
 
 function reset() {
   const dbPath = join(process.cwd(), 'data', 'test-scheduled-tasks.sqlite');
@@ -110,4 +118,55 @@ test('scheduled tasks remain compatible with legacy status column', () => {
   });
   const row = db.prepare('SELECT status FROM scheduled_tasks WHERE id = ?').get(task.id);
   assert.equal(row.status, 'active');
+});
+
+test('AI tools create, stop, and test scheduled tasks', async () => {
+  reset();
+  const app = createTestApp();
+  const createTool = getTool('create_scheduled_task');
+  const stopTool = getTool('stop_scheduled_task');
+  const testTool = getTool('test_scheduled_task');
+
+  assert.equal(createTool.risk, 'high');
+  assert.equal(stopTool.risk, 'high');
+  assert.equal(testTool.risk, 'high');
+  assert.deepEqual(createTool.schema.function.parameters.required, ['name', 'type', 'schedule', 'action']);
+
+  const created = await createTool.handler({
+    appId: app.id,
+    name: 'AI 喝水提醒',
+    type: 'reminder',
+    schedule: { mode: 'daily', time: '10:30' },
+    action: { message: '起来喝水' }
+  });
+  assert.equal(created.success, true);
+  assert.equal(listScheduledTasks(app.id).length, 1);
+
+  const tested = await testTool.handler({ appId: app.id, taskName: 'AI 喝水提醒' });
+  assert.equal(tested.success, true);
+  assert.equal(tested.result.remindersCreated, 1);
+  assert.equal(listScheduledReminders(app.id, { unreadOnly: true })[0].message, '起来喝水');
+
+  const stopped = await stopTool.handler({ appId: app.id, taskId: created.taskId });
+  assert.equal(stopped.success, true);
+  assert.equal(getScheduledTask(app.id, created.taskId).enabled, false);
+});
+
+test('AI prompt includes scheduled task guidance and current task list', () => {
+  reset();
+  const app = createTestApp();
+  const task = createScheduledTask(app.id, {
+    name: '上下文提醒',
+    type: 'reminder',
+    schedule: { mode: 'daily', time: '09:00' },
+    action: { message: '测试上下文' }
+  });
+  const messages = buildMessages({ messages: [] }, '停止上下文提醒', '', app);
+  const system = messages[0].content;
+  assert.match(system, /Scheduled tasks/);
+  assert.match(system, /create_scheduled_task/);
+  assert.match(system, /stop_scheduled_task/);
+  assert.match(system, /test_scheduled_task/);
+  assert.match(system, new RegExp(task.id));
+  assert.match(system, /上下文提醒/);
 });
