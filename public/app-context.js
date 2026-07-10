@@ -33,6 +33,7 @@ export function configureAppShell(actions = {}) { Object.assign(shellActions, ac
 
 const reminderCounts = new Map();
 const knownReminderIds = new Set();
+const initializedReminderApps = new Set();
 const shownReminderBubbles = new Set();
 const shownBrowserReminderNotifications = new Set();
 const activeReminderBubbles = new Map();
@@ -226,8 +227,11 @@ export async function refreshScheduledReminderIndicators(appId = state.currentAp
   if (!appId) return;
   const reminders = await loadUnreadScheduledReminders(appId);
   const count = reminders.length;
-  const newReminders = reminders.filter((reminder) => !knownReminderIds.has(reminder.id));
-  reminders.forEach((reminder) => knownReminderIds.add(reminder.id));
+  const isInitialSilentRefresh = !initializedReminderApps.has(appId)
+    && options.showBubble === false
+    && options.showBrowserNotification === false;
+  const newReminders = isInitialSilentRefresh ? [] : reminders.filter((reminder) => !knownReminderIds.has(reminder.id));
+  if (!initializedReminderApps.has(appId)) initializedReminderApps.add(appId);
   reminderCounts.set(appId, count);
   document.querySelectorAll(`[data-scheduled-reminder-count="${CSS.escape(appId)}"]`).forEach((item) => {
     item.textContent = String(count);
@@ -241,10 +245,14 @@ export async function refreshScheduledReminderIndicators(appId = state.currentAp
       activeReminderBubbles.delete(reminderId);
     }
   }
+  if (isInitialSilentRefresh) {
+    reminders.forEach((reminder) => knownReminderIds.add(reminder.id));
+    return;
+  }
   if (options.showBrowserNotification !== false) {
     for (const reminder of newReminders.slice().reverse()) {
-      const notified = await notifyBrowserScheduledReminder(appId, reminder);
-      if (!notified && !dismissedReminderBubbles.has(reminder.id) && !shownReminderBubbles.has(reminder.id)) {
+      await notifyBrowserScheduledReminder(appId, reminder);
+      if (!dismissedReminderBubbles.has(reminder.id) && !shownReminderBubbles.has(reminder.id)) {
         showScheduledReminderBubble(appId, reminder);
       }
     }
@@ -256,6 +264,7 @@ export async function refreshScheduledReminderIndicators(appId = state.currentAp
       }
     }
   }
+  newReminders.forEach((reminder) => knownReminderIds.add(reminder.id));
 }
 
 window.addEventListener('luban-scheduled-reminders-updated', (event) => {

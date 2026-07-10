@@ -69,8 +69,7 @@ export function openScheduledTasksPrototype() {
         try {
           await requestBrowserReminderPermission();
           const body = await runTaskNow(app.id, task.id);
-          await refreshScheduledReminderIndicators(app.id);
-          window.dispatchEvent(new CustomEvent('luban-scheduled-reminders-updated', { detail: { appId: app.id } }));
+          await refreshScheduledReminderIndicators(app.id, { showBubble: true, showBrowserNotification: true });
           await refreshTasks();
           toast(runResultMessage(body.result));
         } catch (error) {

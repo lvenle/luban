@@ -114,8 +114,10 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(appJs, /showScheduledReminderBubble/);
   assert.match(appJs, /requestBrowserReminderPermission/);
   assert.match(appJs, /notifyBrowserScheduledReminder/);
-  assert.match(appContextJs, /const notified = await notifyBrowserScheduledReminder/);
-  assert.match(appContextJs, /if \(!notified[\s\S]*showScheduledReminderBubble/);
+  assert.match(appContextJs, /initializedReminderApps/);
+  assert.match(appContextJs, /isInitialSilentRefresh/);
+  assert.match(appContextJs, /await notifyBrowserScheduledReminder/);
+  assert.match(appContextJs, /showScheduledReminderBubble\(appId, reminder\)/);
   assert.match(appContextJs, /requestReminderNotificationPermission/);
   assert.match(appContextJs, /showReminderNotification/);
   assert.match(appJs, /new Notification/);
@@ -141,7 +143,7 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(scheduledTasksPrototypeJs, /tableReminder/);
   assert.match(scheduledTasksPrototypeJs, /tableUpdate/);
   assert.match(scheduledTasksPrototypeJs, /\/scheduled-tasks/);
-  assert.match(scheduledTasksPrototypeJs, /luban-scheduled-reminders-updated/);
+  assert.match(scheduledTasksPrototypeJs, /refreshScheduledReminderIndicators\(app\.id, \{ showBubble: true, showBrowserNotification: true \}\)/);
   assert.match(scheduledTasksPrototypeJs, /requestBrowserReminderPermission/);
   assert.match(scheduledTasksPrototypeJs, /触发一次/);
   assert.match(scheduledTasksPrototypeJs, /后端调度器/);
