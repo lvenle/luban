@@ -639,6 +639,7 @@ textarea {
   color: var(--text);
   padding: 0;
   box-shadow: none;
+  cursor: pointer;
 }
 
 .brand-button:hover {
@@ -747,6 +748,51 @@ textarea {
   min-width: 100px;
   max-width: 260px;
   padding: 4px 6px;
+}
+
+.brand-edit-text {
+  display: inline-block;
+  max-width: 100%;
+  cursor: text;
+}
+
+.brand-edit-text:hover {
+  color: var(--brand);
+}
+
+.brand-edit-input {
+  width: min(100%, 520px);
+  min-width: 120px;
+  height: 1.9em;
+  padding: 2px 6px;
+  font: inherit;
+  font-weight: inherit;
+  line-height: 1.2;
+}
+
+.brand-title-group .brand-edit-input {
+  width: 150px;
+  min-width: 96px;
+  height: 24px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.hero h1 .brand-edit-text,
+.hero p .brand-edit-text {
+  display: inline;
+}
+
+.hero h1 .brand-edit-input {
+  width: min(720px, 100%);
+  height: 34px;
+  font-size: 20px;
+}
+
+.hero p .brand-edit-input {
+  width: min(760px, 100%);
+  height: 30px;
+  color: var(--text);
 }
 
 .app-card-name-input {

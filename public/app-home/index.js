@@ -2,6 +2,7 @@ import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { state, root, topbar } from '../app-context.js';
+import { editableBrandText, getBrandSettings, updateBrandSettings } from '../common/brand-settings.js';
 import { setAssistantMode, renderAssistantDrawer, removeAssistantDrawer } from '../ai-assistant/index.js';
 import { appCard, appCategories, appCategory } from './AppCard.js';
 import { openImportModal } from './ImportModal.js';
@@ -12,6 +13,7 @@ configureHomeActions({ loadApps, openApp: (appId) => import('../app-runtime/inde
 export function renderHome() {
   setAssistantMode({ mode: 'create' });
   root.innerHTML = '';
+  const brand = getBrandSettings();
   const categories = appCategories();
   if (!categories.includes(state.appCategory)) state.appCategory = '全部';
   const categoryApps = state.appCategory === '全部' ? state.apps : state.apps.filter((app) => appCategory(app) === state.appCategory);
@@ -51,8 +53,28 @@ export function renderHome() {
       topbar(),
       h('main', { class: 'container' }, [
         h('section', { class: 'hero' }, [
-          h('h1', { text: '鲁班AI 原生软件创作平台' }),
-          h('p', { text: '用自然语言创建、运行和持续改造属于你的业务软件。' }),
+          h('h1', {}, [
+            editableBrandText(h, {
+              value: brand.homeSlogan,
+              className: 'home-slogan',
+              title: '双击编辑首页 slogan',
+              onSave: async (homeSlogan) => {
+                updateBrandSettings({ homeSlogan });
+                renderHome();
+              }
+            })
+          ]),
+          h('p', {}, [
+            editableBrandText(h, {
+              value: brand.homeTagline,
+              className: 'home-tagline',
+              title: '双击编辑首页宣传语',
+              onSave: async (homeTagline) => {
+                updateBrandSettings({ homeTagline });
+                renderHome();
+              }
+            })
+          ]),
           h('div', { class: 'hero-meta' }, [
             h('button', {
               text: 'AI助理创建软件',

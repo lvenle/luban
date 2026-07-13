@@ -8,6 +8,7 @@ import { appCategory } from './common/app-metadata.js';
 import { entityDisplayName as resolveEntityDisplayName } from './common/entity-display.js';
 import { getClientRuntimeSettings } from './common/runtime-settings-store.js';
 import { requestReminderNotificationPermission, showReminderNotification } from './common/notification-adapter.js';
+import { editableBrandText, getBrandSettings, updateBrandSettings } from './common/brand-settings.js';
 
 const initialRuntimeSettings = getClientRuntimeSettings();
 
@@ -85,6 +86,7 @@ export function writeRoute(appId, pageId, replace = false, viewId = state.curren
 
 export function topbar() {
   const inRuntime = Boolean(state.currentApp);
+  const brand = getBrandSettings();
   return h('header', { class: `topbar ${state.isMobile ? 'mobile-topbar' : ''}` }, [
     h('div', { class: 'topbar-left' }, [
       state.isMobile && inRuntime
@@ -96,10 +98,35 @@ export function topbar() {
             ], 'hamburger-icon')
           ])
         : null,
-      h('button', { class: 'brand brand-button', onclick: shellActions.goHome, title: '返回首页' }, [
-        h('img', { class: 'brand-logo', src: '/images/logo.png', alt: '鲁班AI系统' }),
+      h('div', {
+        class: 'brand brand-button',
+        role: 'button',
+        tabindex: '0',
+        onclick: (event) => {
+          if (event.target.closest('.brand-edit-text, .brand-edit-input')) return;
+          shellActions.goHome();
+        },
+        onkeydown: (event) => {
+          if (event.target.closest('.brand-edit-text, .brand-edit-input')) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            shellActions.goHome();
+          }
+        },
+        title: '返回首页'
+      }, [
+        h('img', { class: 'brand-logo', src: '/images/logo.png', alt: brand.systemName }),
         h('div', { class: 'brand-title-group' }, [
-          h('span', { text: '鲁班AI系统' }),
+          editableBrandText(h, {
+            value: brand.systemName,
+            className: 'brand-system-name',
+            title: '双击编辑系统名称',
+            onSave: async (systemName) => {
+              updateBrandSettings({ systemName });
+              if (state.currentApp) shellActions.renderRuntime();
+              else shellActions.renderHome();
+            }
+          }),
           h('span', { class: 'version-badge', text: `v${APP_VERSION}` })
         ])
       ]),

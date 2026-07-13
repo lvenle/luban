@@ -29,6 +29,7 @@ const commonApiJs = readFileSync(new URL('../public/common/api.js', import.meta.
 const commonModalJs = readFileSync(new URL('../public/common/modal.js', import.meta.url), 'utf8');
 const commonToastJs = readFileSync(new URL('../public/common/toast.js', import.meta.url), 'utf8');
 const commonStorageJs = readFileSync(new URL('../public/common/storage.js', import.meta.url), 'utf8');
+const brandSettingsJs = readFileSync(new URL('../public/common/brand-settings.js', import.meta.url), 'utf8');
 const notificationAdapterJs = readFileSync(new URL('../public/common/notification-adapter.js', import.meta.url), 'utf8');
 const desktopMainJs = readFileSync(new URL('../desktop/main.js', import.meta.url), 'utf8');
 const desktopPreloadJs = readFileSync(new URL('../desktop/preload.js', import.meta.url), 'utf8');
@@ -59,6 +60,7 @@ const appJs = [
   commonModalJs,
   commonToastJs,
   commonStorageJs,
+  brandSettingsJs,
   notificationAdapterJs,
   dataTableJs,
   viewBarJs,
@@ -81,6 +83,19 @@ test('frontend exposes required runtime configuration features', () => {
   assert.match(indexHtml, /rel="icon" href="\/favicon\.ico" sizes="32x32"/);
   assert.equal(existsSync(new URL('../public/favicon.ico', import.meta.url)), true);
   assert.match(css, /\.brand-logo\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px;/s);
+  assert.match(brandSettingsJs, /DEFAULT_BRAND_SETTINGS/);
+  assert.match(brandSettingsJs, /systemName: '鲁班AI系统'/);
+  assert.match(brandSettingsJs, /homeSlogan: '鲁班AI 原生软件创作平台'/);
+  assert.match(brandSettingsJs, /homeTagline: '用自然语言创建、运行和持续改造属于你的业务软件。'/);
+  assert.match(brandSettingsJs, /ondblclick/);
+  assert.match(brandSettingsJs, /keyEvent\.key === 'Enter'/);
+  assert.match(brandSettingsJs, /input\.addEventListener\('blur'/);
+  assert.match(appContextJs, /editableBrandText\(h,\s*\{[\s\S]*systemName/);
+  assert.match(appContextJs, /event\.target\.closest\('\.brand-edit-text, \.brand-edit-input'\)/);
+  assert.match(homeIndexJs, /editableBrandText\(h,\s*\{[\s\S]*homeSlogan/);
+  assert.match(homeIndexJs, /editableBrandText\(h,\s*\{[\s\S]*homeTagline/);
+  assert.match(css, /\.brand-edit-text/);
+  assert.match(css, /\.brand-edit-input/);
   assert.match(homeAppCardJs, /export function appCategory/);
   assert.match(homeAppCardJs, /card-menu/);
   assert.match(homeAppCardJs, /clickable-card/);
