@@ -5343,6 +5343,108 @@ button.assistant-send {
   padding: 4px 6px;
 }
 
+.grid-view-scroll {
+  padding: 16px;
+}
+
+.record-card-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns, 4), minmax(0, 1fr));
+  gap: 16px;
+}
+
+.record-grid-card {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.record-grid-card:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.record-grid-card:hover {
+  border-color: #b7cdf6;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, .09);
+  transform: translateY(-1px);
+}
+
+.record-grid-image {
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--soft);
+}
+
+.record-grid-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.record-grid-image.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.record-grid-content {
+  padding: 14px;
+}
+
+.record-grid-title {
+  margin: 0 0 12px;
+  overflow: hidden;
+  color: #172033;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-grid-fields {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.record-grid-field {
+  display: grid;
+  grid-template-columns: minmax(56px, auto) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.record-grid-field dt {
+  color: #64748b;
+}
+
+.record-grid-field dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #334155;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .quadrant-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5689,6 +5791,15 @@ button.assistant-send {
 }
 
 @media (max-width: 760px) {
+  .record-card-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .grid-view-scroll {
+    padding: 10px;
+  }
+
   .topbar {
     min-width: 0;
     gap: 6px;

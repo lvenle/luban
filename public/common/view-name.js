@@ -15,3 +15,11 @@ export function uniqueViewName(views, preferredName) {
   while (viewNameExists(views, `${base} ${index}`)) index += 1;
   return `${base} ${index}`;
 }
+
+export function numberedViewName(views, preferredName) {
+  const base = String(preferredName || '').trim() || '新视图';
+  if (!viewNameExists(views, base)) return base;
+  let index = 1;
+  while (viewNameExists(views, `${base}${index}`)) index += 1;
+  return `${base}${index}`;
+}

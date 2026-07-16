@@ -1,10 +1,10 @@
 import { h, buttonLabel } from '../common/dom.js';
 import { state, formatFieldValue, viewOrderedFields, applyViewFilters, sortRecords } from '../app-context.js';
-import { renderViewBar, openFilterModal, openSortModal, getCurrentView, updateCurrentView, selectFromOptions } from './ViewBar.js';
+import { renderViewBar, openFilterModal, openSortModal, getCurrentView, updateCurrentView, selectFromOptions, appendGridViewConfig, gridDisplayFieldValues } from './ViewBar.js';
 import { openRecordModal } from './RecordModal.js';
 import { toast } from '../common/toast.js';
 import { openConfirmDialog } from '../common/modal.js';
-import { renderFieldValue, startCellEdit } from './CellEditor.js';
+import { renderFieldValue, startCellEdit, normalizeFileValue } from './CellEditor.js';
 import { optionObject } from './FieldEditor.js';
 import { renderRuntime, renderInfiniteLoadSentinel } from './runtime-actions.js';
 import { optionDisplayValue, orderSelectedOptions } from './Ordering.js';
@@ -15,10 +15,80 @@ const TYPED_PANEL_CLASS = 'panel table-panel typed-view-panel';
 
 export function renderTypedTableView(page, entity, records, view) {
   const filtered = sortRecords(applyViewFilters(records, entity, view), view);
+  if (view.type === 'grid') return renderGridView(page, entity, filtered, view);
   if (view.type === 'quadrant') return renderQuadrantView(page, entity, filtered, view);
   if (view.type === 'gantt') return renderGanttView(page, entity, filtered, view);
   if (view.type === 'calendar') return renderCalendarView(page, entity, filtered, view);
   return null;
+}
+
+export function renderGridView(page, entity, records, view) {
+  const config = view.grid || {};
+  const columns = Math.min(6, Math.max(1, Number(config.columns || 4)));
+  const imageField = entity.fields.find((field) => field.id === config.imageField && field.type === 'image');
+  const titleField = entity.fields.find((field) => field.id === config.titleField) || entity.fields[0];
+  const displayFields = (config.displayFields || []).map((id) => entity.fields.find((field) => field.id === id)).filter(Boolean).slice(0, 3);
+  return h('div', { class: `${TYPED_PANEL_CLASS} grid-view` }, [
+    ...renderTypedHeader(entity, view, [], '', `${records.length} 条记录`, [
+      h('button', { class: 'secondary icon-label-button', onclick: () => openGridConfigModal(entity, view) }, buttonLabel('settings', '网格设置'))
+    ]),
+    h('div', { class: 'typed-view-body grid-view-scroll' }, [
+      h('div', { class: 'record-card-grid', style: `--grid-columns:${columns}` }, records.map((record) => renderGridCard(entity, record, imageField, titleField, displayFields))),
+      records.length ? null : h('div', { class: 'typed-empty muted', text: '暂无记录。' }),
+      renderInfiniteLoadSentinel(entity)
+    ])
+  ]);
+}
+
+function renderGridCard(entity, record, imageField, titleField, displayFields) {
+  const file = imageField ? normalizeFileValue(record.data[imageField.id]) : null;
+  return h('article', {
+    class: 'record-grid-card',
+    role: 'button',
+    tabindex: '0',
+    onclick: () => openRecordModal(entity, record),
+    onkeydown: (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openRecordModal(entity, record);
+    }
+  }, [
+    imageField ? h('div', { class: `record-grid-image${file?.url ? '' : ' empty'}` }, [
+      file?.url ? h('img', { src: file.url, alt: file.name || formatFieldValue(record.data[titleField?.id], titleField || {}) || '记录主图', loading: 'lazy' }) : h('span', { text: '暂无图片' })
+    ]) : null,
+    h('div', { class: 'record-grid-content' }, [
+      h('h3', { class: 'record-grid-title', text: formatFieldValue(record.data[titleField?.id], titleField || {}) || '未命名记录' }),
+      h('dl', { class: 'record-grid-fields' }, displayFields.map((field) => h('div', { class: 'record-grid-field' }, [
+        h('dt', { text: field.label }),
+        h('dd', {}, [renderFieldValue(record.data[field.id], field)])
+      ])))
+    ])
+  ]);
+}
+
+function openGridConfigModal(entity, view) {
+  const config = h('div', { class: 'view-type-config' });
+  appendGridViewConfig(config, entity, view.grid || {});
+  const backdrop = h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal compact-modal' }, [
+      h('div', { class: 'toolbar' }, [h('h3', { text: '网格设置' }), h('button', { class: 'ghost', text: '关闭', onclick: () => backdrop.remove() })]),
+      config,
+      h('div', { class: 'row', style: 'margin-top:14px' }, [
+        h('button', { class: 'secondary', text: '取消', onclick: () => backdrop.remove() }),
+        h('button', { text: '保存', onclick: () => {
+          const titleField = config.querySelector('[data-view-config="gridTitleField"]')?.value;
+          const imageField = config.querySelector('[data-view-config="gridImageField"]')?.value || '';
+          const columns = Number(config.querySelector('[data-view-config="gridColumns"]')?.value || 4);
+          const displayFields = gridDisplayFieldValues(config);
+          if (!titleField || !displayFields.length) return toast('请选择标题字段和至少 1 个展示字段。');
+          updateCurrentView(entity, { grid: { columns, imageField, titleField, displayFields } });
+          backdrop.remove();
+          renderRuntime();
+        } })
+      ])
+    ])
+  ]);
+  document.body.append(backdrop);
 }
 
 export function renderQuadrantView(page, entity, records, view) {

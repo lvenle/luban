@@ -6,7 +6,7 @@ import { isSingleChoiceField, isTemporalField, isNumericField } from '../../core
 
 register({
   name: 'add_view',
-  description: 'Add a persisted list, quadrant, gantt, or calendar view to an existing table page.',
+  description: 'Add a persisted list, grid, quadrant, gantt, or calendar view to an existing table page.',
   risk: 'low',
   schema: {
     type: 'function',
@@ -20,9 +20,12 @@ register({
           entityId: { type: 'string', description: 'Table ID' },
           pageId: { type: 'string', description: 'Bound list page ID; optional when the table has one list page' },
           name: { type: 'string', description: 'View name' },
-          type: { type: 'string', enum: ['list', 'quadrant', 'gantt', 'calendar'] },
+          type: { type: 'string', enum: ['list', 'grid', 'quadrant', 'gantt', 'calendar'] },
+          columns: { type: 'number', description: 'Cards per row for grid view (1-6)' },
+          imageField: { type: 'string', description: 'Optional image field for grid view' },
+          displayFields: { type: 'array', items: { type: 'string' }, description: 'One to three detail fields for grid view' },
           fieldId: { type: 'string', description: 'Select field for quadrant view' },
-          titleField: { type: 'string', description: 'Title field for gantt view' },
+          titleField: { type: 'string', description: 'Title field for grid, gantt, or calendar view' },
           startField: { type: 'string', description: 'Start date field for gantt view' },
           endField: { type: 'string', description: 'End date field for gantt view' },
           progressField: { type: 'string', description: 'Optional numeric progress field for gantt view' },
@@ -42,6 +45,14 @@ register({
       || pkg.ui.pages.find((item) => (item.type === 'table' || item.type === 'list') && item.entity === entity.id);
     if (!page) throw new Error('找不到该表的表格页面。');
     const view = { id: uniqueViewId(page, args.name), name: args.name, type: args.type };
+    if (args.type === 'grid') {
+      const title = entity.fields.find((item) => item.id === args.titleField) || entity.fields[0];
+      const image = args.imageField ? entity.fields.find((item) => item.id === args.imageField) : null;
+      const displayFields = [...new Set(args.displayFields || [])].filter((id) => entity.fields.some((field) => field.id === id)).slice(0, 3);
+      if (!title || (args.imageField && image?.type !== 'image') || displayFields.length < 1) throw new Error('网格视图需要标题字段、1 至 3 个展示字段，主图字段必须是图片。');
+      const requestedColumns = Number(args.columns || 4);
+      view.grid = { columns: Number.isFinite(requestedColumns) ? Math.min(6, Math.max(1, Math.round(requestedColumns))) : 4, imageField: image?.id || '', titleField: title.id, displayFields };
+    }
     if (args.type === 'quadrant') {
       const field = entity.fields.find((item) => item.id === args.fieldId);
       if (!isSingleChoiceField(field) || (field.options || []).length < 4) throw new Error('四象限视图需要包含至少 4 个选项的单选字段。');

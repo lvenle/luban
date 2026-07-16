@@ -195,6 +195,10 @@ function packageFieldReferences(pkg, entityId, fieldId) {
     for (const view of page.views || []) {
       const used = view.quadrant?.fieldId === fieldId
         || Object.values(view.gantt || {}).includes(fieldId)
+        || Object.values(view.calendar || {}).includes(fieldId)
+        || view.grid?.imageField === fieldId
+        || view.grid?.titleField === fieldId
+        || (view.grid?.displayFields || []).includes(fieldId)
         || (view.filters || []).some((item) => item.field === fieldId)
         || (view.sorts || []).some((item) => item.field === fieldId)
         || view.group?.field === fieldId;

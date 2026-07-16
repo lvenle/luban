@@ -335,6 +335,15 @@ export function normalizeTableView(view = {}, entity, index = 0) {
       optionIds: [...new Set(next.quadrant?.optionIds || next.optionIds || [])].slice(0, 4)
     };
   }
+  if (next.type === 'grid') {
+    const requestedColumns = Number(next.grid?.columns || next.columns || 4);
+    next.grid = {
+      columns: Number.isFinite(requestedColumns) ? Math.min(6, Math.max(1, Math.round(requestedColumns))) : 4,
+      imageField: next.grid?.imageField || next.imageField || '',
+      titleField: next.grid?.titleField || next.titleField || fieldIds[0] || '',
+      displayFields: [...new Set(next.grid?.displayFields || next.displayFields || [])].filter((id) => fieldSet.has(id)).slice(0, 3)
+    };
+  }
   if (next.type === 'gantt') {
     next.gantt = {
       titleField: next.gantt?.titleField || next.titleField || '',
@@ -352,7 +361,7 @@ export function normalizeTableView(view = {}, entity, index = 0) {
       focusMonth: /^\d{4}-\d{2}$/.test(String(next.calendar?.focusMonth || '')) ? next.calendar.focusMonth : ''
     };
   }
-  delete next.fieldId; delete next.optionIds; delete next.titleField; delete next.startField; delete next.endField; delete next.progressField; delete next.dateField;
+  delete next.fieldId; delete next.optionIds; delete next.titleField; delete next.startField; delete next.endField; delete next.progressField; delete next.dateField; delete next.columns; delete next.imageField; delete next.displayFields;
   next.allFields = fieldIds;
   return next;
 }
@@ -541,6 +550,14 @@ export function validatePackage(pkg) {
         const field = entity?.fields?.find((item) => item.id === view.quadrant?.fieldId);
         if (field?.type !== 'select' || (view.quadrant?.optionIds || []).length !== 4) errors.push(`四象限视图 ${view.id} 配置无效。`);
         if ((view.quadrant?.optionIds || []).some((id) => !(field?.options || []).some((option) => option.id === id))) errors.push(`四象限视图 ${view.id} 引用了不存在的选项。`);
+      }
+      if (view.type === 'grid') {
+        const image = view.grid?.imageField ? entity?.fields?.find((item) => item.id === view.grid.imageField) : null;
+        const title = entity?.fields?.find((item) => item.id === view.grid?.titleField);
+        const displayFields = view.grid?.displayFields || [];
+        if (!title || (view.grid?.imageField && image?.type !== 'image') || displayFields.length < 1 || displayFields.length > 3 || displayFields.some((id) => !entity?.fields?.some((field) => field.id === id))) {
+          errors.push(`网格视图 ${view.id} 配置无效。`);
+        }
       }
       if (view.type === 'gantt') {
         const title = entity?.fields?.find((item) => item.id === view.gantt?.titleField);

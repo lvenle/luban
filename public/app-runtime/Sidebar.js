@@ -4,7 +4,7 @@ import { toast } from '../common/toast.js';
 import { openConfirmDialog, openTextModal } from '../common/modal.js';
 import { state, entityFor, entityDisplayName, recordsFor, storageKey, entityById, writeRoute, uniquePageId } from '../app-context.js';
 import { loadCurrentPageRecords, renderRuntime, saveCurrentPackage } from './runtime-actions.js';
-import { getViews, selectFromOptions } from './ViewBar.js';
+import { getViews, selectFromOptions, appendGridViewConfig, gridDisplayFieldValues } from './ViewBar.js';
 import { optionObject } from './FieldEditor.js';
 import { pageTitleExists, uniquePageTitle } from '../common/page-title.js';
 import { startInlineRename } from '../common/inline-rename.js';
@@ -619,6 +619,7 @@ export function openCreatePageModal(sourcePage = null) {
   const typeSelect = selectFromOptions([
     ['', '— 请选择视图 —'],
     ['list', '表格视图'],
+    ['grid', '网格视图'],
     ['quadrant', '四象限视图'],
     ['gantt', '甘特视图'],
     ['calendar', '日历视图']
@@ -637,6 +638,8 @@ export function openCreatePageModal(sourcePage = null) {
       if (createButton) createButton.disabled = true;
       return;
     }
+
+    if (type === 'grid') appendGridViewConfig(configWrapper, entity);
 
     if (type === 'quadrant') {
       const fields = entity.fields.filter((f) => f.type === 'select' && (f.options || []).length >= 4);
@@ -689,9 +692,10 @@ export function openCreatePageModal(sourcePage = null) {
 
     if (createButton) {
       const invalidQuadrant = type === 'quadrant' && !configWrapper.querySelector('[data-view-config="quadrantField"]')?.value;
+      const invalidGrid = type === 'grid' && (!configWrapper.querySelector('[data-view-config="gridTitleField"]')?.value || !gridDisplayFieldValues(configWrapper).length);
       const invalidGantt = type === 'gantt' && (dateFieldsInvalid());
       const invalidCalendar = type === 'calendar' && !configWrapper.querySelector('[data-view-config="calendarDateField"]')?.value;
-      createButton.disabled = !entityId || !type || invalidQuadrant || invalidGantt || invalidCalendar;
+      createButton.disabled = !entityId || !type || invalidGrid || invalidQuadrant || invalidGantt || invalidCalendar;
     }
   };
 
@@ -727,6 +731,14 @@ export function openCreatePageModal(sourcePage = null) {
             const type = typeSelect.value;
             if (!type) return toast('请选择一个视图。');
             const view = { id: 'default', name: '全部记录', type };
+            if (type === 'grid') {
+              const titleField = configWrapper.querySelector('[data-view-config="gridTitleField"]')?.value;
+              const imageField = configWrapper.querySelector('[data-view-config="gridImageField"]')?.value || '';
+              const displayFields = gridDisplayFieldValues(configWrapper);
+              const columns = Number(configWrapper.querySelector('[data-view-config="gridColumns"]')?.value || 4);
+              if (!titleField || !displayFields.length) return toast('请选择标题字段和至少 1 个展示字段。');
+              view.grid = { columns, imageField, titleField, displayFields };
+            }
             if (type === 'quadrant') {
               const field = entity.fields.find((f) => f.id === configWrapper.querySelector('[data-view-config="quadrantField"]')?.value);
               if (!field || (field.options || []).length < 4) return toast('请选择至少包含 4 个选项的单选字段。');

@@ -9,7 +9,7 @@ import { optionObject, effectiveFieldType } from './runtime-ports.js';
 import { dateInputValue, dateInputLocale } from './DateFormat.js';
 import { reorderItemsById } from './Ordering.js';
 import { numberInputValue, storedNumberValue } from './NumberValues.js';
-import { viewNameExists, uniqueViewName } from '../common/view-name.js';
+import { viewNameExists, uniqueViewName, numberedViewName } from '../common/view-name.js';
 import { startInlineRename } from '../common/inline-rename.js';
 
 function defaultView(entity) {
@@ -92,7 +92,7 @@ export function normalizeView(entity, view = {}) {
   const next = { ...fallback, ...view };
   next.id = next.id || makeViewId();
   next.name = String(next.name || '未命名视图').trim() || '未命名视图';
-  next.type = ['list', 'quadrant', 'gantt', 'calendar'].includes(next.type) ? next.type : 'list';
+  next.type = ['list', 'grid', 'quadrant', 'gantt', 'calendar'].includes(next.type) ? next.type : 'list';
   next.visibleFields = (next.visibleFields || []).filter((id) => fieldSet.has(id));
   const inputHadVisibleFields = Array.isArray(view.visibleFields);
   if (!inputHadVisibleFields || next.visibleFields.length === 0) {
@@ -123,6 +123,15 @@ export function normalizeView(entity, view = {}) {
   next.group = next.group ? { field: next.group.field, mode: next.group.mode || 'value', collapsed: next.group.collapsed || [] } : null;
   if (next.type === 'quadrant') {
     next.quadrant = { fieldId: next.quadrant?.fieldId || '', optionIds: [...new Set(next.quadrant?.optionIds || [])].slice(0, 4) };
+  }
+  if (next.type === 'grid') {
+    const requestedColumns = Number(next.grid?.columns || 4);
+    next.grid = {
+      columns: Number.isFinite(requestedColumns) ? Math.min(6, Math.max(1, Math.round(requestedColumns))) : 4,
+      imageField: fieldSet.has(next.grid?.imageField) ? next.grid.imageField : '',
+      titleField: fieldSet.has(next.grid?.titleField) ? next.grid.titleField : fieldIds[0] || '',
+      displayFields: [...new Set(next.grid?.displayFields || [])].filter((id) => fieldSet.has(id)).slice(0, 3)
+    };
   }
   if (next.type === 'gantt') {
     next.gantt = {
@@ -310,17 +319,25 @@ export function createView(entity, name = '新视图', patch = {}) {
 }
 
 export function openCreateViewModal(entity) {
-  const nameInput = h('input', { value: '新视图', placeholder: '视图名称' });
+  const nameInput = h('input', { placeholder: '视图名称' });
   const typeSelect = selectFromOptions([
     ['list', '表格视图'],
+    ['grid', '网格视图'],
     ['quadrant', '四象限视图'],
     ['gantt', '甘特视图'],
     ['calendar', '日历视图']
   ], 'list');
+  const views = getViews(entity);
+  const typeNames = { list: '表格视图', grid: '网格视图', quadrant: '四象限视图', gantt: '甘特视图', calendar: '日历视图' };
+  const defaultName = () => numberedViewName(views, typeNames[typeSelect.value] || '新视图');
+  let nameEdited = false;
+  nameInput.value = defaultName();
+  nameInput.addEventListener('input', () => { nameEdited = true; });
   const config = h('div', { class: 'view-type-config' });
   let createButton = null;
   const renderConfig = () => {
     config.innerHTML = '';
+    if (typeSelect.value === 'grid') appendGridViewConfig(config, entity);
     if (typeSelect.value === 'quadrant') {
       const fields = entity.fields.filter((field) => field.type === 'select' && (field.options || []).length >= 4);
       const fieldSelect = selectFromOptions(fields.map((field) => [field.id, field.label]), fields[0]?.id || '');
@@ -364,19 +381,31 @@ export function openCreateViewModal(entity) {
     }
     if (createButton) {
       const invalidQuadrant = typeSelect.value === 'quadrant' && !config.querySelector('[data-view-config="quadrantField"]')?.value;
+      const invalidGrid = typeSelect.value === 'grid' && (!config.querySelector('[data-view-config="gridTitleField"]')?.value || !gridDisplayFieldValues(config).length);
       const start = config.querySelector('[data-view-config="startField"]')?.value;
       const end = config.querySelector('[data-view-config="endField"]')?.value;
       const invalidGantt = typeSelect.value === 'gantt' && (!start || !end || start === end);
       const invalidCalendar = typeSelect.value === 'calendar' && !config.querySelector('[data-view-config="calendarDateField"]')?.value;
-      createButton.disabled = invalidQuadrant || invalidGantt || invalidCalendar;
+      createButton.disabled = invalidGrid || invalidQuadrant || invalidGantt || invalidCalendar;
     }
   };
-  typeSelect.addEventListener('change', renderConfig);
+  typeSelect.addEventListener('change', () => {
+    if (!nameEdited) nameInput.value = defaultName();
+    renderConfig();
+  });
   createButton = h('button', { text: '创建', onclick: () => {
     const type = typeSelect.value;
-    const viewName = nameInput.value.trim() || '新视图';
+    const viewName = nameInput.value.trim() || defaultName();
     if (viewNameExists(getViews(entity), viewName)) return toast('视图名称不能重复，请使用其他名称。');
     const patch = { type };
+    if (type === 'grid') {
+      const titleField = config.querySelector('[data-view-config="gridTitleField"]')?.value;
+      const imageField = config.querySelector('[data-view-config="gridImageField"]')?.value || '';
+      const displayFields = gridDisplayFieldValues(config);
+      const columns = Number(config.querySelector('[data-view-config="gridColumns"]')?.value || 4);
+      if (!titleField || !displayFields.length) return toast('请选择标题字段和至少 1 个展示字段。');
+      patch.grid = { columns, imageField, titleField, displayFields };
+    }
     if (type === 'quadrant') {
       const field = entity.fields.find((item) => item.id === config.querySelector('[data-view-config="quadrantField"]')?.value);
       if (!field || (field.options || []).length < 4) return toast('请选择至少包含 4 个选项的单选字段。');
@@ -415,6 +444,33 @@ export function openCreateViewModal(entity) {
   ]);
   document.body.append(backdrop);
   nameInput.focus(); nameInput.select();
+}
+
+export function appendGridViewConfig(container, entity, grid = {}) {
+  const fields = entity.fields || [];
+  const imageFields = fields.filter((field) => field.type === 'image');
+  const detailCandidates = fields.filter((field) => field.id !== (grid.titleField || fields[0]?.id) && field.type !== 'image');
+  const defaultDetails = (detailCandidates.length ? detailCandidates : fields.filter((field) => field.type !== 'image')).slice(0, 3);
+  const columns = selectFromOptions([1, 2, 3, 4, 5, 6].map((value) => [String(value), `${value} 个`]), String(grid.columns || 4));
+  const image = selectFromOptions([['', '不显示主图'], ...imageFields.map((field) => [field.id, field.label])], grid.imageField || imageFields[0]?.id || '');
+  const title = selectFromOptions(fields.map((field) => [field.id, field.label]), grid.titleField || fields[0]?.id || '');
+  columns.dataset.viewConfig = 'gridColumns'; image.dataset.viewConfig = 'gridImageField'; title.dataset.viewConfig = 'gridTitleField';
+  container.append(
+    h('label', { class: 'field' }, [h('span', { text: '每行显示' }), columns]),
+    h('label', { class: 'field' }, [h('span', { text: '主图字段（可选）' }), image]),
+    h('label', { class: 'field' }, [h('span', { text: '标题字段' }), title])
+  );
+  for (let index = 0; index < 3; index++) {
+    const selected = grid.displayFields?.[index] || defaultDetails[index]?.id || '';
+    const select = selectFromOptions([[ '', index === 0 ? '— 请选择字段 —' : '不显示' ], ...fields.map((field) => [field.id, field.label])], selected);
+    select.dataset.viewConfig = 'gridDisplayField';
+    container.append(h('label', { class: 'field' }, [h('span', { text: `展示字段 ${index + 1}${index === 0 ? '' : '（可选）'}` }), select]));
+  }
+  container.append(h('p', { class: 'muted field-hint', text: '卡片会同时显示展示字段的字段名和字段值。' }));
+}
+
+export function gridDisplayFieldValues(container) {
+  return [...new Set([...container.querySelectorAll('[data-view-config="gridDisplayField"]')].map((select) => select.value).filter(Boolean))].slice(0, 3);
 }
 
 function currentViewPage(entity) {
