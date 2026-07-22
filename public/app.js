@@ -35,6 +35,16 @@ mobileMq.addEventListener('change', (event) => {
 
 async function boot() {
   setupModalAccessibility();
+  const auth = await api('/api/auth/status').catch(() => ({ required: false, authenticated: true }));
+  state.auth = auth;
+  if (auth.required && !auth.authenticated) {
+    state.currentApp = null;
+    state.currentPageId = null;
+    state.currentViewId = '';
+    const { renderLogin } = await import('./auth/LoginView.js');
+    renderLogin(root, boot);
+    return;
+  }
   if (location.pathname === '/rules/ai-config' || location.pathname === '/rules/ai-config/') {
     state.currentApp = null;
     state.currentPageId = null;
@@ -108,6 +118,15 @@ document.addEventListener('runtime-settings-updated', async (event) => {
   } else {
     renderHome();
   }
+});
+document.addEventListener('auth-login-required', async () => {
+  document.querySelectorAll('.modal-backdrop').forEach((item) => item.remove());
+  state.auth = { required: true, authenticated: false };
+  state.currentApp = null;
+  state.currentPageId = null;
+  state.currentViewId = '';
+  const { renderLogin } = await import('./auth/LoginView.js');
+  renderLogin(root, boot);
 });
 import('./app-runtime/CellSelection.js')
   .then(({ bindCellSelectionEvents }) => bindCellSelectionEvents())

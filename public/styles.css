@@ -3819,6 +3819,60 @@ thead .frozen-column {
 .settings-tab.active { border-color: #d6e1f2; background: #eef4ff; color: var(--brand); }
 .settings-modal-content { min-height: 280px; max-height: calc(100vh - 180px); overflow: auto; padding: 20px; }
 .settings-actions { margin-top: 14px; }
+.auth-settings-panel { display: grid; gap: 14px; }
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f4f7fb;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--surface-radius);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.login-error {
+  min-height: 18px;
+  margin: 0;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.topbar-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.topbar-username {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #27313f;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.topbar-logout-button {
+  height: 32px;
+  padding: 0 10px;
+}
 
 /* Scheduled task prototype */
 .modal.scheduled-tasks-modal {

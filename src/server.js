@@ -4,10 +4,12 @@ import { handleAiApi } from './routes/ai.js';
 import { handleAppApi, handleAppOrder, handleGenerateApp, handleImportApp } from './routes/app.js';
 import { handleRuntimeApi } from './routes/runtime.js';
 import { handleSettingsApi } from './routes/settings.js';
+import { handleAuthApi } from './routes/auth.js';
 import { handleSamplesApi } from './routes/samples.js';
 import { initDb, closeDb } from './storage/db.js';
 import { getApp } from './models/app.js';
 import { getRuntimeSettings } from './models/runtime-settings.js';
+import { requireAuthenticated } from './models/auth.js';
 import { startScheduledTaskRunner, stopScheduledTaskRunner } from './services/scheduled-task-runner.js';
 
 const APP_VERSION = '2026.06.25';
@@ -130,14 +132,17 @@ export function createAppServer() {
       }
 
       if (url.pathname.startsWith('/api/')) {
+        if (!isAuthExemptApi(req.method || 'GET', url.pathname)) requireAuthenticated(req);
         await handleApi(req, res, url);
         return;
       }
       if (url.pathname.startsWith('/uploads/')) {
+        requireAuthenticated(req);
         serveUpload(res, url.pathname);
         return;
       }
       if (url.pathname.startsWith('/html-preview/')) {
+        requireAuthenticated(req);
         serveHtmlPreview(req, res, url.pathname);
         return;
       }
@@ -170,6 +175,12 @@ async function handleApi(req, res, url) {
 
   if (method === 'GET' && url.pathname === '/api/version') {
     sendJson(res, 200, { version: APP_VERSION });
+    return;
+  }
+
+  if (url.pathname.startsWith('/api/auth/')) {
+    const parts = url.pathname.split('/').filter(Boolean);
+    await handleAuthApi(req, res, method, parts);
     return;
   }
 
@@ -217,6 +228,12 @@ async function handleApi(req, res, url) {
   }
 
   throw new HttpError(404, 'API 不存在。');
+}
+
+function isAuthExemptApi(method, pathname) {
+  return (method === 'GET' && pathname === '/api/health')
+    || (method === 'GET' && pathname === '/api/version')
+    || pathname.startsWith('/api/auth/');
 }
 
 const isMain = process.argv[1] && (

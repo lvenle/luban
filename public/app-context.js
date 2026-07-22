@@ -18,7 +18,8 @@ export const state = {
   assistantOpen: false, pageDragId: '', cellSelection: null, cellClipboard: null,
   sidebarCollapsed: false, sidebarWidth: initialRuntimeSettings.sidebarWidth, sidebarCollapsedWidth: initialRuntimeSettings.sidebarCollapsedWidth, recordPagination: {}, loadingRecordPages: {},
   isMobile: window.innerWidth < 768, mobileDrawerOpen: false,
-  runtimeSettings: initialRuntimeSettings, activeRecordLoadToken: ''
+  runtimeSettings: initialRuntimeSettings, activeRecordLoadToken: '',
+  auth: { required: false, authenticated: true, username: '' }
 };
 
 export const root = document.querySelector('#app');
@@ -150,8 +151,20 @@ export function topbar() {
       inRuntime
         ? h('button', { class: 'secondary icon-label-button app-settings-button', title: '应用设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal(state.currentApp.id, 'rules')) }, buttonLabel('settings', '应用设置'))
         : h('button', { class: 'secondary icon-label-button system-settings-button', title: '系统设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal()) }, buttonLabel('settings', '系统设置')),
-      inRuntime ? renderReminderBell(state.currentApp) : null
+      inRuntime ? renderReminderBell(state.currentApp) : null,
+      state.auth?.authenticated && state.auth?.username ? renderUserMenu() : null
     ])
+  ]);
+}
+
+function renderUserMenu() {
+  return h('div', { class: 'topbar-user' }, [
+    h('span', { class: 'topbar-username', text: state.auth.username, title: state.auth.username }),
+    h('button', { class: 'secondary topbar-logout-button', text: '退出', onclick: async () => {
+      await api('/api/auth/logout', { method: 'POST', body: JSON.stringify({}) });
+      state.auth = { required: true, authenticated: false, username: '' };
+      location.reload();
+    } })
   ]);
 }
 
