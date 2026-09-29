@@ -33,6 +33,7 @@
       "desktop/**/*",
       "public/**/*",
       "src/**/*",
+      "agents/**/*",
       "package.json",
       "LICENSE"
     ],

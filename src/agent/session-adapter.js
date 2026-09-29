@@ -2,8 +2,9 @@ import { readFileSync } from 'node:fs';
 import { AgentLoop } from '@xiaoya/agent-platform/runtime';
 import { createModelProvider, RetryingModelProvider } from '@xiaoya/agent-platform/model';
 import { ToolRegistry } from '@xiaoya/agent-platform/tools';
-import { buildLubanRuntimeConfig, LUBAN_TOOL_NAMES } from './runtime-adapter.js';
-import { LubanToolProvider } from './tool-provider.js';
+import { LUBAN_TOOL_NAMES } from './runtime-adapter.js';
+import { createLubanProductRuntimeAdapter } from './product-runtime-adapter.js';
+import { prepareLubanToolCalls } from './tool-batch.js';
 
 const agentSystemPrompt = readFileSync(
   new URL('../../agents/luban-app-builder/prompts/system.md', import.meta.url),
@@ -30,18 +31,18 @@ export async function runLubanPlatformSession({
   onExecution,
   signal
 }) {
-  const config = buildLubanRuntimeConfig(settings, request.runtime || {});
+  const adapter = createLubanProductRuntimeAdapter(settings);
+  const config = adapter.buildRuntimeConfig(request.runtime || {});
   const registry = new ToolRegistry();
-  registry.registerProvider(new LubanToolProvider({
+  adapter.registerToolProviders(registry, {
     tools,
     appId: request.appId,
     pageId: request.pageId,
     requestApproval,
     onExecution
-  }));
-  const modelProvider = provider || new RetryingModelProvider(createModelProvider(config.model, {
-    apiKey: settings.apiKey
-  }));
+  });
+  const apiKey = provider ? settings.apiKey : await adapter.resolveCredential(config.model.credential_ref);
+  const modelProvider = provider || new RetryingModelProvider(createModelProvider(config.model, { apiKey }));
   const loop = new AgentLoop({ provider: modelProvider, tools: registry, onEvent });
   return loop.run({
     requestId: request.requestId,
@@ -52,6 +53,7 @@ export async function runLubanPlatformSession({
     messages,
     allowedTools: config.tools.allowed,
     maxTurns: config.limits.max_turns,
+    prepareToolCalls: prepareLubanToolCalls,
     signal
   });
 }

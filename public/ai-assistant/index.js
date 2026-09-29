@@ -19,6 +19,16 @@ let assistantOpen = false;
 let currentContext = '';
 let currentMode = 'create';
 let currentAppName = '';
+let chatEndpoint = '/api/ai/chat';
+
+export async function refreshAiChatEndpoint() {
+  try {
+    const settings = await fetch('/api/settings').then((res) => res.json());
+    chatEndpoint = settings.ai?.chatRuntime === 'platform' ? '/api/ai/platform-chat' : '/api/ai/chat';
+  } catch {
+    chatEndpoint = '/api/ai/chat';
+  }
+}
 
 async function loadSessions({ selectLatestModify = false, forceLatest = false } = {}) {
   await sessionManager.load(currentAppId);
@@ -33,6 +43,7 @@ async function loadSessions({ selectLatestModify = false, forceLatest = false } 
 }
 
 export function init() {
+  refreshAiChatEndpoint();
   chatView = new ChatView({
     onSend: handleSend,
     mode: currentMode
@@ -235,7 +246,8 @@ async function handleSend(text) {
 
   try {
     streamRenderer.startNewMessage();
-    await sseClient.connect('/api/ai/chat', {
+    await refreshAiChatEndpoint();
+    await sseClient.connect(chatEndpoint, {
       appId: currentAppId,
       sessionId: currentSessionId || undefined,
       message: text,

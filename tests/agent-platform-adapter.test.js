@@ -4,6 +4,8 @@ import { ToolRegistry } from '@xiaoya/agent-platform/tools';
 import { buildLubanRuntimeConfig, LUBAN_TOOL_NAMES } from '../src/agent/runtime-adapter.js';
 import { LubanToolProvider } from '../src/agent/tool-provider.js';
 import { buildLubanSystemPrompt, runLubanPlatformSession } from '../src/agent/session-adapter.js';
+import { prepareLubanToolCalls } from '../src/agent/tool-batch.js';
+import { createLubanProductRuntimeAdapter } from '../src/agent/product-runtime-adapter.js';
 
 function legacyTool({ name = 'remove_entity', risk = 'high', handler = async (input) => input } = {}) {
   return {
@@ -51,6 +53,25 @@ test('Luban Tool Provider namespaces tools, pins current app, and confirms high-
   });
   assert.deepEqual(output, { ok: true });
   assert.equal(seen[0].appId, 'app-current');
+});
+
+test('prepareLubanToolCalls merges namespaced add_field calls by entity', () => {
+  const merged = prepareLubanToolCalls([
+    { id: 'c1', name: 'luban.field.create', arguments: '{"entityId":"e1","id":"f1","label":"A","type":"text"}' },
+    { id: 'c2', name: 'luban.field.create', arguments: '{"entityId":"e1","id":"f2","label":"B","type":"text"}' },
+    { id: 'c3', name: 'luban.page.create', arguments: '{"title":"Page"}' }
+  ]);
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].name, 'luban.field.create');
+  const args = JSON.parse(merged[0].arguments);
+  assert.equal(args.entityId, 'e1');
+  assert.equal(args.fields.length, 2);
+});
+
+test('Luban product runtime adapter resolves model credential from settings', async () => {
+  const adapter = createLubanProductRuntimeAdapter({ apiKey: 'hidden-key' });
+  assert.equal(await adapter.resolveCredential('secret:model-default'), 'hidden-key');
+  await assert.rejects(() => adapter.resolveCredential('secret:other'), /Unsupported credential/);
 });
 
 test('Luban platform session runs the shared Agent Loop with product tools', async () => {

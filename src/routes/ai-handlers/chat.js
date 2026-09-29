@@ -7,6 +7,7 @@ import { buildMessages } from '../../services/ai/message-builder.js';
 import { streamOpenAI, withTimeout } from '../../services/ai/stream-openai.js';
 import { buildToolDisplayInfo, mergeBatchableToolCalls } from '../../services/ai/tool-display.js';
 import { PENDING_CONFIRMS, rejectPendingConfirmsForSession, waitForConfirm } from './confirm-state.js';
+import { handlePlatformChat } from './platform-chat.js';
 
 const activeSSEConnections = new Map();
 const activeStreamReaders = new Map();
@@ -139,8 +140,12 @@ async function runToolCall({ tc, body, app, session, messages, res }) {
 export async function handleChat(req, res, method, parts) {
   if (method !== 'POST' || parts.length !== 3 || parts[2] !== 'chat') return false;
 
-  const body = await readJson(req);
   const settings = getSetting('ai') || {};
+  if ((settings.chatRuntime || 'legacy') === 'platform') {
+    return handlePlatformChat(req, res, method, ['api', 'ai', 'platform-chat']);
+  }
+
+  const body = await readJson(req);
   if (!settings.apiKey) {
     res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '请在设置中配置 API Key 后再使用 AI 助理。' }));

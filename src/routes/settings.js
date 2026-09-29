@@ -5,9 +5,16 @@ import { sendJson, readJson, notFound } from './_helpers.js';
 
 export async function handleSettingsApi(req, res, method) {
   if (method === 'GET') {
-    const ai = getSetting('ai') || { baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4.1-mini' };
+    const stored = getSetting('ai') || {};
+    const ai = {
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: '',
+      model: 'gpt-4.1-mini',
+      chatRuntime: 'legacy',
+      ...stored
+    };
     sendJson(res, 200, {
-      ai: { ...ai, apiKey: '', hasApiKey: Boolean(ai.apiKey) },
+      ai: { ...ai, apiKey: '', hasApiKey: Boolean(stored.apiKey) },
       auth: authSummary(),
       runtime: getRuntimeSettings(),
       runtimeSchema: runtimeSettingSchema()
