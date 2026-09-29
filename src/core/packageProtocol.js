@@ -442,7 +442,12 @@ function hashText(text) {
 
 function normalizeRelationField(field, entities) {
   const config = { ...(field.config || {}) };
-  field.targetEntity = normalizeFieldId(field.targetEntity || field.targetTableId || config.targetEntity || config.targetTableId || config.targetEntityId, 'entity');
+  const rawTarget = field.targetEntity || field.targetTableId || field.targetEntityId || field.targetTable || field.targetTableName
+    || config.targetEntity || config.targetTableId || config.targetEntityId || config.targetTable || config.targetTableName;
+  const targetText = String(rawTarget || '').trim();
+  const target = (entities || []).find((entity) => entity.id === targetText)
+    || (entities || []).find((entity) => entity.name === targetText);
+  field.targetEntity = target?.id || (targetText ? normalizeFieldId(targetText, 'entity') : '');
   const rawDisplay = field.displayField || field.displayFieldId || config.displayField || config.displayFieldId;
   if (rawDisplay) {
     field.displayField = normalizeFieldId(rawDisplay, 'field');
