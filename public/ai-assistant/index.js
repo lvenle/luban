@@ -19,15 +19,10 @@ let assistantOpen = false;
 let currentContext = '';
 let currentMode = 'create';
 let currentAppName = '';
-let chatEndpoint = '/api/ai/chat';
+const chatEndpoint = '/api/ai/chat';
 
 export async function refreshAiChatEndpoint() {
-  try {
-    const settings = await fetch('/api/settings').then((res) => res.json());
-    chatEndpoint = settings.ai?.chatRuntime === 'legacy' ? '/api/ai/chat' : '/api/ai/platform-chat';
-  } catch {
-    chatEndpoint = '/api/ai/chat';
-  }
+  return chatEndpoint;
 }
 
 async function loadSessions({ selectLatestModify = false, forceLatest = false } = {}) {

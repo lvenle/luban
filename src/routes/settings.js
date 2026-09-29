@@ -10,7 +10,6 @@ export async function handleSettingsApi(req, res, method) {
       baseUrl: 'https://api.openai.com/v1',
       apiKey: '',
       model: 'gpt-4.1-mini',
-      chatRuntime: 'platform',
       ...stored
     };
     sendJson(res, 200, {
