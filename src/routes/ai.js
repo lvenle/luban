@@ -1,5 +1,6 @@
 import { discoverTools } from '../ai/registry.js';
 import { handleChat } from './ai-handlers/chat.js';
+import { handlePlatformChat } from './ai-handlers/platform-chat.js';
 import { handleChatConfirm } from './ai-handlers/confirm.js';
 import { handleGenerateOptions } from './ai-handlers/options.js';
 import { handleSessionsApi } from './ai-handlers/sessions.js';
@@ -11,6 +12,7 @@ export { buildToolDisplayInfo, mergeBatchableToolCalls } from '../services/ai/to
 export async function handleAiApi(req, res, method, parts, url) {
   if (handleSessionsApi(res, method, parts, url)) return;
   if (await handleGenerateOptions(req, res, method, parts)) return;
+  if (await handlePlatformChat(req, res, method, parts)) return;
   if (await handleChat(req, res, method, parts)) return;
 
   if (method === 'POST' && parts[2] === 'chat' && parts[3] === 'confirm') {

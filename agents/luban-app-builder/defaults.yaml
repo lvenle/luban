@@ -1,0 +1,6 @@
+schema_version: 1
+model:
+  provider: openai-compatible
+limits:
+  max_turns: 20
+  timeout_seconds: 240

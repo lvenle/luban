@@ -60,5 +60,8 @@
         { "x": 390, "y": 190, "type": "link", "path": "/Applications" }
       ]
     }
+  },
+  "dependencies": {
+    "@xiaoya/agent-platform": "file:../agent-platform"
   }
 }

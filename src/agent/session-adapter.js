@@ -1,0 +1,57 @@
+import { readFileSync } from 'node:fs';
+import { AgentLoop } from '@xiaoya/agent-platform/runtime';
+import { createModelProvider, RetryingModelProvider } from '@xiaoya/agent-platform/model';
+import { ToolRegistry } from '@xiaoya/agent-platform/tools';
+import { buildLubanRuntimeConfig, LUBAN_TOOL_NAMES } from './runtime-adapter.js';
+import { LubanToolProvider } from './tool-provider.js';
+
+const agentSystemPrompt = readFileSync(
+  new URL('../../agents/luban-app-builder/prompts/system.md', import.meta.url),
+  'utf8'
+).trim();
+
+export function buildLubanSystemPrompt(productContextPrompt = '') {
+  let namespaced = productContextPrompt;
+  for (const [legacy, platform] of Object.entries(LUBAN_TOOL_NAMES)) {
+    namespaced = namespaced.replaceAll(legacy, platform);
+  }
+  return `${agentSystemPrompt}\n\n${namespaced}`.trim();
+}
+
+export async function runLubanPlatformSession({
+  request,
+  settings,
+  messages,
+  system,
+  tools,
+  provider,
+  onEvent = () => {},
+  requestApproval,
+  onExecution,
+  signal
+}) {
+  const config = buildLubanRuntimeConfig(settings, request.runtime || {});
+  const registry = new ToolRegistry();
+  registry.registerProvider(new LubanToolProvider({
+    tools,
+    appId: request.appId,
+    pageId: request.pageId,
+    requestApproval,
+    onExecution
+  }));
+  const modelProvider = provider || new RetryingModelProvider(createModelProvider(config.model, {
+    apiKey: settings.apiKey
+  }));
+  const loop = new AgentLoop({ provider: modelProvider, tools: registry, onEvent });
+  return loop.run({
+    requestId: request.requestId,
+    runId: request.runId,
+    agentId: config.agent.id,
+    model: config.model.model,
+    system: buildLubanSystemPrompt(system),
+    messages,
+    allowedTools: config.tools.allowed,
+    maxTurns: config.limits.max_turns,
+    signal
+  });
+}

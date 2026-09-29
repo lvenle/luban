@@ -1,0 +1,16 @@
+schema_version: 1
+providers:
+  - id: luban
+    namespaces:
+      - luban.app
+      - luban.entity
+      - luban.field
+      - luban.relation
+      - luban.page
+      - luban.view
+      - luban.form
+      - luban.action
+      - luban.rule
+      - luban.records
+      - luban.schedule
+      - luban.sessions

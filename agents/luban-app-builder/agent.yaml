@@ -1,0 +1,29 @@
+schema_version: 1
+id: luban-app-builder
+name: 鲁班应用构建 Agent
+version: 0.1.0
+
+runtime:
+  minimum_version: 0.1.0
+  max_turns: 20
+  timeout_seconds: 240
+
+model:
+  required_capabilities:
+    - streaming
+    - tool_calls
+
+permissions:
+  tools:
+    - luban.app.*
+    - luban.entity.*
+    - luban.field.*
+    - luban.relation.*
+    - luban.page.*
+    - luban.view.*
+    - luban.form.*
+    - luban.action.*
+    - luban.rule.*
+    - luban.records.*
+    - luban.schedule.*
+    - luban.sessions.*
