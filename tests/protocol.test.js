@@ -169,6 +169,19 @@ test('normalizes colored options and relation fields', () => {
   assert.equal(relation.displayField, 'name');
 });
 
+test('infers missing relation target from an existing field hint', () => {
+  const pkg = preparePackage({
+    manifest: { name: '问诊系统' },
+    schema: { entities: [
+      { id: 'patient', name: '病人', fields: [{ id: 'name', label: '姓名', type: 'text' }] },
+      { id: 'consultation', name: '问诊记录', fields: [{ id: 'field_consultation_patient', label: '关联病人', type: 'relation' }] }
+    ] },
+    ui: { pages: [{ id: 'consult-list', title: '问诊记录', type: 'table', entity: 'consultation' }] },
+    actions: { actions: [] }
+  });
+  assert.equal(pkg.schema.entities[1].fields[0].targetEntity, 'patient');
+});
+
 test('rejects invalid relation target', () => {
   assert.throws(() => preparePackage({
     manifest: { name: '坏关系' },

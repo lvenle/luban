@@ -445,8 +445,15 @@ function normalizeRelationField(field, entities) {
   const rawTarget = field.targetEntity || field.targetTableId || field.targetEntityId || field.targetTable || field.targetTableName
     || config.targetEntity || config.targetTableId || config.targetEntityId || config.targetTable || config.targetTableName;
   const targetText = String(rawTarget || '').trim();
+  const normalizedFieldHint = `${field.id || ''} ${field.label || ''}`.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, ' ');
   const target = (entities || []).find((entity) => entity.id === targetText)
-    || (entities || []).find((entity) => entity.name === targetText);
+    || (entities || []).find((entity) => entity.name === targetText)
+    || (!targetText ? (entities || []).find((entity) => {
+      const id = String(entity.id || '').toLowerCase();
+      const name = String(entity.name || '').toLowerCase();
+      return id && new RegExp(`(?:^|[ _-])${id}(?:$|[ _-])`).test(normalizedFieldHint)
+        || name && normalizedFieldHint.includes(name);
+    }) : null);
   field.targetEntity = target?.id || (targetText ? normalizeFieldId(targetText, 'entity') : '');
   const rawDisplay = field.displayField || field.displayFieldId || config.displayField || config.displayFieldId;
   if (rawDisplay) {
