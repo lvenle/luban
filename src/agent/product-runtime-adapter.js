@@ -18,6 +18,22 @@ export function createLubanProductRuntimeAdapter(settings) {
     },
     registerToolProviders(registry, context) {
       registry.registerProvider(new LubanToolProvider(context));
+    },
+    async createScheduledRun(event = {}) {
+      const appId = event.appId || event.app_id;
+      const prompt = event.prompt || event.message || event.input;
+      if (!appId) throw new Error('Scheduled Luban run requires appId');
+      if (typeof prompt !== 'string' || !prompt.trim()) {
+        throw new Error('Scheduled Luban run requires a non-empty prompt');
+      }
+      return {
+        requestId: event.requestId || event.request_id || `scheduled-${Date.now()}`,
+        runId: event.runId || event.run_id,
+        appId,
+        pageId: event.pageId || event.page_id || null,
+        messages: [{ role: 'user', content: prompt.trim() }],
+        source: 'schedule'
+      };
     }
   };
 }

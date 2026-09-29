@@ -75,6 +75,20 @@ test('Luban product runtime adapter resolves model credential from settings', as
   await assert.rejects(() => adapter.resolveCredential('secret:other'), /Unsupported credential/);
 });
 
+test('Luban product runtime adapter translates scheduled events into RunRequest', async () => {
+  const adapter = createLubanProductRuntimeAdapter({ apiKey: 'hidden-key' });
+  const run = await adapter.createScheduledRun({ app_id: 'app-1', message: '检查今天的记录', request_id: 'schedule-1' });
+  assert.deepEqual(run, {
+    requestId: 'schedule-1',
+    runId: undefined,
+    appId: 'app-1',
+    pageId: null,
+    messages: [{ role: 'user', content: '检查今天的记录' }],
+    source: 'schedule'
+  });
+  await assert.rejects(() => adapter.createScheduledRun({ appId: 'app-1' }), /non-empty prompt/);
+});
+
 test('dual runtime audit normalizes legacy and platform tool traces', () => {
   const audit = compareDualRuntimeTraces({
     legacy: [
