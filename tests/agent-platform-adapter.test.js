@@ -7,6 +7,7 @@ import { buildLubanSystemPrompt, runLubanPlatformSession } from '../src/agent/se
 import { prepareLubanToolCalls } from '../src/agent/tool-batch.js';
 import { createLubanProductRuntimeAdapter } from '../src/agent/product-runtime-adapter.js';
 import { compareDualRuntimeTraces } from '../src/agent/dual-audit.js';
+import { completeWithLubanProvider } from '../src/agent/non-chat-provider.js';
 
 function legacyTool({ name = 'remove_entity', risk = 'high', handler = async (input) => input } = {}) {
   return {
@@ -136,4 +137,26 @@ test('Luban platform session runs the shared Agent Loop with product tools', asy
   assert.equal(result.output, '已查询');
   assert.ok(events.some((event) => event.type === 'tool_completed' && event.payload.output.appId === 'app-current'));
   assert.equal(events.at(-1).type, 'run_completed');
+});
+
+test('non-chat completions use the shared provider and structured response format', async () => {
+  const originalFetch = globalThis.fetch;
+  let payload;
+  globalThis.fetch = async (_url, options) => {
+    payload = JSON.parse(options.body);
+    return new Response('data: {"choices":[{"delta":{"content":"{\\"ok\\":true}"}}]}\n\ndata: [DONE]\n\n', {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' }
+    });
+  };
+  try {
+    const output = await completeWithLubanProvider({ apiKey: 'secret', model: 'mock-model' }, {
+      messages: [{ role: 'user', content: 'test' }]
+    });
+    assert.equal(output, '{"ok":true}');
+    assert.deepEqual(payload.response_format, { type: 'json_object' });
+    assert.equal(payload.stream, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
