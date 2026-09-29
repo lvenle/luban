@@ -24,7 +24,7 @@ let chatEndpoint = '/api/ai/chat';
 export async function refreshAiChatEndpoint() {
   try {
     const settings = await fetch('/api/settings').then((res) => res.json());
-    chatEndpoint = settings.ai?.chatRuntime === 'platform' ? '/api/ai/platform-chat' : '/api/ai/chat';
+    chatEndpoint = settings.ai?.chatRuntime === 'legacy' ? '/api/ai/chat' : '/api/ai/platform-chat';
   } catch {
     chatEndpoint = '/api/ai/chat';
   }

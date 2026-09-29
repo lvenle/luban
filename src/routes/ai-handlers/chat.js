@@ -141,7 +141,7 @@ export async function handleChat(req, res, method, parts) {
   if (method !== 'POST' || parts.length !== 3 || parts[2] !== 'chat') return false;
 
   const settings = getSetting('ai') || {};
-  if ((settings.chatRuntime || 'legacy') === 'platform') {
+  if ((settings.chatRuntime || 'platform') === 'platform') {
     return handlePlatformChat(req, res, method, ['api', 'ai', 'platform-chat']);
   }
 

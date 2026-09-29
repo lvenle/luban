@@ -10,7 +10,7 @@ export function renderAiPanel(ai, backdrop) {
     h('option', { value: 'legacy', text: '经典 Runtime（默认）' }),
     h('option', { value: 'platform', text: '统一 Agent 底座（platform-chat）' })
   ]);
-  chatRuntime.value = ai.chatRuntime === 'platform' ? 'platform' : 'legacy';
+  chatRuntime.value = ai.chatRuntime === 'legacy' ? 'legacy' : 'platform';
   return h('div', {}, [
     h('div', { class: 'form-grid' }, [
       h('div', { class: 'field' }, [h('label', { text: 'API Base URL' }), baseUrl]),

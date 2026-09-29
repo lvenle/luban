@@ -14,7 +14,7 @@
 
 1. `LubanToolProvider` 将旧工具映射到 `luban.*` 命名空间。
 2. `luban-app-builder` Agent 包随鲁班发布。
-3. `/api/ai/platform-chat` 作为旁路入口；设置项 `ai.chatRuntime` 可在「经典 / 统一底座」间切换，`/api/ai/chat` 在设为 `platform` 时也会走统一 Runtime。
+3. `/api/ai/platform-chat` 作为统一入口；设置项 `ai.chatRuntime` 可在「经典 / 统一底座」间切换，默认使用 `platform`，`/api/ai/chat` 在设为 `platform` 时也会转发到统一 Runtime。
 4. 对应用创建、Schema 修改、删除确认、工具日志、取消和错误做双路审计。
 5. 差异收口后将产品 UI 默认切到统一 Runtime。
 6. 默认入口稳定后删除 `stream-openai.js` 和 `chat.js` 中重复的模型/Tool Loop。
