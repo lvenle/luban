@@ -30,4 +30,4 @@
 - `tests/agent-platform-adapter.test.js`：RuntimeConfig脱敏、Agent包Prompt、工具命名空间、当前应用绑定、高风险确认和共享Agent Loop通过。
 - Agent包 `manifest.sha256` 全部通过。
 - 使用本机临时SQLite与Mock OpenAI SSE服务调用 `/api/ai/platform-chat`，收到统一Runtime的流式正文和 `message_end`，响应未泄露测试密钥。
-- 全量测试为228项中226通过；两项失败与迁移前基线一致，分别是过时的 Rule 路由结构正则和既有前端循环依赖。
+- 全量测试 229 项全部通过；规则路由断言已适配 handler 拆分，前端定时任务入口已解除循环依赖。
