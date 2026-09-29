@@ -144,7 +144,7 @@ export function topbar() {
             title: '定时任务',
             onclick: async () => {
               await requestBrowserReminderPermission();
-              import('./app-runtime/ScheduledTasksPrototype.js').then(m => m.openScheduledTasksPrototype());
+              window.dispatchEvent(new CustomEvent('open-scheduled-tasks'));
             }
           }, buttonLabel('schedule', '定时任务'))
         : null,

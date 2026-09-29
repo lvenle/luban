@@ -3,6 +3,9 @@ import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
 import { clearUndoStack } from '../common/UndoStack.js';
 import { state, root, topbar, writeRoute, entityFor, entityDisplayName, currentPage, pageEntityForRecordLoad, recordsFor, entityById, formatFieldValue, dateKey, renderPage, setPageRenderers, toggleMobileDrawer } from '../app-context.js';
+window.addEventListener('open-scheduled-tasks', () => {
+  import('./ScheduledTasksPrototype.js').then(({ openScheduledTasksPrototype }) => openScheduledTasksPrototype());
+});
 import { renderAssistantDrawer, removeAssistantDrawer, setAssistantMode } from '../ai-assistant/index.js';
 import { loadSidebarLayout, startSidebarResize, toggleSidebarCollapsed } from './RuntimeFrame.js';
 import { renderSidebarContent, renderMobileSidebar } from './Sidebar.js';
