@@ -1,6 +1,6 @@
 import { FIELD_TYPES, PAGE_TYPES, ACTION_TYPES } from '../core/contract.js';
 import { configurationError } from '../core/errors.js';
-import { getRuntimeSettings } from '../models/runtime-settings.js';
+import { completeWithLubanProvider } from '../agent/non-chat-provider.js';
 
 // ── Exported prompt-building helpers ──
 // These produce structured descriptions from contract.js metadata,
@@ -105,7 +105,7 @@ export async function generateFieldContent(prompt, settings = {}) {
           '直接输出结果文本，不要加引号、不要加 Markdown 标记。字数控制在 500 字以内。'
       },
       { role: 'user', content: prompt }
-    ]);
+    ], { responseFormat: null });
     return String(body.choices?.[0]?.message?.content || '').trim();
   } catch (error) {
     throw new Error(`AI 生成失败：${error.message}`);
@@ -126,42 +126,18 @@ async function assertAiResponse(response) {
   throw new Error(message);
 }
 
-async function requestChatCompletion(settings, messages) {
-  const payload = {
-    model: settings.model || 'gpt-4.1-mini',
-    messages,
-    response_format: { type: 'json_object' }
-  };
-  const first = await sendChatCompletion(settings, payload);
-  if (first.ok) return first.json();
-  const errorText = await first.text();
-  if (errorText.includes('response_format')) {
-    const retryPayload = { ...payload };
-    delete retryPayload.response_format;
-    const retry = await sendChatCompletion(settings, retryPayload);
-    if (retry.ok) return retry.json();
-    await throwAiError(retry);
+async function requestChatCompletion(settings, messages, { responseFormat = { type: 'json_object' } } = {}) {
+  let content;
+  try {
+    content = await completeWithLubanProvider(settings, { messages, responseFormat });
+  } catch (error) {
+    if (responseFormat && /response[_ ]format/i.test(error.message || '')) {
+      content = await completeWithLubanProvider(settings, { messages, responseFormat: null });
+    } else {
+      throw error;
+    }
   }
-  throw new Error(`AI 请求失败：${first.status} ${errorText}`);
-}
-
-function sendChatCompletion(settings, payload) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), getRuntimeSettings().aiRequestTimeoutMs);
-  return fetch(chatCompletionsUrl(settings.baseUrl), {
-    method: 'POST',
-    signal: controller.signal,
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${settings.apiKey}`
-    },
-    body: JSON.stringify(payload)
-  }).finally(() => clearTimeout(timeout));
-}
-
-async function throwAiError(response) {
-  const text = await response.text().catch(() => '');
-  throw new Error(text ? `AI 请求失败：${response.status} ${text}` : `AI 请求失败：${response.status}`);
+  return { choices: [{ message: { content } }] };
 }
 
 function parseJsonContent(content) {
