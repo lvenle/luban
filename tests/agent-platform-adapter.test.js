@@ -6,6 +6,7 @@ import { LubanToolProvider } from '../src/agent/tool-provider.js';
 import { buildLubanSystemPrompt, runLubanPlatformSession } from '../src/agent/session-adapter.js';
 import { prepareLubanToolCalls } from '../src/agent/tool-batch.js';
 import { createLubanProductRuntimeAdapter } from '../src/agent/product-runtime-adapter.js';
+import { compareDualRuntimeTraces } from '../src/agent/dual-audit.js';
 
 function legacyTool({ name = 'remove_entity', risk = 'high', handler = async (input) => input } = {}) {
   return {
@@ -72,6 +73,31 @@ test('Luban product runtime adapter resolves model credential from settings', as
   const adapter = createLubanProductRuntimeAdapter({ apiKey: 'hidden-key' });
   assert.equal(await adapter.resolveCredential('secret:model-default'), 'hidden-key');
   await assert.rejects(() => adapter.resolveCredential('secret:other'), /Unsupported credential/);
+});
+
+test('dual runtime audit normalizes legacy and platform tool traces', () => {
+  const audit = compareDualRuntimeTraces({
+    legacy: [
+      { name: 'add_field', arguments: JSON.stringify({ entityId: 'e1', fields: [{ id: 'f1' }, { id: 'f2' }] }), status: 'success' },
+      { name: 'remove_entity', arguments: '{"appId":"a1","entityId":"e1"}', confirmation: true, status: 'success' }
+    ],
+    platform: [
+      { name: 'luban.field.create', input: { entityId: 'e1', fields: [{ id: 'f1' }, { id: 'f2' }] }, status: 'success' },
+      { name: 'luban.entity.delete', input: { appId: 'a1', entityId: 'e1' }, confirmation: true, status: 'success' }
+    ]
+  });
+  assert.equal(audit.equal, true);
+  assert.deepEqual(audit.differences, []);
+});
+
+test('dual runtime audit reports order, input, and confirmation differences', () => {
+  const audit = compareDualRuntimeTraces({
+    legacy: [{ name: 'remove_entity', arguments: '{"entityId":"e1"}', confirmation: true }],
+    platform: [{ name: 'luban.entity.delete', input: { entityId: 'e2' }, confirmation: false }]
+  });
+  assert.equal(audit.equal, false);
+  assert.equal(audit.differences[0].legacy.input.entityId, 'e1');
+  assert.equal(audit.differences[0].platform.confirmation, false);
 });
 
 test('Luban platform session runs the shared Agent Loop with product tools', async () => {
