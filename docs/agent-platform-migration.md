@@ -16,14 +16,14 @@
 2. `luban-app-builder` Agent 包随鲁班发布。
 3. `/api/ai/platform-chat` 作为统一入口；`/api/ai/chat` 仅保留为兼容别名并转发到统一 Runtime。
 4. 对应用创建、Schema 修改、删除确认、工具日志、取消和错误做双路审计。
-5. 差异收口后将产品 UI 默认切到统一 Runtime。
-6. 默认入口稳定后删除 `stream-openai.js` 和 `chat.js` 中重复的模型/Tool Loop。
+5. 产品 UI 已切到统一 Runtime。
+6. 旧 `stream-openai.js` 与 `chat.js` 中重复的模型/Tool Loop 已删除。
 
 ## 当前已知差异
 
 - 统一 Runtime 已通过 `prepareLubanToolCalls` 对齐 `add_field` 批处理合并；其他产品级合并策略若新增需双路同步。
 - 旧 Runtime 设置项已移除；核心比较器和自动化 fixture 已覆盖工具序列、输入、确认和状态。
-- 结构化一次性生成、非聊天 AI 字段和业务规则意图现在通过共享 Provider 的单回合流式接口执行；业务层仍保持原有 JSON/文本返回契约。聊天 Runtime 仍由 `ai.chatRuntime` 独立控制。
+- 结构化一次性生成、非聊天 AI 字段和业务规则意图现在通过共享 Provider 的单回合流式接口执行；业务层仍保持原有 JSON/文本返回契约。
 
 ## 第一检查点验证
 
