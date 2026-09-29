@@ -22,7 +22,7 @@
 ## 当前已知差异
 
 - 统一 Runtime 已通过 `prepareLubanToolCalls` 对齐 `add_field` 批处理合并；其他产品级合并策略若新增需双路同步。
-- 设置页已提供 Runtime 切换；双路差异报告页尚未建设。
+- 设置页已提供 Runtime 切换且默认启用 platform；双路差异报告页尚未建设，但核心比较器和自动化 fixture 已覆盖工具序列、输入、确认和状态。
 - 结构化一次性生成、非聊天 AI 字段和业务规则意图现在通过共享 Provider 的单回合流式接口执行；业务层仍保持原有 JSON/文本返回契约。聊天 Runtime 仍由 `ai.chatRuntime` 独立控制。
 
 ## 第一检查点验证
@@ -30,4 +30,4 @@
 - `tests/agent-platform-adapter.test.js`：RuntimeConfig脱敏、Agent包Prompt、工具命名空间、当前应用绑定、高风险确认和共享Agent Loop通过。
 - Agent包 `manifest.sha256` 全部通过。
 - 使用本机临时SQLite与Mock OpenAI SSE服务调用 `/api/ai/platform-chat`，收到统一Runtime的流式正文和 `message_end`，响应未泄露测试密钥。
-- 全量测试为223项中221通过；两项失败与迁移前基线一致，分别是过时的Rule路由结构正则和既有前端循环依赖。
+- 全量测试为228项中226通过；两项失败与迁移前基线一致，分别是过时的 Rule 路由结构正则和既有前端循环依赖。
