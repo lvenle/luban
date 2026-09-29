@@ -24,3 +24,10 @@
 - 旧入口会合并可批处理的同类 Tool Call；统一 Agent Loop 暂未实现鲁班产品级合并策略。
 - 旁路已复用现有确认 API，但尚未加入 UI 可见的 Runtime 切换和差异报告页。
 - 结构化一次性生成、非聊天 AI 字段和业务规则意图接口仍走旧的非流式调用，后续应改用底座 Provider，但不与聊天切换混在一个步骤删除。
+
+## 第一检查点验证
+
+- `tests/agent-platform-adapter.test.js`：RuntimeConfig脱敏、Agent包Prompt、工具命名空间、当前应用绑定、高风险确认和共享Agent Loop通过。
+- Agent包 `manifest.sha256` 全部通过。
+- 使用本机临时SQLite与Mock OpenAI SSE服务调用 `/api/ai/platform-chat`，收到统一Runtime的流式正文和 `message_end`，响应未泄露测试密钥。
+- 全量测试为223项中221通过；两项失败与迁移前基线一致，分别是过时的Rule路由结构正则和既有前端循环依赖。
