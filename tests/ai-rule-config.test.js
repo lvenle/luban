@@ -12,6 +12,7 @@ const simulatorView = readFileSync(new URL('../public/rules/simulation-view.js',
 const simulator = readFileSync(new URL('../public/rules/rule-simulator.js', import.meta.url), 'utf8');
 const engine = readFileSync(new URL('../src/services/rule-engine.js', import.meta.url), 'utf8');
 const runtimeRoutes = readFileSync(new URL('../src/routes/runtime.js', import.meta.url), 'utf8');
+const ruleRoutes = readFileSync(new URL('../src/routes/runtime-handlers/rules.js', import.meta.url), 'utf8');
 
 test('M2 rule configuration, list and detail routes are wired as SPA pages', () => {
   assert.match(app, /location\.pathname === '\/rules\/ai-config'/);
@@ -120,8 +121,9 @@ test('M4 exposes the generic Contract Interpreter and Rule Runs development entr
   for (const type of ['read.records', 'aggregate.sum', 'condition', 'update.field', 'block', 'log.run']) {
     assert.match(engine, new RegExp(type.replace('.', '\\.')));
   }
-  assert.match(runtimeRoutes, /parts\[3\] === 'rules'.*parts\[4\] === 'execute'/s);
-  assert.match(runtimeRoutes, /parts\[3\] === 'rule-runs'/);
+  assert.match(runtimeRoutes, /handleRulesApi/);
+  assert.match(ruleRoutes, /parts\[3\] === 'rules'.*parts\[4\] === 'execute'/s);
+  assert.match(ruleRoutes, /parts\[3\] === 'rule-runs'/);
   assert.match(rulePages, /开发调试入口/);
   assert.match(rulePages, /真实执行日志 \/ Rule Runs/);
   assert.match(rulePages, /规则名称 \/ ruleId/);
