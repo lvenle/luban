@@ -182,6 +182,25 @@ test('infers missing relation target from an existing field hint', () => {
   assert.equal(pkg.schema.entities[1].fields[0].targetEntity, 'patient');
 });
 
+test('infers patient and doctor relation targets from Chinese labels', () => {
+  const pkg = preparePackage({
+    manifest: { name: '问诊系统' },
+    schema: { entities: [
+      { id: 'patient_record', name: '患者档案', fields: [{ id: 'name', label: '姓名', type: 'text' }] },
+      { id: 'physician_record', name: '医生档案', fields: [{ id: 'name', label: '姓名', type: 'text' }] },
+      { id: 'consultation', name: '问诊记录', fields: [
+        { id: 'field_consultation_patient', label: '关联病人', type: 'relation' },
+        { id: 'field_consultation_doctor', label: '关联医生', type: 'relation' }
+      ] }
+    ] },
+    ui: { pages: [{ id: 'consult-list', title: '问诊记录', type: 'table', entity: 'consultation' }] },
+    actions: { actions: [] }
+  });
+  const fields = pkg.schema.entities[2].fields;
+  assert.equal(fields[0].targetEntity, 'patient_record');
+  assert.equal(fields[1].targetEntity, 'physician_record');
+});
+
 test('rejects invalid relation target', () => {
   assert.throws(() => preparePackage({
     manifest: { name: '坏关系' },

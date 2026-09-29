@@ -451,8 +451,15 @@ function normalizeRelationField(field, entities) {
     || (!targetText ? (entities || []).find((entity) => {
       const id = String(entity.id || '').toLowerCase();
       const name = String(entity.name || '').toLowerCase();
-      return id && new RegExp(`(?:^|[ _-])${id}(?:$|[ _-])`).test(normalizedFieldHint)
+      const exact = id && new RegExp(`(?:^|[ _-])${id}(?:$|[ _-])`).test(normalizedFieldHint)
         || name && normalizedFieldHint.includes(name);
+      if (exact) return true;
+      const aliases = [
+        ['patient', ['patient', '病人', '患者', '就诊人']],
+        ['doctor', ['doctor', '医生', '医师', '大夫']]
+      ];
+      return aliases.some(([token, words]) => words.some((word) => normalizedFieldHint.includes(word))
+        && words.some((word) => id.includes(token) || name.includes(word)));
     }) : null);
   field.targetEntity = target?.id || (targetText ? normalizeFieldId(targetText, 'entity') : '');
   const rawDisplay = field.displayField || field.displayFieldId || config.displayField || config.displayFieldId;
