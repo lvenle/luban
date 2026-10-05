@@ -12,7 +12,7 @@ import { getRuntimeSettings } from './models/runtime-settings.js';
 import { requireAuthenticated } from './models/auth.js';
 import { startScheduledTaskRunner, stopScheduledTaskRunner } from './services/scheduled-task-runner.js';
 
-const APP_VERSION = '2026.06.25';
+const APP_VERSION = '2026.09.29';
 const PORT = Number(process.env.PORT || 5173);
 const DESKTOP_TOKEN = process.env.LUBAN_DESKTOP_TOKEN || '';
 
@@ -191,7 +191,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname.startsWith('/api/settings')) {
-    await handleSettingsApi(req, res, method);
+    await handleSettingsApi(req, res, method, url.pathname);
     return;
   }
 

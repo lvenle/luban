@@ -8,6 +8,10 @@ import { prepareLubanToolCalls } from '../src/agent/tool-batch.js';
 import { createLubanProductRuntimeAdapter } from '../src/agent/product-runtime-adapter.js';
 import { compareDualRuntimeTraces } from '../src/agent/dual-audit.js';
 import { completeWithLubanProvider } from '../src/agent/non-chat-provider.js';
+import { mkdtemp, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { resolveLubanAgent } from '../src/agent/agent-resolver.js';
 
 function legacyTool({ name = 'remove_entity', risk = 'high', handler = async (input) => input } = {}) {
   return {
@@ -28,6 +32,16 @@ test('Luban runtime adapter compiles product settings without exposing the secre
   assert.equal(config.model.credential_ref, 'secret:model-default');
   assert.equal(JSON.stringify(config).includes('must-not-leak'), false);
   assert.ok(config.tools.allowed.includes('luban.records.query'));
+});
+
+test('Luban reuses the platform Agent and seeds a fallback Agent when explicitly requested Agent is absent', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'luban-agent-'));
+  const first = await resolveLubanAgent({ settings: { agentId: 'missing-agent' }, instanceDirectory: directory });
+  assert.equal(first.id, 'luban-app-builder');
+  assert.equal(first.source, 'agent-platform');
+  const second = await resolveLubanAgent({ instanceDirectory: directory });
+  assert.equal(second.id, 'assistant');
+  assert.match(await readFile(join(directory, 'instance.yaml'), 'utf8'), /luban-app-builder/);
 });
 
 test('Luban Agent package prompt is loaded and legacy tool names are namespaced', () => {

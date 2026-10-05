@@ -5,6 +5,7 @@ import { ToolRegistry } from '@xiaoya/agent-platform/tools';
 import { LUBAN_TOOL_NAMES } from './runtime-adapter.js';
 import { createLubanProductRuntimeAdapter } from './product-runtime-adapter.js';
 import { prepareLubanToolCalls } from './tool-batch.js';
+import { resolveLubanAgent } from './agent-resolver.js';
 
 const agentSystemPrompt = readFileSync(
   new URL('../../agents/luban-app-builder/prompts/system.md', import.meta.url),
@@ -16,7 +17,9 @@ export function buildLubanSystemPrompt(productContextPrompt = '') {
   for (const [legacy, platform] of Object.entries(LUBAN_TOOL_NAMES)) {
     namespaced = namespaced.replaceAll(legacy, platform);
   }
-  return `${agentSystemPrompt}\n\n${namespaced}`.trim();
+  return namespaced.includes(agentSystemPrompt)
+    ? namespaced.trim()
+    : `${agentSystemPrompt}\n\n${namespaced}`.trim();
 }
 
 export async function runLubanPlatformSession({
@@ -32,7 +35,8 @@ export async function runLubanPlatformSession({
   signal
 }) {
   const adapter = createLubanProductRuntimeAdapter(settings);
-  const config = adapter.buildRuntimeConfig(request.runtime || {});
+  const agent = await resolveLubanAgent({ settings });
+  const config = adapter.buildRuntimeConfig({ ...(request.runtime || {}), agentId: agent.id });
   const registry = new ToolRegistry();
   adapter.registerToolProviders(registry, {
     tools,
@@ -47,9 +51,9 @@ export async function runLubanPlatformSession({
   return loop.run({
     requestId: request.requestId,
     runId: request.runId,
-    agentId: config.agent.id,
+    agentId: agent.id,
     model: config.model.model,
-    system: buildLubanSystemPrompt(system),
+    system: buildLubanSystemPrompt([agent.system, system].filter(Boolean).join('\n\n')),
     messages,
     allowedTools: config.tools.allowed,
     maxTurns: config.limits.max_turns,

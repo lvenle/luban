@@ -31,8 +31,9 @@ export const LUBAN_TOOL_NAMES = Object.freeze({
 export const LUBAN_TOOL_PERMISSIONS = Object.freeze(Object.values(LUBAN_TOOL_NAMES));
 
 export function buildLubanRuntimeConfig(settings, {
+  agentId = 'luban-app-builder',
   packagePath = 'agents/luban-app-builder',
-  productVersion = '2026.06.25',
+  productVersion = '2026.09.29',
   instanceId = 'local',
   enabledSkills = [],
   deniedTools = []
@@ -40,7 +41,7 @@ export function buildLubanRuntimeConfig(settings, {
   return validateRuntimeConfig({
     schema_version: 1,
     product: { id: 'luban', version: productVersion, instance_id: instanceId },
-    agent: { id: 'luban-app-builder', version: '0.1.0', package_path: packagePath },
+    agent: { id: agentId, version: 'draft', package_path: packagePath },
     model: {
       provider: settings.provider || 'openai-compatible',
       base_url: settings.baseUrl || 'https://api.openai.com/v1',

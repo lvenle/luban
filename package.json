@@ -1,6 +1,6 @@
 {
   "name": "luban-ai-mvp",
-  "version": "2026.06.25",
+  "version": "2026.09.29",
   "private": true,
   "description": "Luban AI System MVP: AI-generated structured personal apps with a SQLite-backed runtime.",
   "license": "AGPL-3.0-only",
@@ -10,7 +10,9 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "desktop": "electron .",
+    "predesktop:pack": "node src/scripts/syncAppVersion.js",
     "desktop:pack": "electron-builder --mac dir --arm64",
+    "predesktop:dmg": "node src/scripts/syncAppVersion.js",
     "desktop:dmg": "electron-builder --mac dmg --arm64",
     "test": "node --test tests/*.test.js",
     "samples:snapshot": "node src/scripts/snapshotSampleLibrary.js",
@@ -48,17 +50,31 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         }
       ]
     },
     "dmg": {
       "title": "鲁班 ${version}",
       "artifactName": "Luban-${version}-${arch}.${ext}",
-      "window": { "width": 540, "height": 380 },
+      "window": {
+        "width": 540,
+        "height": 380
+      },
       "contents": [
-        { "x": 150, "y": 190, "type": "file" },
-        { "x": 390, "y": 190, "type": "link", "path": "/Applications" }
+        {
+          "x": 150,
+          "y": 190,
+          "type": "file"
+        },
+        {
+          "x": 390,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     }
   },

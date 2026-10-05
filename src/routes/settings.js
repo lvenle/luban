@@ -2,8 +2,26 @@ import { getSetting, setSetting } from '../models/session.js';
 import { getRuntimeSettings, runtimeSettingSchema, saveRuntimeSettings } from '../models/runtime-settings.js';
 import { authSummary, clearAuthSession, saveAuthCredentials } from '../models/auth.js';
 import { sendJson, readJson, notFound } from './_helpers.js';
+import { resolve } from 'node:path';
+import { InstanceStore } from '@xiaoya/agent-platform/settings/instance-store';
 
-export async function handleSettingsApi(req, res, method) {
+function platformStoreDirectory() {
+  return resolve(process.env.AGENT_PLATFORM_INSTANCE_DIR || process.cwd() + '/../agent-platform/.agent-instance');
+}
+
+export async function handleSettingsApi(req, res, method, pathname = '/api/settings') {
+  if (pathname === '/api/settings/platform') {
+    const store = await new InstanceStore(platformStoreDirectory(), { productId: 'agent-platform', allowForeignProduct: true }).prepare();
+    if (method === 'GET') { sendJson(res, 200, store.snapshot()); return; }
+    if (method === 'PUT') {
+      const body = await readJson(req);
+      if (body.agent) await store.saveAgent(body.agent, store.snapshot().revision);
+      if (body.defaultAgentId) await store.setDefaultAgent(body.defaultAgentId, store.snapshot().revision);
+      sendJson(res, 200, store.snapshot());
+      return;
+    }
+    throw notFound('API 不存在。');
+  }
   if (method === 'GET') {
     const stored = getSetting('ai') || {};
     const ai = {

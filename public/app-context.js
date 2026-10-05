@@ -23,7 +23,7 @@ export const state = {
 };
 
 export const root = document.querySelector('#app');
-export const APP_VERSION = '2026.06.27';
+export const APP_VERSION = '2026.09.29';
 
 const shellActions = {
   goHome: () => {},
