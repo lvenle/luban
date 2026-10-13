@@ -19,13 +19,20 @@ export function rateLimitConfirm(ip) {
   return true;
 }
 
-export function waitForConfirm(confirmId) {
+export function waitForConfirm(confirmId, signal) {
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(false), 60000);
-    PENDING_CONFIRMS.set(confirmId, {
-      ...PENDING_CONFIRMS.get(confirmId),
-      resolve: (value) => { clearTimeout(timeout); resolve(value); }
-    });
+    let timeout;
+    const finish = (value) => {
+      clearTimeout(timeout);
+      signal?.removeEventListener('abort', abort);
+      PENDING_CONFIRMS.delete(confirmId);
+      resolve(value);
+    };
+    const abort = () => finish(false);
+    timeout = setTimeout(() => finish(false), 60000);
+    PENDING_CONFIRMS.set(confirmId, { ...PENDING_CONFIRMS.get(confirmId), resolve: finish });
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) abort();
   });
 }
 

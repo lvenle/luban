@@ -11,8 +11,10 @@ import { getApp } from './models/app.js';
 import { getRuntimeSettings } from './models/runtime-settings.js';
 import { requireAuthenticated } from './models/auth.js';
 import { startScheduledTaskRunner, stopScheduledTaskRunner } from './services/scheduled-task-runner.js';
+import { ensurePlatformService, closePlatformService } from './agent/platform-service.js';
+import { resolveLubanAgent } from './agent/agent-resolver.js';
 
-const APP_VERSION = '2026.09.29';
+const APP_VERSION = '2026.10.13';
 const PORT = Number(process.env.PORT || 5173);
 const DESKTOP_TOKEN = process.env.LUBAN_DESKTOP_TOKEN || '';
 
@@ -244,7 +246,10 @@ if (isMain) {
   // On server deployments (Render, etc.) with SUPABASE_URL and SUPABASE_SERVICE_KEY
   // configured, the SQLite database is synced to Supabase Storage so data survives
   // redeploys.  Locally (no env vars), everything works with the local SQLite file.
-  initDb().then(() => {
+  initDb().then(async () => {
+    const platform = await ensurePlatformService();
+    await resolveLubanAgent();
+    console.log(`agent-platform 已就绪：${platform.url}（鲁班独立实例）`);
     startScheduledTaskRunner();
     const server = createAppServer().listen(PORT, '0.0.0.0', () => {
       console.log(`luban-ai MVP running at http://localhost:${PORT}`);
@@ -254,6 +259,7 @@ if (isMain) {
     const shutdown = async (signal) => {
       console.log(`\n收到 ${signal}，正在关闭服务...`);
       stopScheduledTaskRunner();
+      await closePlatformService();
       server.close(() => {
         closeDb().then(() => process.exit(0)).catch(() => process.exit(1));
       });

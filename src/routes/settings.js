@@ -2,22 +2,26 @@ import { getSetting, setSetting } from '../models/session.js';
 import { getRuntimeSettings, runtimeSettingSchema, saveRuntimeSettings } from '../models/runtime-settings.js';
 import { authSummary, clearAuthSession, saveAuthCredentials } from '../models/auth.js';
 import { sendJson, readJson, notFound } from './_helpers.js';
-import { resolve } from 'node:path';
-import { InstanceStore } from '@xiaoya/agent-platform/settings/instance-store';
-
-function platformStoreDirectory() {
-  return resolve(process.env.AGENT_PLATFORM_INSTANCE_DIR || process.cwd() + '/../agent-platform/.agent-instance');
-}
+import { ensurePlatformService } from '../agent/platform-service.js';
+import { resolveLubanAgent } from '../agent/agent-resolver.js';
 
 export async function handleSettingsApi(req, res, method, pathname = '/api/settings') {
   if (pathname === '/api/settings/platform') {
-    const store = await new InstanceStore(platformStoreDirectory(), { productId: 'agent-platform', allowForeignProduct: true }).prepare();
-    if (method === 'GET') { sendJson(res, 200, store.snapshot()); return; }
+    const runtime = await ensurePlatformService();
+    const store = runtime.service.store;
+    await resolveLubanAgent({ store });
+    const snapshot = () => ({ ...store.snapshot(), consoleUrl: runtime.url + '/models' });
+    if (method === 'GET') { sendJson(res, 200, snapshot()); return; }
     if (method === 'PUT') {
       const body = await readJson(req);
+      if (body.connection) await store.saveConnection(body.connection, store.snapshot().revision);
       if (body.agent) await store.saveAgent(body.agent, store.snapshot().revision);
-      if (body.defaultAgentId) await store.setDefaultAgent(body.defaultAgentId, store.snapshot().revision);
-      sendJson(res, 200, store.snapshot());
+      if (body.defaultAgentId) {
+        await store.setDefaultAgent(body.defaultAgentId, store.snapshot().revision);
+        const ai = getSetting('ai') || {};
+        setSetting('ai', { ...ai, agentId: body.defaultAgentId });
+      }
+      sendJson(res, 200, snapshot());
       return;
     }
     throw notFound('API 不存在。');

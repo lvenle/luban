@@ -30,7 +30,7 @@ register({
       throw new Error(`AI 生成失败：${error.message}`);
     }
     if (!pkg?.schema?.entities?.length || !pkg?.ui?.pages?.length) {
-      throw new Error('AI 未能根据描述生成有效的应用结构。请补充更多细节，例如需要管理哪些数据、包含哪些字段、需要什么功能。');
+      throw new Error('AI 生成的应用结构缺少数据表或页面，创建未执行。');
     }
     try {
       const app = createAppFromPackage(pkg);

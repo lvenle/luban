@@ -1,25 +1,29 @@
-import { createModelProvider } from '@xiaoya/agent-platform/model';
-import { createLubanProductRuntimeAdapter } from './product-runtime-adapter.js';
+import { ensurePlatformService } from './platform-service.js';
+import { configurationError } from '../core/errors.js';
+import { resolveLubanAgent } from './agent-resolver.js';
 
-/** Run a single non-tool completion through the shared model Provider. */
+/** Answer-only AI work still uses the shared lifecycle, model config and audit. */
 export async function completeWithLubanProvider(settings, {
-  messages,
-  responseFormat = { type: 'json_object' },
-  maxTokens = 3000
+  messages, responseFormat = { type: 'json_object' }, maxTokens = 3000,
+  signal, runtime
 } = {}) {
-  const adapter = createLubanProductRuntimeAdapter(settings);
-  const runtime = adapter.buildRuntimeConfig();
-  const apiKey = await adapter.resolveCredential(runtime.model.credential_ref);
-  const provider = createModelProvider(runtime.model, { apiKey });
-  let text = '';
-  for await (const event of provider.stream({
-    model: runtime.model.model,
-    messages,
-    tools: [],
-    maxTokens,
-    responseFormat
-  })) {
-    if (event.type === 'text_delta') text += event.delta;
-  }
-  return text;
+  signal?.throwIfAborted();
+  runtime ||= await ensurePlatformService();
+  const agent = await resolveLubanAgent({ settings, store: runtime.service.store });
+  const handle = runtime.service.startProductRun({
+    agentId: agent.id, agentVersion: agent.version, messages, source: 'luban-generation'
+  }, { toolNames: [], responseFormat, maxTokens });
+  const abort = () => handle.cancel();
+  signal?.addEventListener('abort', abort, { once: true });
+  if (signal?.aborted) abort();
+  try { return (await handle.result).output; }
+  finally { signal?.removeEventListener('abort', abort); }
+}
+
+export async function requireLubanModel(settings = {}) {
+  const agent = await resolveLubanAgent({ settings });
+  if (!agent.connection) throw configurationError('请先在系统设置的底座设置中配置 AI API Key 和模型连接。');
+  const status = agent.store.connectionStatus(agent.connection.id);
+  if (!status.usable) throw configurationError(`模型连接不可用：${status.reason}`);
+  return agent;
 }

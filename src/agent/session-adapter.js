@@ -1,9 +1,8 @@
 import { readFileSync } from 'node:fs';
-import { AgentLoop } from '@xiaoya/agent-platform/runtime';
-import { createModelProvider, RetryingModelProvider } from '@xiaoya/agent-platform/model';
 import { ToolRegistry } from '@xiaoya/agent-platform/tools';
 import { LUBAN_TOOL_NAMES } from './runtime-adapter.js';
-import { createLubanProductRuntimeAdapter } from './product-runtime-adapter.js';
+import { LubanToolProvider } from './tool-provider.js';
+import { ensurePlatformService } from './platform-service.js';
 import { prepareLubanToolCalls } from './tool-batch.js';
 import { resolveLubanAgent } from './agent-resolver.js';
 
@@ -23,41 +22,47 @@ export function buildLubanSystemPrompt(productContextPrompt = '') {
 }
 
 export async function runLubanPlatformSession({
-  request,
-  settings,
-  messages,
-  system,
-  tools,
-  provider,
-  onEvent = () => {},
-  requestApproval,
-  onExecution,
-  signal
+  request, settings = {}, messages, system, tools, provider,
+  onEvent = () => {}, requestApproval, onExecution, signal, runtime
 }) {
-  const adapter = createLubanProductRuntimeAdapter(settings);
-  const agent = await resolveLubanAgent({ settings });
-  const config = adapter.buildRuntimeConfig({ ...(request.runtime || {}), agentId: agent.id });
-  const registry = new ToolRegistry();
-  adapter.registerToolProviders(registry, {
-    tools,
-    appId: request.appId,
-    pageId: request.pageId,
-    requestApproval,
-    onExecution
+  signal?.throwIfAborted();
+  runtime ||= await ensurePlatformService();
+  const service = runtime.service;
+  const agent = await resolveLubanAgent({ settings, store: service.store });
+  const productTools = new ToolRegistry();
+  productTools.registerProvider(new LubanToolProvider({
+    tools, appId: request.appId, pageId: request.pageId, requestApproval, onExecution
+  }));
+  const globalCapabilities = new Map(service.tools.listCapabilities().map(tool => [tool.name, tool]));
+  for (const tool of productTools.listCapabilities()) {
+    if (globalCapabilities.get(tool.name)?.enabled === false) productTools.setEnabled(tool.name, false);
+  }
+  // Definitions and execution context are scoped to this run, never stored globally.
+  const productNames = new Set(productTools.listCapabilities().map(tool => tool.name));
+  const scopedTools = {
+    listCapabilities: () => [
+      ...service.tools.listCapabilities().filter(tool => !productNames.has(tool.name)),
+      ...productTools.listCapabilities()
+    ],
+    execute: invocation => productNames.has(invocation.name)
+      ? productTools.execute(invocation) : service.tools.execute(invocation)
+  };
+  const sessionId = service.runs.resolveProductSession({
+    productId: 'luban', externalId: request.sessionId || request.requestId,
+    agentId: agent.id, owner: 'local'
   });
-  const apiKey = provider ? settings.apiKey : await adapter.resolveCredential(config.model.credential_ref);
-  const modelProvider = provider || new RetryingModelProvider(createModelProvider(config.model, { apiKey }));
-  const loop = new AgentLoop({ provider: modelProvider, tools: registry, onEvent });
-  return loop.run({
-    requestId: request.requestId,
-    runId: request.runId,
-    agentId: agent.id,
-    model: config.model.model,
-    system: buildLubanSystemPrompt([agent.system, system].filter(Boolean).join('\n\n')),
-    messages,
-    allowedTools: config.tools.allowed,
-    maxTurns: config.limits.max_turns,
+  const handle = service.startProductRun({
+    agentId: agent.id, agentVersion: agent.version, sessionId, messages,
+    source: request.source || 'luban-chat'
+  }, {
+    owner: 'local', onEvent, tools: scopedTools,
+    systemSuffix: buildLubanSystemPrompt(system),
     prepareToolCalls: prepareLubanToolCalls,
-    signal
+    ...(provider ? { providerFactory: () => provider } : {})
   });
+  const abort = () => handle.cancel();
+  signal?.addEventListener('abort', abort, { once: true });
+  if (signal?.aborted) abort();
+  try { return await handle.result; }
+  finally { signal?.removeEventListener('abort', abort); }
 }

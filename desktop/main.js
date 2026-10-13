@@ -8,6 +8,9 @@ let mainWindow = null;
 let localServer = null;
 let closeDatabase = null;
 let localOrigin = '';
+let platformOrigin = '';
+let stopRuntime = null;
+let stopTaskRunner = null;
 let shuttingDown = false;
 const activeNotifications = new Map();
 
@@ -38,6 +41,8 @@ async function startDesktopApp() {
 
 function configureRuntimePaths() {
   process.env.LUBAN_DATA_DIR = app.getPath('userData');
+  process.env.LUBAN_PLATFORM_INSTANCE_DIR = join(app.getPath('userData'), 'agent-runtime');
+  process.env.LUBAN_WORKSPACE_DIR = join(app.getPath('documents'), 'Luban');
   process.env.LUBAN_PUBLIC_DIR = join(app.getAppPath(), 'public');
   process.env.LUBAN_DESKTOP_TOKEN = randomBytes(32).toString('hex');
 }
@@ -50,6 +55,15 @@ async function startLocalServer() {
 
   await initDb();
   closeDatabase = closeDb;
+  const { ensurePlatformService, closePlatformService } = await import('../src/agent/platform-service.js');
+  stopRuntime = closePlatformService;
+  const runtime = await ensurePlatformService();
+  platformOrigin = runtime.url;
+  const { resolveLubanAgent } = await import('../src/agent/agent-resolver.js');
+  await resolveLubanAgent({ store: runtime.service.store });
+  const { startScheduledTaskRunner, stopScheduledTaskRunner } = await import('../src/services/scheduled-task-runner.js');
+  startScheduledTaskRunner();
+  stopTaskRunner = stopScheduledTaskRunner;
   localServer = createAppServer();
 
   await new Promise((resolve, reject) => {
@@ -65,7 +79,7 @@ async function startLocalServer() {
 function protectLocalServerRequests() {
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (details, callback) => {
     const requestHeaders = { ...details.requestHeaders };
-    if (details.url.startsWith(`${localOrigin}/`)) {
+    if ([localOrigin, platformOrigin].some(origin => origin && details.url.startsWith(`${origin}/`))) {
       requestHeaders['X-Luban-Desktop-Token'] = process.env.LUBAN_DESKTOP_TOKEN;
     }
     callback({ requestHeaders });
@@ -93,7 +107,11 @@ function createMainWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(`${localOrigin}/`)) return { action: 'allow' };
+    if ([localOrigin, platformOrigin].some(origin => url.startsWith(`${origin}/`))) {
+      return { action: 'allow', overrideBrowserWindowOptions: {
+        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+      } };
+    }
     if (url.startsWith('https://') || url.startsWith('http://')) void shell.openExternal(url);
     return { action: 'deny' };
   });
@@ -144,11 +162,15 @@ function setupNotificationBridge() {
 async function showStartupError(error) {
   console.error('[desktop] 启动失败：', error);
   await app.whenReady();
+  await stopDesktopApp().catch(() => {});
   dialog.showErrorBox('鲁班启动失败', error?.message || String(error));
   app.exit(1);
 }
 
 async function stopDesktopApp() {
+  stopTaskRunner?.();
+  await stopRuntime?.();
+  stopRuntime = null;
   if (localServer) {
     await Promise.race([
       new Promise((resolve) => localServer.close(resolve)),

@@ -25,12 +25,6 @@ export async function handlePlatformChat(req, res, method, parts) {
   if (method !== 'POST' || parts.length !== 3 || parts[2] !== 'platform-chat') return false;
   const body = await readJson(req);
   const settings = getSetting('ai') || {};
-  if (!settings.apiKey) {
-    res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ error: '请在设置中配置 API Key 后再使用 AI 助理。' }));
-    return true;
-  }
-
   let app = body.appId ? getApp(body.appId) : null;
   const session = (body.sessionId && getAiSession(body.sessionId)) || createAiSession({
     appId: app?.id || null, status: 'idle', type: app ? 'modify' : 'create'
@@ -59,6 +53,7 @@ export async function handlePlatformChat(req, res, method, parts) {
     const result = await runLubanPlatformSession({
       request: {
         requestId: `req_${randomUUID()}`,
+        sessionId: session.id,
         runId: `run_${randomUUID()}`,
         appId: app?.id || null,
         pageId: body.pageId || null
@@ -73,7 +68,7 @@ export async function handlePlatformChat(req, res, method, parts) {
           display: buildToolDisplayInfo(legacyName, input, app)
         });
         if (signal.aborted) return false;
-        const allowed = await waitForConfirm(confirmId);
+        const allowed = await waitForConfirm(confirmId, signal);
         PENDING_CONFIRMS.delete(confirmId);
         return allowed;
       },
@@ -113,6 +108,7 @@ export async function handlePlatformChat(req, res, method, parts) {
     updateAiSession(session.id, { status: 'completed', appId: app?.id || session.appId || null });
     sseEvent(res, 'message_end', { appId: app?.id || session.appId || null, runtime: 'agent-platform' });
   } catch (error) {
+    if (content) addAiMessage(session.id, 'assistant', content);
     updateAiSession(session.id, { status: controller.signal.aborted ? 'cancelled' : 'failed' });
     addAiExecutionLog(session.id, '统一 Runtime 对话出错', 'failed', { error: error.message });
     sseEvent(res, 'error', { message: error.message, runtime: 'agent-platform' });

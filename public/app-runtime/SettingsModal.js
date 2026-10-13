@@ -18,7 +18,7 @@ export async function openSettingsModal(appId = '', initialTab = 'rules') {
     appId ? Promise.resolve({ samples: [] }) : api('/api/samples'),
     appId ? Promise.resolve({ agents: [] }) : api('/api/settings/platform')
   ]);
-  let activeTab = appId ? (initialTab === 'runs' ? 'runs' : 'rules') : (['samples', 'runtime', 'auth'].includes(initialTab) ? initialTab : 'ai');
+  let activeTab = appId ? (initialTab === 'runs' ? 'runs' : 'rules') : (['samples', 'runtime', 'auth', 'platform'].includes(initialTab) ? initialTab : 'platform');
   let samplesImported = false;
   const content = h('div', { class: 'settings-modal-content' });
   const tabs = h('div', { class: 'settings-tabs' });
@@ -43,7 +43,6 @@ export async function openSettingsModal(appId = '', initialTab = 'rules') {
     tabs.append(tab('rules', `业务规则 ${rulesBody.rules?.length ? `(${rulesBody.rules.length})` : ''}`));
     tabs.append(tab('runs', `执行记录 ${runsBody.runs?.length ? `(${runsBody.runs.length})` : ''}`));
   } else {
-    tabs.append(tab('ai', 'AI 设置'));
     tabs.append(tab('auth', '账号安全'));
     tabs.append(tab('runtime', '运行参数'));
     tabs.append(tab('samples', `样例导入 (${samplesBody.samples?.length || 0})`));

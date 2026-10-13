@@ -8,12 +8,14 @@ function platformRisk(risk) {
 export class LubanToolProvider {
   constructor({
     tools = getTools(),
+    requireContext = false,
     appId = null,
     pageId = null,
     requestApproval = async () => false,
     onExecution = () => {}
   } = {}) {
     this.tools = tools;
+    this.requireContext = requireContext;
     this.appId = appId;
     this.pageId = pageId;
     this.requestApproval = requestApproval;
@@ -27,6 +29,8 @@ export class LubanToolProvider {
       return {
         name,
         legacyName: tool.name,
+        source: 'business',
+        provider: 'luban',
         label: tool.schema?.function?.description || tool.description,
         description: tool.description,
         inputSchema: structuredClone(tool.schema?.function?.parameters || { type: 'object', properties: {} }),
@@ -34,6 +38,7 @@ export class LubanToolProvider {
         idempotent: false,
         timeoutMs: 60_000,
         execute: async (input, { callId, signal }) => {
+          if (this.requireContext) throw new Error('鲁班业务工具只能在鲁班会话中执行');
           const args = { ...input };
           if (this.appId) args.appId = this.appId;
           if (this.pageId && !args.pageId) args.pageId = this.pageId;

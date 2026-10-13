@@ -1,6 +1,6 @@
 import { FIELD_TYPES, PAGE_TYPES, ACTION_TYPES } from '../core/contract.js';
-import { configurationError } from '../core/errors.js';
-import { completeWithLubanProvider } from '../agent/non-chat-provider.js';
+import { migratePackage, normalizePackage, preparePackage } from '../core/packageProtocol.js';
+import { completeWithLubanProvider, requireLubanModel } from '../agent/non-chat-provider.js';
 
 // ── Exported prompt-building helpers ──
 // These produce structured descriptions from contract.js metadata,
@@ -24,21 +24,60 @@ const PROMPT_ACTION_TYPES_STR = formatActionTypesForPrompt();
 const PROMPT_PAGE_TYPES_STR = formatPageTypesForPrompt();
 
 export function normalizeAiCreatedPackage(pkg) {
-  return structuredClone(pkg || {});
+  const next = normalizePackage(migratePackage(pkg || {}));
+  // Resolve only generated references, after every target table has normalized IDs.
+  // Imported/user-authored packages retain strict validation in preparePackage.
+  for (const entity of next.schema.entities || []) {
+    for (const field of entity.fields || []) {
+      if (!FIELD_TYPES[field.type]?.isRelationType) continue;
+      const target = next.schema.entities.find(item => item.id === field.targetEntity);
+      if (!target) continue; // Missing target tables must still fail validation.
+      const fields = target.fields || [];
+      if (fields.some(item => item.id === field.displayField)) continue;
+      const hint = String(field.displayField || '');
+      const exact = fields.filter(item => item.label === hint || item.id === `field_${hint}`);
+      const scalar = fields.filter(item => !FIELD_TYPES[item.type]?.isRelationType);
+      const display = (exact.length === 1 ? exact[0] : null)
+        || scalar.find(item => ['名称', '标题', '姓名', '就诊编号', '病历编号'].includes(item.label))
+        || scalar.find(item => item.type === 'text')
+        || scalar[0];
+      if (display) {
+        field.displayField = display.id;
+        field.config = { ...(field.config || {}), displayField: display.id };
+      }
+    }
+  }
+  return next;
 }
 
 export async function generatePackageFromPrompt(prompt, settings = {}) {
-  if (!settings?.apiKey) throw configurationError('请先在系统设置中配置 AI API Key。');
+  await requireLubanModel(settings);
   try {
-    const body = await requestChatCompletion(settings, [
+    const messages = [
       {
         role: 'system',
         content:
-          '你是 Software Garden 的软件设计助手。只输出 JSON，不要 Markdown。\n\n输出 JSON 结构示例：\n{\n  "manifest": { "name": "应用名称", "description": "简短描述", "icon": "table" },\n  "schema": {\n    "entities": [\n      {\n        "id": "entity_唯一标识",\n        "name": "表名",\n        "fields": [\n          { "id": "field_唯一标识", "label": "字段名", "type": "text" }\n        ]\n      }\n    ]\n  },\n  "ui": {\n    "pages": [\n      { "id": "page_唯一标识", "title": "页面标题", "type": "table", "entity": "entity_唯一标识" }\n    ]\n  },\n  "actions": { "actions": [] },\n  "prompts": {}\n}\n\n要求：\n1. entity.id 和 field.id 使用唯一且有意义的 ID（如 entity_student, field_name），不能重复。\n2. field.type 只支持：' + PROMPT_FIELD_TYPES_STR + '。\n3. 每张表至少有一个 text 类型字段。\n4. manifest.name 和 entities 必须直接基于用户需求生成，不要添加用户没有提到的表或字段。\n5. 仔细理解用户的描述，只创建用户明确需要的表。例如如果用户说"创建作业管理"，就只创建作业/作业提交等相关表，不要创建账目、分类等无关表。\n6. 每个字段必须对应用户需求中的具体信息点，不要凭空添加额外字段。\n7. 做减法：宁可生成一个精准的表，也不要画蛇添足。\n8. 页面类型支持：' + PROMPT_PAGE_TYPES_STR + '。每张表至少生成一个 table 类型的数据页面。\n9. 所有 ID 都不能重复。\n10. actions.actions 中的 type 只支持：' + PROMPT_ACTION_TYPES_STR + '。如果不确定就用 data.createRecord。\n11. formula 字段的 expression 只支持 IF(条件, 是, 否) 条件判断、CONCAT 拼接、+ 运算符、{字段名} 引用字段。不要使用 & 运算符。可用函数：IF, CONCAT, ROUND, ABS, MIN, MAX, LEN, UPPER, LOWER, TODAY, DATEADD, DATEDIFF。公式中引用 select/multiSelect 字段做比较时，用选项的 label（显示值），不要用选项的 id。\n12. autoNumber 字段可包含 autoNumber.start、autoNumber.step、autoNumber.prefix，默认分别为 1、1、空文本。'
+          '你是 Software Garden 的软件设计助手。只输出 JSON，不要 Markdown。\n\n输出 JSON 结构示例：\n{\n  "manifest": { "name": "应用名称", "description": "简短描述", "icon": "table" },\n  "schema": {\n    "entities": [\n      {\n        "id": "entity_唯一标识",\n        "name": "表名",\n        "fields": [\n          { "id": "field_唯一标识", "label": "字段名", "type": "text" }\n        ]\n      }\n    ]\n  },\n  "ui": {\n    "pages": [\n      { "id": "page_唯一标识", "title": "页面标题", "type": "table", "entity": "entity_唯一标识" }\n    ]\n  },\n  "actions": { "actions": [] },\n  "prompts": {}\n}\n\n要求：\n1. entity.id 和 field.id 使用唯一且有意义的 ID（如 entity_student, field_name），不能重复。\n2. field.type 只支持：' + PROMPT_FIELD_TYPES_STR + '。\n3. 每张表至少有一个 text 类型字段。\n4. manifest.name 和 entities 必须直接基于用户需求生成，不要添加用户没有提到的表或字段。\n5. 仔细理解用户的描述，只创建用户明确需要的表。例如如果用户说"创建作业管理"，就只创建作业/作业提交等相关表，不要创建账目、分类等无关表。\n6. 每个字段必须对应用户需求中的具体信息点，不要凭空添加额外字段。\n7. 做减法：宁可生成一个精准的表，也不要画蛇添足。\n8. 页面类型支持：' + PROMPT_PAGE_TYPES_STR + '。每张表至少生成一个 table 类型的数据页面。\n9. 所有 ID 都不能重复。\n10. actions.actions 中的 type 只支持：' + PROMPT_ACTION_TYPES_STR + '。如果不确定就用 data.createRecord。\n11. formula 字段的 expression 只支持 IF(条件, 是, 否) 条件判断、CONCAT 拼接、+ 运算符、{字段名} 引用字段。不要使用 & 运算符。可用函数：IF, CONCAT, ROUND, ABS, MIN, MAX, LEN, UPPER, LOWER, TODAY, DATEADD, DATEDIFF。公式中引用 select/multiSelect 字段做比较时，用选项的 label（显示值），不要用选项的 id。\n12. autoNumber 字段可包含 autoNumber.start、autoNumber.step、autoNumber.prefix，默认分别为 1、1、空文本。\n13. relation 字段的 targetEntity 必须是本次生成的目标 entity.id；displayField 必须是该目标表内真实存在的 field.id，不要假定存在 name 字段。'
       },
       { role: 'user', content: prompt }
-    ]);
-    return normalizeAiCreatedPackage(parseJsonContent(body.choices?.[0]?.message?.content || '{}'));
+    ];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const body = await requestChatCompletion(settings, messages);
+      const content = body.choices?.[0]?.message?.content || '';
+      try {
+        const pkg = normalizeAiCreatedPackage(parseJsonContent(content));
+        if (!pkg.schema?.entities?.length || !pkg.ui?.pages?.length) {
+          throw new Error('生成结构缺少数据表或页面');
+        }
+        return preparePackage(pkg);
+      } catch (error) {
+        if (attempt === 1) throw error;
+        messages.push({ role: 'assistant', content }, {
+          role: 'user',
+          content: `生成结构校验失败：${error.message}。请修正并输出完整应用 JSON。所有关联必须引用本次结构中真实存在的目标表和字段 ID，保留原需求。`
+        });
+      }
+    }
   } catch (error) {
     throw new Error(`AI 生成失败，未使用 Mock 结果替代：${error.message}`);
   }
@@ -46,7 +85,7 @@ export async function generatePackageFromPrompt(prompt, settings = {}) {
 
 
 export async function generateOptions(prompt, settings = {}) {
-  if (!settings?.apiKey) throw configurationError('生成选项需要先配置 AI API Key。');
+  await requireLubanModel(settings);
   try {
     const body = await requestChatCompletion(settings, [
       {
@@ -67,7 +106,7 @@ export async function generateOptions(prompt, settings = {}) {
 }
 
 export async function generateBusinessRuleIntent(intent, app, settings = {}, existingRule = null) {
-  if (!settings?.apiKey) throw new Error('创建业务规则需要先配置 AI API Key。');
+  await requireLubanModel(settings);
   const schema = (app?.schema?.entities || []).map((entity) => ({
     id: entity.id,
     name: entity.name,
@@ -95,7 +134,7 @@ export async function generateBusinessRuleIntent(intent, app, settings = {}, exi
 
 
 export async function generateFieldContent(prompt, settings = {}) {
-  if (!settings?.apiKey) throw configurationError('生成字段内容需要先配置 AI API Key。');
+  await requireLubanModel(settings);
   try {
     const body = await requestChatCompletion(settings, [
       {

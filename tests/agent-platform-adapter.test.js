@@ -11,6 +11,8 @@ import { completeWithLubanProvider } from '../src/agent/non-chat-provider.js';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createLubanPlatformService } from '../src/agent/platform-service.js';
+import { rm } from 'node:fs/promises';
 import { resolveLubanAgent } from '../src/agent/agent-resolver.js';
 
 function legacyTool({ name = 'remove_entity', risk = 'high', handler = async (input) => input } = {}) {
@@ -40,7 +42,7 @@ test('Luban reuses the platform Agent and seeds a fallback Agent when explicitly
   assert.equal(first.id, 'luban-app-builder');
   assert.equal(first.source, 'agent-platform');
   const second = await resolveLubanAgent({ instanceDirectory: directory });
-  assert.equal(second.id, 'assistant');
+  assert.equal(second.id, 'luban-app-builder');
   assert.match(await readFile(join(directory, 'instance.yaml'), 'utf8'), /luban-app-builder/);
 });
 
@@ -129,7 +131,7 @@ test('dual runtime audit reports order, input, and confirmation differences', ()
   assert.equal(audit.differences[0].platform.confirmation, false);
 });
 
-test('Luban platform session runs the shared Agent Loop with product tools', async () => {
+test('Luban platform session runs the shared RunService with product tools', async t => {
   let turn = 0;
   const provider = { async *stream() {
     if (turn++ === 0) {
@@ -140,9 +142,17 @@ test('Luban platform session runs the shared Agent Loop with product tools', asy
       yield { type: 'finish', reason: 'stop' };
     }
   } };
+  const directory = await mkdtemp(join(tmpdir(), 'luban-session-'));
+  const runtime = await createLubanPlatformService({ directory, workspaceRoot: join(directory, 'workspace'),
+    tools: [], authorizeRequest: () => true, startBackgroundServices: false });
+  t.after(async () => { await runtime.close(); await rm(directory, { recursive: true, force: true }); });
+  await runtime.service.store.saveConnection({ id: 'test', provider: 'openai-compatible', model: 'mock-model', apiKey: 'secret' }, 0);
+  await resolveLubanAgent({ store: runtime.service.store });
+  const agent = runtime.service.store.snapshot().agents.find(item => item.id === 'luban-app-builder');
+  await runtime.service.store.saveAgent({ ...agent, ...agent.draft, tools: ['luban.records.query'] }, runtime.service.store.snapshot().revision);
   const events = [];
   const result = await runLubanPlatformSession({
-    request: { requestId: 'req-1', runId: 'run-1', appId: 'app-current' },
+    runtime, request: { requestId: 'req-1', runId: 'run-1', appId: 'app-current' },
     settings: { apiKey: 'secret', model: 'mock-model' },
     system: 'test', messages: [{ role: 'user', content: '查询' }], provider,
     tools: [legacyTool({ name: 'query_data', risk: 'low', handler: async (input) => ({ appId: input.appId }) })],
@@ -153,7 +163,11 @@ test('Luban platform session runs the shared Agent Loop with product tools', asy
   assert.equal(events.at(-1).type, 'run_completed');
 });
 
-test('non-chat completions use the shared provider and structured response format', async () => {
+test('non-chat completions use the shared lifecycle and structured response format', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'luban-completion-'));
+  const runtime = await createLubanPlatformService({ directory, workspaceRoot: join(directory, 'workspace'), tools: [], authorizeRequest: () => true, startBackgroundServices: false });
+  t.after(async () => { await runtime.close(); await rm(directory, { recursive: true, force: true }); });
+  await runtime.service.store.saveConnection({ id: 'test', provider: 'openai-compatible', model: 'mock-model', apiKey: 'secret' }, 0);
   const originalFetch = globalThis.fetch;
   let payload;
   globalThis.fetch = async (_url, options) => {
@@ -165,11 +179,13 @@ test('non-chat completions use the shared provider and structured response forma
   };
   try {
     const output = await completeWithLubanProvider({ apiKey: 'secret', model: 'mock-model' }, {
-      messages: [{ role: 'user', content: 'test' }]
+      runtime, messages: [{ role: 'user', content: 'test' }]
     });
     assert.equal(output, '{"ok":true}');
     assert.deepEqual(payload.response_format, { type: 'json_object' });
     assert.equal(payload.stream, true);
+    assert.ok(!payload.tools?.length);
+    assert.equal(runtime.service.runs.history('local')[0].source, 'luban-generation');
   } finally {
     globalThis.fetch = originalFetch;
   }

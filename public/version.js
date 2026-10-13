@@ -1,1 +1,1 @@
-window.LUBAN_VERSION='2026.09.29';
+window.LUBAN_VERSION='2026.10.13';
