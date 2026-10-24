@@ -1,3 +1,4 @@
+import { appUrl } from '../common/application-base.js';
 import { h } from '../common/dom.js';
 import { state, storageKey, viewOrderedFields, applyViewFilters, sortRecords } from '../app-context.js';
 import { renderViewBar, openFilterModal, openSortModal, openGroupModal, getListConfig, setListConfig } from './ViewBar.js';
@@ -185,7 +186,7 @@ let cardMenuDismiss = null;
 
 async function duplicateRecord(entity, record) {
   try {
-    const body = await (await fetch(`/api/apps/${state.currentApp.id}/records`, {
+    const body = await (await fetch(appUrl(`/api/apps/${state.currentApp.id}/records`), {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ entityId: entity.id, data: record.data })
     })).json();
@@ -203,7 +204,7 @@ async function batchDelete(entity, selectedIds, selKey) {
     confirmText: '删除', danger: true,
     onConfirm: async () => {
       try {
-        const body = await (await fetch(`/api/apps/${state.currentApp.id}/records/bulk-delete`, {
+        const body = await (await fetch(appUrl(`/api/apps/${state.currentApp.id}/records/bulk-delete`), {
           method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ recordIds: ids, force: false })
         })).json();

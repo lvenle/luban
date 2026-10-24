@@ -36,13 +36,18 @@ test('Luban runtime adapter compiles product settings without exposing the secre
   assert.ok(config.tools.allowed.includes('luban.records.query'));
 });
 
-test('Luban reuses the platform Agent and seeds a fallback Agent when explicitly requested Agent is absent', async () => {
+test('Luban binds its own application assistant and rejects an explicit foreign selection', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'luban-agent-'));
-  const first = await resolveLubanAgent({ settings: { agentId: 'missing-agent' }, instanceDirectory: directory });
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await assert.rejects(resolveLubanAgent({ settings: { agentId: 'missing-agent' }, instanceDirectory: directory }), /只能使用本应用助手/);
+  const first = await resolveLubanAgent({ instanceDirectory: directory });
   assert.equal(first.id, 'luban-app-builder');
   assert.equal(first.source, 'agent-platform');
   const second = await resolveLubanAgent({ instanceDirectory: directory });
   assert.equal(second.id, 'luban-app-builder');
+  assert.equal(second.applicationInstanceId, 'luban');
+  assert.equal(second.store.snapshot().applicationInstances.length, 1);
+  assert.equal(second.store.snapshot().defaultAgentId, 'assistant');
   assert.match(await readFile(join(directory, 'instance.yaml'), 'utf8'), /luban-app-builder/);
 });
 
@@ -159,6 +164,8 @@ test('Luban platform session runs the shared RunService with product tools', asy
     onEvent: (event) => events.push(event)
   });
   assert.equal(result.output, '已查询');
+  assert.equal(runtime.service.runs.db.prepare('SELECT application_instance_id AS id FROM runs WHERE run_id=?').get(result.runId).id, 'luban');
+  assert.equal(runtime.service.runs.session(result.sessionId, 'local').applicationInstanceId, 'luban');
   assert.ok(events.some((event) => event.type === 'tool_completed' && event.payload.output.appId === 'app-current'));
   assert.equal(events.at(-1).type, 'run_completed');
 });
@@ -188,5 +195,21 @@ test('non-chat completions use the shared lifecycle and structured response form
     assert.equal(runtime.service.runs.history('local')[0].source, 'luban-generation');
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+
+test('local edition disallows custom assistants while enterprise edition allows them', async t => {
+  for (const edition of ['local', 'enterprise']) {
+    const directory = await mkdtemp(join(tmpdir(), 'luban-edition-'));
+    const runtime = await createLubanPlatformService({ directory, edition, workspaceRoot: join(directory, 'workspace'), tools: [], authorizeRequest: () => true, startBackgroundServices: false });
+    try {
+      await resolveLubanAgent({ store: runtime.service.store });
+      const state = await runtime.service.handle('GET', '/instance');
+      assert.equal(state.capabilities.customAgents, edition === 'enterprise');
+      const create = () => runtime.service.handle('POST', '/agents', { revision: state.revision, agent: { name: '自定义助手', system: 'test' } });
+      if (edition === 'local') await assert.rejects(create(), /不支持创建/);
+      else assert.equal((await create()).agents.length, 3);
+    } finally { await runtime.close(); await rm(directory, { recursive: true, force: true }); }
   }
 });

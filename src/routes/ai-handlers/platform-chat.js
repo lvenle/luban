@@ -5,7 +5,7 @@ import {
   addAiMessage, addAiExecutionLog
 } from '../../models/session.js';
 import { getTools } from '../../ai/registry.js';
-import { readJson } from '../_helpers.js';
+import { readJson, notFound } from '../_helpers.js';
 import { buildMessages } from '../../services/ai/message-builder.js';
 import { buildToolDisplayInfo } from '../../services/ai/tool-display.js';
 import { runLubanPlatformSession } from '../../agent/session-adapter.js';
@@ -26,6 +26,7 @@ export async function handlePlatformChat(req, res, method, parts) {
   const body = await readJson(req);
   const settings = getSetting('ai') || {};
   let app = body.appId ? getApp(body.appId) : null;
+  if (body.sessionId && !getAiSession(body.sessionId)) throw notFound('找不到 AI 会话。');
   const session = (body.sessionId && getAiSession(body.sessionId)) || createAiSession({
     appId: app?.id || null, status: 'idle', type: app ? 'modify' : 'create'
   });

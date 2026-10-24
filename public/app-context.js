@@ -1,3 +1,4 @@
+import { appUrl, applicationPath } from './common/application-base.js';
 import { h, uiIcon, buttonLabel, svgIcon, svgPath, svgLine } from './common/dom.js';
 import { api } from './common/api.js';
 import { toast } from './common/toast.js';
@@ -73,7 +74,7 @@ export function uniquePageId(title, entityId = 'page') {
 
 export function currentRoute() {
   const params = new URLSearchParams(location.search);
-  const parts = location.pathname.split('/').filter(Boolean);
+  const parts = applicationPath().split('/').filter(Boolean);
   let appId = '', pageId = '';
   if (parts[0] === 'app' && parts[1]) { appId = parts[1]; if (parts[2] === 'page' && parts[3]) pageId = parts[3]; }
   return { appId: appId || params.get('app') || '', pageId: pageId || params.get('page') || '', viewId: params.get('view') || '' };
@@ -82,7 +83,7 @@ export function currentRoute() {
 export function writeRoute(appId, pageId, replace = false, viewId = state.currentViewId) {
   const params = viewId ? `?view=${encodeURIComponent(viewId)}` : '';
   const next = `${appId ? `/app/${appId}${pageId ? `/page/${pageId}` : ''}` : '/'}${params}`;
-  if (replace) history.replaceState(null, '', next); else history.pushState(null, '', next);
+  if (replace) history.replaceState(null, '', appUrl(next)); else history.pushState(null, '', appUrl(next));
 }
 
 export function topbar() {
@@ -137,7 +138,7 @@ export function topbar() {
       h('button', {
         class: `secondary icon-label-button assistant-topbar-button ${state.assistantOpen ? 'active' : ''}`,
         onclick: () => { state.assistantOpen = !state.assistantOpen; if (state.currentApp) shellActions.renderRuntime(); else shellActions.renderHome(); }
-      }, buttonLabel('assistant', 'AI 助理')),
+      }, buttonLabel('assistant', '鲁班助手')),
       inRuntime
         ? h('button', {
             class: 'secondary icon-label-button scheduled-tasks-button',
@@ -148,6 +149,7 @@ export function topbar() {
             }
           }, buttonLabel('schedule', '定时任务'))
         : null,
+      h('button', { class: 'secondary icon-label-button assistant-settings-button', title: '助手设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal('', 'platform')) }, buttonLabel('settings', '助手设置')),
       inRuntime
         ? h('button', { class: 'secondary icon-label-button app-settings-button', title: '应用设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal(state.currentApp.id, 'rules')) }, buttonLabel('settings', '应用设置'))
         : h('button', { class: 'secondary icon-label-button system-settings-button', title: '系统设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal()) }, buttonLabel('settings', '系统设置')),
@@ -161,9 +163,10 @@ function renderUserMenu() {
   return h('div', { class: 'topbar-user' }, [
     h('span', { class: 'topbar-username', text: state.auth.username, title: state.auth.username }),
     h('button', { class: 'secondary topbar-logout-button', text: '退出', onclick: async () => {
-      await api('/api/auth/logout', { method: 'POST', body: JSON.stringify({}) });
+      await api(state.auth.managed ? '/api/identity/logout' : '/api/auth/logout', { method: 'POST', body: JSON.stringify({}) });
+      const managed = state.auth.managed;
       state.auth = { required: true, authenticated: false, username: '' };
-      location.reload();
+      if (managed) location.assign('/auth/login'); else location.reload();
     } })
   ]);
 }

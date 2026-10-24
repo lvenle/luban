@@ -22,7 +22,7 @@ export function renderLogin(root, onSuccess) {
       password.select();
     }
   } }, [
-    h('h1', { text: '登录鲁班 AI' }),
+    h('h1', { text: '登录鲁班高级版' }),
     h('p', { class: 'muted', text: '请输入系统设置中配置的用户名和密码。' }),
     h('div', { class: 'field' }, [h('label', { text: '用户名' }), username]),
     h('div', { class: 'field' }, [h('label', { text: '密码' }), password]),

@@ -15,8 +15,8 @@ const runtimeRoutes = readFileSync(new URL('../src/routes/runtime.js', import.me
 const ruleRoutes = readFileSync(new URL('../src/routes/runtime-handlers/rules.js', import.meta.url), 'utf8');
 
 test('M2 rule configuration, list and detail routes are wired as SPA pages', () => {
-  assert.match(app, /location\.pathname === '\/rules\/ai-config'/);
-  assert.match(app, /location\.pathname === '\/rules'/);
+  assert.match(app, /applicationPath\(\) === '\/rules\/ai-config'/);
+  assert.match(app, /applicationPath\(\) === '\/rules'/);
   assert.match(app, /ruleDetailMatch/);
   assert.match(helpers, /const isRuleSpaRoute = pathname === '\/rules'/);
   assert.ok(helpers.indexOf("pathname === '/rules'") < helpers.indexOf("const filePath = resolve"), 'SPA rule routes must be handled before the public/rules directory');

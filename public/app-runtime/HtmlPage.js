@@ -1,3 +1,4 @@
+import { appUrl, applicationPath } from '../common/application-base.js';
 import { h } from '../common/dom.js';
 import { toast } from '../common/toast.js';
 import { saveCurrentPackage } from './runtime-actions.js';
@@ -226,9 +227,9 @@ export function renderHtmlPage(page) {
     text: '新窗口打开',
     title: '在新窗口中打开当前网页',
     onclick: async () => {
-      const appId = location.pathname.match(/^\/app\/([^/]+)/)?.[1] || new URLSearchParams(location.search).get('app') || '';
+      const appId = applicationPath().match(/^\/app\/([^/]+)/)?.[1] || new URLSearchParams(location.search).get('app') || '';
       if (!appId) return toast('无法确定当前软件，暂时不能打开预览。');
-      const url = `/html-preview/${encodeURIComponent(decodeURIComponent(appId))}/${encodeURIComponent(page.id)}`;
+      const url = appUrl(`/html-preview/${encodeURIComponent(decodeURIComponent(appId))}/${encodeURIComponent(page.id)}`);
       const needsRefresh = textarea.value !== savedValue;
       const previewWindow = window.open(url, '_blank');
       if (!previewWindow) return toast('新窗口被浏览器拦截，请允许弹出窗口后重试。');

@@ -21,7 +21,7 @@ function formatDate(value, dateOnly = false) {
 
 function header(context) {
   return h('header', { class: 'rule-config-topbar' }, [
-    h('a', { class: 'rule-brand', href: '/', 'aria-label': '返回鲁班首页' }, [h('img', { src: '/images/logo.png', alt: '' }), h('span', { text: '鲁班AI系统' })]),
+    h('a', { class: 'rule-brand', href: '/', 'aria-label': '返回鲁班高级版首页' }, [h('img', { src: '/images/logo.png', alt: '' }), h('span', { text: '鲁班高级版' })]),
     h('div', { class: 'rule-topbar-context' }, [h('span', { text: '业务规则' }), h('b', { text: context })]),
     h('a', { class: 'rule-back-link', href: '/rules/ai-config', text: 'AI 配置规则' })
   ]);
@@ -41,7 +41,7 @@ function emptyState() {
 }
 
 export function renderRuleList(root) {
-  document.title = '规则列表 · 鲁班AI系统';
+  document.title = '规则列表 · 鲁班高级版';
   const rules = ruleRepository.listRules();
   const body = rules.length ? h('div', { class: 'rules-table-wrap' }, [
     h('table', { class: 'rules-table' }, [
@@ -155,7 +155,7 @@ function renderRuntimePanel(rule) {
 
 export function renderRuleDetail(root, id) {
   const rule = ruleRepository.getRule(id);
-  document.title = rule ? `${rule.name} · 规则详情` : '规则不存在 · 鲁班AI系统';
+  document.title = rule ? `${rule.name} · 规则详情` : '规则不存在 · 鲁班高级版';
   if (!rule) {
     root.replaceChildren(h('div', { class: 'rule-config-page' }, [header('规则详情'), h('main', { class: 'rules-main' }, [h('div', { class: 'rules-empty' }, [h('h1', { text: '未找到这条规则' }), h('p', { text: '规则可能已被删除，或当前链接无效。' }), h('a', { class: 'rules-primary-link', href: '/rules', text: '返回规则列表' })])])]));
     return;

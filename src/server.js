@@ -1,3 +1,9 @@
+import { normalizeWebBase, documentWithBase } from '@xiaoya/agent-platform/hosting/web-base';
+import { renderWorkbenchNavigation } from '@xiaoya/agent-platform/hosting/navigation';
+import { requireApplicationManager } from '@xiaoya/agent-platform/hosting/context';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 import { createServer } from 'node:http';
 import { sendJson, statusForError, serveStatic, serveUpload, HttpError } from './routes/_helpers.js';
 import { handleAiApi } from './routes/ai.js';
@@ -95,7 +101,17 @@ function logRequest(method, pathname, status, duration, userAgent) {
   console.log(JSON.stringify(entry));
 }
 
-export function createAppServer() {
+export function createAppServer({ publicBasePath = '/', workbenchNavigation = null, adminRuntime = null } = {}) {
+  normalizeWebBase(publicBasePath);
+  const renderHtml = html => {
+    html = html.replace(/(src|href)="\/(?!\/)/g, (_, attribute) => `${attribute}="${publicBasePath}`);
+    html = documentWithBase(html, publicBasePath);
+    if (workbenchNavigation) {
+      const css = readFileSync(fileURLToPath(import.meta.resolve('@xiaoya/agent-platform/ui/workbench-navigation.css')), 'utf8');
+      html = html.replace('</head>', `<style>${css}</style></head>`).replace(/<body>/, '<body>' + renderWorkbenchNavigation({ ...workbenchNavigation, active: 'luban' }));
+    }
+    return html;
+  };
   return createServer(async (req, res) => {
     const start = Date.now();
     let status = 200;
@@ -109,6 +125,14 @@ export function createAppServer() {
 
     try {
       const url = new URL(req.url, `http://${req.headers.host}`);
+
+      if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) {
+        if (!adminRuntime) throw new HttpError(404, '后台未启用');
+        requireApplicationManager();
+        if (url.pathname === '/admin') { res.writeHead(308, { location: publicBasePath + 'admin/' }); res.end(); return; }
+        req.url = url.pathname.slice('/admin'.length) + url.search;
+        adminRuntime.server.emit('request', req, res); return;
+      }
 
       // 静态资源和上传不走 API 异常日志
       if (url.pathname.startsWith('/api/') || url.pathname === '/') {
@@ -152,7 +176,7 @@ export function createAppServer() {
       if (url.pathname.endsWith('.html') || url.pathname === '/') {
         securityHeaders(res);
       }
-      serveStatic(res, url.pathname);
+      serveStatic(res, url.pathname, renderHtml);
     } catch (error) {
       status = statusForError(error);
       if (status >= 500) {
@@ -238,10 +262,7 @@ function isAuthExemptApi(method, pathname) {
     || pathname.startsWith('/api/auth/');
 }
 
-const isMain = process.argv[1] && (
-  import.meta.url === `file://${process.argv[1]}` ||
-  import.meta.url.endsWith('/' + process.argv[1].split('/').pop())
-);
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 if (isMain) {
   // On server deployments (Render, etc.) with SUPABASE_URL and SUPABASE_SERVICE_KEY
   // configured, the SQLite database is synced to Supabase Storage so data survives
@@ -249,7 +270,7 @@ if (isMain) {
   initDb().then(async () => {
     const platform = await ensurePlatformService();
     await resolveLubanAgent();
-    console.log(`agent-platform 已就绪：${platform.url}（鲁班独立实例）`);
+    console.log(`ai-agent-platform 已就绪：${platform.url}（鲁班独立实例）`);
     startScheduledTaskRunner();
     const server = createAppServer().listen(PORT, '0.0.0.0', () => {
       console.log(`luban-ai MVP running at http://localhost:${PORT}`);

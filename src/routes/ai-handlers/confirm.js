@@ -1,3 +1,4 @@
+import { getAiSession } from '../../models/session.js';
 import { readJson } from '../_helpers.js';
 import { PENDING_CONFIRMS, rateLimitConfirm } from './confirm-state.js';
 
@@ -10,7 +11,7 @@ export async function handleChatConfirm(req, res) {
   }
   const body = await readJson(req);
   const confirmId = body.confirmId;
-  if (!confirmId || !PENDING_CONFIRMS.has(confirmId)) {
+  if (!confirmId || !PENDING_CONFIRMS.has(confirmId) || !getAiSession(PENDING_CONFIRMS.get(confirmId)?.sessionId)) {
     res.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '确认请求不存在或已超时。' }));
     return;

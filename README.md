@@ -1,3 +1,5 @@
+# 鲁班高级版
+
 ## 共享 AI Runtime 改造
 
 新版鲁班已使用 AI工作台同源的 `agent-platform` SDK，并拥有独立实例。运行、配置、目录、打包和验证说明见 [共享 Runtime 改造说明](docs/SHARED_AI_RUNTIME_MIGRATION.md)。

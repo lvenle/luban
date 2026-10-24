@@ -3,6 +3,7 @@ import { api } from '../../common/api.js';
 import { toast } from '../../common/toast.js';
 
 export function renderAuthPanel(auth = {}, onSaved = () => {}) {
+  if (auth.managed) return h('p', { text: '账号由企业工作台统一管理。' });
   const username = h('input', { value: auth.username || '', autocomplete: 'username', placeholder: '用于登录系统的用户名' });
   const password = h('input', { type: 'password', autocomplete: 'new-password', placeholder: auth.enabled ? '输入新密码' : '设置登录密码' });
   const confirm = h('input', { type: 'password', autocomplete: 'new-password', placeholder: '再次输入密码' });

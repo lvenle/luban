@@ -59,7 +59,7 @@ npm run desktop:win  # Windows x64 安装包，需在 Windows 环境验证
 
 `runtime-manifest.json` 记录底座版本与 tarball SHA-256。实例、密钥、开发数据和微信原生辅助不进入包。当前 SDK 尚未独立发布到包仓库，发行来源是已验证的本地底座快照。
 
-测试应用：`release/runtime/mac-arm64/鲁班.app`。沿用鲁班原有未配置正式签名的构建设置；此次不申请、更换证书或提交公证。
+测试应用：`release/runtime/mac-arm64/鲁班高级版.app`。沿用鲁班原有未配置正式签名的构建设置；此次不申请、更换证书或提交公证。
 
 ## 验证
 

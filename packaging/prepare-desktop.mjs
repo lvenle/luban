@@ -5,29 +5,21 @@ import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const platform = resolve(root, '../agent-platform');
+const platform = resolve(root, '../ai-agent-platform');
 const stage = join(root, '.desktop-runtime');
 function run(command, args, cwd) {
   const executable = process.platform === 'win32' && command === 'npm' ? 'npm.cmd' : command;
   const result = spawnSync(executable, args, { cwd, stdio: 'inherit', env: process.env, shell: process.platform === 'win32' });
   if (result.status !== 0) throw new Error(`${command} failed (${result.status})`);
 }
-run('npm', ['run', 'ui:build:admin'], platform);
+run('npm', ['run', 'runtime:prepare'], platform);
 // Only this generated staging directory is replaced. Runtime data never enters it.
 await rm(stage, { recursive: true, force: true });
 await mkdir(join(stage, 'vendor', 'source'), { recursive: true });
 const source = join(stage, 'vendor', 'source');
-for (const directory of ['src']) {
-  await cp(join(platform, directory), join(source, directory), { recursive: true });
-}
-await cp(join(platform, 'ui-vue/admin-dist'), join(source, 'ui-vue/dist'), { recursive: true });
-const runtimePackage = JSON.parse(await readFile(join(platform, 'package.json'), 'utf8'));
-runtimePackage.files = ['src', 'ui-vue/dist', 'npm-shrinkwrap.json'];
-delete runtimePackage.devDependencies;
-delete runtimePackage.scripts;
-await writeFile(join(source, 'package.json'), JSON.stringify(runtimePackage, null, 2));
-// Pin transitive runtime dependencies to the base's existing lockfile.
-await cp(join(platform, 'package-lock.json'), join(source, 'npm-shrinkwrap.json'));
+// Desktop receives only the dependency-checked local distribution from shared sources.
+await cp(join(platform, 'release/local-runtime'), source, { recursive: true });
+const runtimePackage = JSON.parse(await readFile(join(source, 'package.json'), 'utf8'));
 run('npm', ['pack', '--ignore-scripts', '--pack-destination', '..'], source);
 const archive = `${runtimePackage.name.replace('@', '').replace('/', '-')}-${runtimePackage.version}.tgz`;
 const tarball = join(stage, 'vendor', archive);
@@ -49,9 +41,9 @@ product.build.files.push('runtime-manifest.json');
 await writeFile(join(stage, 'package.json'), JSON.stringify(product, null, 2));
 await writeFile(join(stage, 'runtime-manifest.json'), JSON.stringify({
   product: 'luban', productVersion: product.version, runtimePackage: runtimePackage.name,
-  runtimeVersion: runtimePackage.version, runtimeSha256, consoleMode: 'admin',
-  capabilities: ['owned-instance', 'sdk-runs', 'scoped-product-tools', 'skills', 'knowledge', 'management-api'],
-  excluded: ['instance-data', 'credentials', 'wechat-native-helpers', 'workbench-product-pages']
+  runtimeVersion: runtimePackage.version, runtimeSha256, edition: 'local', consoleMode: null,
+  capabilities: ['owned-instance', 'application-assistant', 'sdk-runs', 'scoped-product-tools', 'skills', 'frontend-settings'],
+  excluded: ['instance-data', 'credentials', 'wechat-native-helpers', 'workbench-product-pages', 'management-ui', 'knowledge-engine', 'embedding-models', 'enterprise-host']
 }, null, 2));
 run('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], stage);
 console.log(`Prepared standalone product: ${stage}`);

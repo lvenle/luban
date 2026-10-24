@@ -358,6 +358,9 @@ function migrate(database) {
     `);
   }
 
+  const sessionColumns = new Set(database.prepare('PRAGMA table_info(ai_sessions)').all().map(column => column.name));
+  if (!sessionColumns.has('owner')) database.exec("ALTER TABLE ai_sessions ADD COLUMN owner TEXT NOT NULL DEFAULT 'local'");
+
   if (currentVersion < 2) {
     // Add type column to ai_sessions to distinguish create vs modify sessions
     try {

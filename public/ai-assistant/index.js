@@ -1,3 +1,4 @@
+import { appUrl } from '../common/application-base.js';
 import h from './dom.js';
 import SSEClient from './SSEClient.js';
 import StreamRenderer from './StreamRenderer.js';
@@ -48,7 +49,7 @@ export function init() {
 
   toolDisplay = new ToolDisplay(async (confirmId, confirmed, data = null) => {
     try {
-      await fetch('/api/ai/chat/confirm', {
+      await fetch(appUrl('/api/ai/chat/confirm'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ confirmId, confirmed })
@@ -60,7 +61,7 @@ export function init() {
   sessionManager = new SessionManager({
     onSwitch: async (sessionId) => {
       try {
-        const res = await fetch(`/api/ai/sessions/${sessionId}`);
+        const res = await fetch(appUrl(`/api/ai/sessions/${sessionId}`));
         if (!res.ok) {
           console.error('[ai-assistant] 会话加载失败:', res.status);
           toast('会话加载失败');

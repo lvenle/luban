@@ -1,3 +1,4 @@
+import { appUrl } from '../common/application-base.js';
 import h from './dom.js';
 
 export default class SessionManager {
@@ -12,7 +13,7 @@ export default class SessionManager {
 
   async load(appId) {
     try {
-      const res = await fetch(`/api/ai/sessions?appId=${encodeURIComponent(appId || '')}`);
+      const res = await fetch(appUrl(`/api/ai/sessions?appId=${encodeURIComponent(appId || '')}`));
       const body = await res.json();
       this.sessions = body.sessions || [];
       this.renderSelect();

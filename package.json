@@ -29,8 +29,8 @@
     "playwright": "^1.60.0"
   },
   "build": {
-    "appId": "ai.luban.desktop",
-    "productName": "鲁班",
+    "appId": "ai.luban.desktop.advanced",
+    "productName": "鲁班高级版",
     "asar": true,
     "electronDist": "node_modules/electron/dist",
     "files": [
@@ -59,8 +59,8 @@
       ]
     },
     "dmg": {
-      "title": "鲁班 ${version}",
-      "artifactName": "Luban-${version}-${arch}.${ext}",
+      "title": "鲁班高级版 ${version}",
+      "artifactName": "Luban-advanced-${version}-${arch}.${ext}",
       "window": {
         "width": 540,
         "height": 380
@@ -83,10 +83,10 @@
       "target": [
         "nsis"
       ],
-      "artifactName": "Luban-${version}-${arch}.${ext}"
+      "artifactName": "Luban-advanced-${version}-${arch}.${ext}"
     }
   },
   "dependencies": {
-    "@xiaoya/agent-platform": "file:../agent-platform"
+    "@xiaoya/agent-platform": "file:../ai-agent-platform"
   }
 }

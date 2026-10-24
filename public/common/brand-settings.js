@@ -3,13 +3,15 @@ import { globalStorageKey, readStorage, writeStorage } from './storage.js';
 const BRAND_KEY = globalStorageKey('brand-settings');
 
 export const DEFAULT_BRAND_SETTINGS = {
-  systemName: '鲁班AI系统',
-  homeSlogan: '鲁班AI 原生软件创作平台',
+  systemName: '鲁班高级版',
+  homeSlogan: '鲁班高级版 · AI 原生软件创作平台',
   homeTagline: '用自然语言创建、运行和持续改造属于你的业务软件。'
 };
 
 export function getBrandSettings() {
-  return { ...DEFAULT_BRAND_SETTINGS, ...readStorage(BRAND_KEY, {}) };
+  const saved = readStorage(BRAND_KEY, {});
+  if (['鲁班AI系统', '鲁班'].includes(saved.systemName)) saved.systemName = DEFAULT_BRAND_SETTINGS.systemName;
+  return { ...DEFAULT_BRAND_SETTINGS, ...saved };
 }
 
 export function updateBrandSettings(patch = {}) {

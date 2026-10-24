@@ -169,7 +169,7 @@ function safeExtension(name, mimeType) {
   return mimeExtensions[mimeType] || '.bin';
 }
 
-export function serveStatic(res, pathname) {
+export function serveStatic(res, pathname, renderHtml = html => html) {
   const isRuleSpaRoute = pathname === '/rules'
     || pathname === '/rules/'
     || pathname === '/rules/ai-config'
@@ -177,7 +177,7 @@ export function serveStatic(res, pathname) {
     || /^\/rules\/[^/.]+\/?$/.test(pathname);
   if (pathname.startsWith('/app/') || isRuleSpaRoute) {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    res.end(readFileSync(join(PUBLIC_DIR, 'index.html')));
+    res.end(renderHtml(readFileSync(join(PUBLIC_DIR, 'index.html'), 'utf8')));
     return;
   }
   const requested = pathname === '/' ? '/index.html' : pathname;
@@ -190,7 +190,7 @@ export function serveStatic(res, pathname) {
     'content-type': MIME_TYPES[extname(filePath)] || 'application/octet-stream',
     'cache-control': 'no-cache, no-store, must-revalidate'
   });
-  res.end(readFileSync(filePath));
+  res.end(extname(filePath) === '.html' ? renderHtml(readFileSync(filePath, 'utf8')) : readFileSync(filePath));
 }
 
 export function serveUpload(res, pathname) {

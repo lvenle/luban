@@ -46,7 +46,7 @@ export async function openSettingsModal(appId = '', initialTab = 'rules') {
     tabs.append(tab('auth', '账号安全'));
     tabs.append(tab('runtime', '运行参数'));
     tabs.append(tab('samples', `样例导入 (${samplesBody.samples?.length || 0})`));
-    tabs.append(tab('platform', '底座设置'));
+    tabs.append(tab('platform', '助手设置'));
   }
   backdrop.append(h('div', { class: 'modal app-settings-modal' }, [
     h('div', { class: 'toolbar app-settings-head' }, [h('h3', { text: appId ? '应用设置' : '系统设置' }), h('button', { class: 'ghost', text: '关闭', onclick: close })]),

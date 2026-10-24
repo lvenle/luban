@@ -1,3 +1,4 @@
+import { applicationRunOwner } from '@xiaoya/agent-platform/hosting/context';
 import { readFileSync } from 'node:fs';
 import { ToolRegistry } from '@xiaoya/agent-platform/tools';
 import { LUBAN_TOOL_NAMES } from './runtime-adapter.js';
@@ -48,14 +49,14 @@ export async function runLubanPlatformSession({
       ? productTools.execute(invocation) : service.tools.execute(invocation)
   };
   const sessionId = service.runs.resolveProductSession({
-    productId: 'luban', externalId: request.sessionId || request.requestId,
-    agentId: agent.id, owner: 'local'
+    productId: agent.applicationInstanceId, externalId: request.sessionId || request.requestId,
+    agentId: agent.id, owner: applicationRunOwner()
   });
-  const handle = service.startProductRun({
+  const handle = service.startApplicationRun(agent.applicationInstanceId, {
     agentId: agent.id, agentVersion: agent.version, sessionId, messages,
     source: request.source || 'luban-chat'
   }, {
-    owner: 'local', onEvent, tools: scopedTools,
+    owner: applicationRunOwner(), onEvent, tools: scopedTools,
     systemSuffix: buildLubanSystemPrompt(system),
     prepareToolCalls: prepareLubanToolCalls,
     ...(provider ? { providerFactory: () => provider } : {})

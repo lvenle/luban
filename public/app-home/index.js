@@ -1,3 +1,4 @@
+import { appUrl } from '../common/application-base.js';
 import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
@@ -132,6 +133,6 @@ export function goHome() {
   state.records = [];
   state.inlineEditId = null;
   setAssistantMode({ mode: 'create' });
-  window.history.pushState(null, '', '/');
+  window.history.pushState(null, '', appUrl('/'));
   loadApps();
 }

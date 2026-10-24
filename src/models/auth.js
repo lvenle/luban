@@ -1,3 +1,4 @@
+import { applicationRequestContext } from '@xiaoya/agent-platform/hosting/context';
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { getSetting, setSetting } from './session.js';
@@ -9,6 +10,8 @@ const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 const sessions = new Map();
 
 export function authSummary() {
+  const current = applicationRequestContext();
+  if (current) return { enabled: true, managed: true, username: current.identity.username };
   const auth = getAuthSetting();
   return {
     enabled: Boolean(auth.username && auth.passwordHash),
@@ -17,6 +20,8 @@ export function authSummary() {
 }
 
 export function authStatus(req) {
+  const current = applicationRequestContext();
+  if (current) return { enabled: true, managed: true, required: true, authenticated: true, username: current.identity.username };
   const summary = authSummary();
   const session = currentAuthSession(req);
   const authenticated = !summary.enabled || Boolean(session);
@@ -29,6 +34,7 @@ export function authStatus(req) {
 }
 
 export async function saveAuthCredentials(input = {}) {
+  if (applicationRequestContext()) { const error = new Error('账号由企业工作台统一管理'); error.status = 403; throw error; }
   const username = String(input.username || '').trim();
   const password = String(input.password || '');
   if (!username) throw badRequest('用户名不能为空。');

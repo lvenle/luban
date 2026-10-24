@@ -155,7 +155,7 @@ function renderResults(sourceText) {
 }
 
 export function renderAiRuleConfig(root) {
-  document.title = 'AI 配置业务规则 · 鲁班AI系统';
+  document.title = 'AI 配置业务规则 · 鲁班高级版';
   root.innerHTML = '';
   const textarea = h('textarea', { id: 'rule-prompt', rows: '4', 'aria-describedby': 'rule-input-help' });
   textarea.value = DEFAULT_RULE;
@@ -179,7 +179,7 @@ export function renderAiRuleConfig(root) {
 
   root.append(h('div', { class: 'rule-config-page' }, [
     h('header', { class: 'rule-config-topbar' }, [
-      h('a', { class: 'rule-brand', href: '/', 'aria-label': '返回鲁班首页' }, [h('img', { src: '/images/logo.png', alt: '' }), h('span', { text: '鲁班AI系统' })]),
+      h('a', { class: 'rule-brand', href: '/', 'aria-label': '返回鲁班高级版首页' }, [h('img', { src: '/images/logo.png', alt: '' }), h('span', { text: '鲁班高级版' })]),
       h('div', { class: 'rule-topbar-context' }, [h('span', { text: '业务规则' }), h('b', { text: 'AI 配置' })]),
       h('a', { class: 'rule-back-link', href: '/', text: '返回首页' })
     ]),

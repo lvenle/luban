@@ -1,3 +1,4 @@
+import { appUrl } from '../common/application-base.js';
 const STALL_TIMEOUT_MS = 60_000;
 
 export default class SSEClient {
@@ -43,7 +44,7 @@ export default class SSEClient {
     const signal = this.abortController.signal;
 
     try {
-      const response = await fetch(url, {
+      const response = await fetch(appUrl(url), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),

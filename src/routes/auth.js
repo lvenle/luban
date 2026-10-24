@@ -1,3 +1,4 @@
+import { applicationRequestContext } from '@xiaoya/agent-platform/hosting/context';
 import { authStatus, clearAuthSession, createAuthSession, verifyAuthCredentials } from '../models/auth.js';
 import { sendJson, readJson, notFound } from './_helpers.js';
 
@@ -7,6 +8,7 @@ export async function handleAuthApi(req, res, method, parts) {
     sendJson(res, 200, authStatus(req));
     return;
   }
+  if (applicationRequestContext() && method === 'POST') { sendJson(res, 403, { error: '请使用企业工作台的登录与退出入口' }); return; }
   if (method === 'POST' && action === 'login') {
     const body = await readJson(req);
     const ok = await verifyAuthCredentials(body.username, body.password);

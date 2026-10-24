@@ -1,6 +1,15 @@
+import { cpSync, existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, Notification, session, shell } from 'electron';
+
+// Separate editions while preserving the existing desktop data on first launch.
+const legacyDataPath = join(app.getPath('appData'), 'luban-ai-mvp');
+const editionDataPath = join(app.getPath('appData'), 'luban-advanced');
+if (!existsSync(editionDataPath) && existsSync(legacyDataPath)) {
+  cpSync(legacyDataPath, editionDataPath, { recursive: true });
+}
+app.setPath('userData', editionDataPath);
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -40,6 +49,7 @@ async function startDesktopApp() {
 }
 
 function configureRuntimePaths() {
+  process.env.LUBAN_EDITION = 'local';
   process.env.LUBAN_DATA_DIR = app.getPath('userData');
   process.env.LUBAN_PLATFORM_INSTANCE_DIR = join(app.getPath('userData'), 'agent-runtime');
   process.env.LUBAN_WORKSPACE_DIR = join(app.getPath('documents'), 'Luban');
@@ -94,7 +104,7 @@ function createMainWindow() {
     minHeight: 680,
     show: false,
     backgroundColor: '#f7f4ed',
-    title: '鲁班',
+    title: '鲁班高级版',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -107,7 +117,7 @@ function createMainWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if ([localOrigin, platformOrigin].some(origin => url.startsWith(`${origin}/`))) {
+    if ([localOrigin, platformOrigin].some(origin => origin && url.startsWith(`${origin}/`))) {
       return { action: 'allow', overrideBrowserWindowOptions: {
         webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
       } };
@@ -163,7 +173,7 @@ async function showStartupError(error) {
   console.error('[desktop] 启动失败：', error);
   await app.whenReady();
   await stopDesktopApp().catch(() => {});
-  dialog.showErrorBox('鲁班启动失败', error?.message || String(error));
+  dialog.showErrorBox('鲁班高级版启动失败', error?.message || String(error));
   app.exit(1);
 }
 

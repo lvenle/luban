@@ -1,3 +1,4 @@
+import { appUrl, applicationPath } from './common/application-base.js';
 import { api } from './common/api.js';
 import { toast } from './common/toast.js';
 import { closeFloatingMenus, setupModalAccessibility } from './common/modal.js';
@@ -45,19 +46,19 @@ async function boot() {
     renderLogin(root, boot);
     return;
   }
-  if (location.pathname === '/rules/ai-config' || location.pathname === '/rules/ai-config/') {
+  if (applicationPath() === '/rules/ai-config' || applicationPath() === '/rules/ai-config/') {
     state.currentApp = null;
     state.currentPageId = null;
     state.currentViewId = '';
     (await import('./rules/ai-config.js')).renderAiRuleConfig(root);
     return;
   }
-  if (location.pathname === '/rules' || location.pathname === '/rules/') {
+  if (applicationPath() === '/rules' || applicationPath() === '/rules/') {
     state.currentApp = null;
     (await import('./rules/pages.js')).renderRuleList(root);
     return;
   }
-  const ruleDetailMatch = location.pathname.match(/^\/rules\/([^/]+)\/?$/);
+  const ruleDetailMatch = applicationPath().match(/^\/rules\/([^/]+)\/?$/);
   if (ruleDetailMatch) {
     state.currentApp = null;
     (await import('./rules/pages.js')).renderRuleDetail(root, decodeURIComponent(ruleDetailMatch[1]));
@@ -76,7 +77,7 @@ async function boot() {
       await (await import('./app-runtime/index.js')).openApp(route.appId, { pageId: route.pageId, viewId: route.viewId, replace: true });
       return;
     } catch (error) {
-      history.replaceState(null, '', '/');
+      history.replaceState(null, '', appUrl('/'));
       toast(error.message);
     }
   }

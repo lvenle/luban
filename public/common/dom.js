@@ -1,3 +1,4 @@
+import { appUrl } from './application-base.js';
 export function h(tag, attrs = {}, children = []) {
   const el = document.createElement(tag);
   for (const [key, value] of Object.entries(attrs || {})) {
@@ -5,7 +6,7 @@ export function h(tag, attrs = {}, children = []) {
     else if (key === 'text') el.textContent = value;
     else if (key === 'value') el.value = value;
     else if (key.startsWith('on')) el.addEventListener(key.slice(2).toLowerCase(), value);
-    else if (value !== undefined && value !== null) el.setAttribute(key, value);
+    else if (value !== undefined && value !== null) el.setAttribute(key, ['href','src'].includes(key) ? appUrl(value) : value);
   }
   for (const child of Array.isArray(children) ? children : [children]) {
     if (child === null || child === undefined) continue;

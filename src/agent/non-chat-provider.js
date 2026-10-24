@@ -1,3 +1,4 @@
+import { applicationRunOwner } from '@xiaoya/agent-platform/hosting/context';
 import { ensurePlatformService } from './platform-service.js';
 import { configurationError } from '../core/errors.js';
 import { resolveLubanAgent } from './agent-resolver.js';
@@ -10,9 +11,9 @@ export async function completeWithLubanProvider(settings, {
   signal?.throwIfAborted();
   runtime ||= await ensurePlatformService();
   const agent = await resolveLubanAgent({ settings, store: runtime.service.store });
-  const handle = runtime.service.startProductRun({
+  const handle = runtime.service.startApplicationRun(agent.applicationInstanceId, {
     agentId: agent.id, agentVersion: agent.version, messages, source: 'luban-generation'
-  }, { toolNames: [], responseFormat, maxTokens });
+  }, { owner: applicationRunOwner(), toolNames: [], responseFormat, maxTokens });
   const abort = () => handle.cancel();
   signal?.addEventListener('abort', abort, { once: true });
   if (signal?.aborted) abort();
@@ -22,7 +23,7 @@ export async function completeWithLubanProvider(settings, {
 
 export async function requireLubanModel(settings = {}) {
   const agent = await resolveLubanAgent({ settings });
-  if (!agent.connection) throw configurationError('请先在系统设置的底座设置中配置 AI API Key 和模型连接。');
+  if (!agent.connection) throw configurationError('请先在前台助手设置中配置 AI API Key 和模型连接。');
   const status = agent.store.connectionStatus(agent.connection.id);
   if (!status.usable) throw configurationError(`模型连接不可用：${status.reason}`);
   return agent;

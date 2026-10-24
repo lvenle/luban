@@ -10,32 +10,28 @@ const LUBAN_SYSTEM_PROMPT = readFileSync(
 ).trim();
 
 /** Product prompt is seeded once; subsequent user configuration stays intact. */
-export async function resolveLubanAgent({ settings = {}, instanceDirectory, store } = {}) {
+export async function resolveLubanAgent({ settings = {}, instanceDirectory, store, applicationTools = [] } = {}) {
   if (!store) {
     store = instanceDirectory
       ? await new InstanceStore(instanceDirectory, { productId: 'luban' }).prepare()
       : (await ensurePlatformService()).service.store;
   }
-  let snapshot = store.snapshot();
-  let fallback = snapshot.agents.find(item => item.id === LUBAN_AGENT_ID);
-  if (!fallback) {
-    await store.saveAgent({
+  const applicationInstanceId = 'luban';
+  await store.ensureApplicationAssistant({
+    id: applicationInstanceId, appType: 'luban', name: '鲁班',
+    // This known product-owned ID predates application bindings. Preserve its draft and versions.
+    adoptLegacy: store.snapshot().productId === 'luban',
+    agent: {
       id: LUBAN_AGENT_ID, name: LUBAN_AGENT_NAME,
-      description: '鲁班产品的默认应用构建 Agent', system: LUBAN_SYSTEM_PROMPT,
-      tools: [...LUBAN_TOOL_PERMISSIONS], skills: [], knowledge: [],
+      description: '鲁班产品的默认应用构建助手', system: LUBAN_SYSTEM_PROMPT,
+      tools: [...LUBAN_TOOL_PERMISSIONS, ...applicationTools], skills: [], knowledge: [],
       maxTurns: 20, timeoutMs: 240000
-    }, snapshot.revision);
-    snapshot = store.snapshot();
-    fallback = snapshot.agents.find(item => item.id === LUBAN_AGENT_ID);
-    if (!snapshot.defaultAgentId || snapshot.defaultAgentId === 'assistant') {
-      await store.setDefaultAgent(LUBAN_AGENT_ID, snapshot.revision);
-      snapshot = store.snapshot();
     }
+  });
+  if (settings.agentId && settings.agentId !== LUBAN_AGENT_ID) {
+    throw Error('鲁班应用入口只能使用本应用助手，请清除旧的 Agent 选择设置');
   }
-  const selectedId = settings.agentId || snapshot.defaultAgentId || LUBAN_AGENT_ID;
-  const selected = snapshot.agents.find(item => item.id === selectedId) || fallback;
-  const version = settings.agentVersion || 'draft';
-  const agent = store.resolveAgent(selected.id, version);
+  const agent = store.getApplicationAssistant(applicationInstanceId, settings.agentVersion || 'draft');
   let connection = null;
   try { connection = store.resolveConnection(agent.connectionId); } catch { /* inspectable before configuration */ }
   return {

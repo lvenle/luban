@@ -1,7 +1,8 @@
+import { requireApplicationManager } from '@xiaoya/agent-platform/hosting/context';
 import { getSetting, setSetting } from '../models/session.js';
 import { getRuntimeSettings, runtimeSettingSchema, saveRuntimeSettings } from '../models/runtime-settings.js';
 import { authSummary, clearAuthSession, saveAuthCredentials } from '../models/auth.js';
-import { sendJson, readJson, notFound } from './_helpers.js';
+import { sendJson, readJson, notFound, badRequest } from './_helpers.js';
 import { ensurePlatformService } from '../agent/platform-service.js';
 import { resolveLubanAgent } from '../agent/agent-resolver.js';
 
@@ -9,18 +10,32 @@ export async function handleSettingsApi(req, res, method, pathname = '/api/setti
   if (pathname === '/api/settings/platform') {
     const runtime = await ensurePlatformService();
     const store = runtime.service.store;
-    await resolveLubanAgent({ store });
-    const snapshot = () => ({ ...store.snapshot(), consoleUrl: runtime.url + '/models' });
+    const assistant = await resolveLubanAgent({ store });
+    const snapshot = () => ({ ...store.snapshot(), applicationInstanceId: assistant.applicationInstanceId, applicationAssistantId: assistant.id, consoleUrl: runtime.consoleUrl || (runtime.url ? runtime.url + '/models' : null), hostMode: runtime.kind || 'enterprise' });
     if (method === 'GET') { sendJson(res, 200, snapshot()); return; }
     if (method === 'PUT') {
+      requireApplicationManager();
       const body = await readJson(req);
-      if (body.connection) await store.saveConnection(body.connection, store.snapshot().revision);
-      if (body.agent) await store.saveAgent(body.agent, store.snapshot().revision);
-      if (body.defaultAgentId) {
-        await store.setDefaultAgent(body.defaultAgentId, store.snapshot().revision);
-        const ai = getSetting('ai') || {};
-        setSetting('ai', { ...ai, agentId: body.defaultAgentId });
+      if (body.defaultAgentId && body.defaultAgentId !== assistant.id) throw badRequest('不能更换鲁班应用助手');
+      if (body.agent && body.agent.id !== assistant.id) throw badRequest('不能修改其他应用的助手');
+      if (body.revision !== store.snapshot().revision) throw badRequest('配置已变化，请重新打开助手设置');
+      // Validate all requested fields before writing either configuration.
+      const current = store.resolveAgent(assistant.id, 'draft');
+      if (body.agent) {
+        const allowed = new Set(['id', 'system', 'name', 'description', ...Object.keys(current)]);
+        if (Object.keys(body.agent).some(key => !allowed.has(key))) throw badRequest('不支持的助手设置');
       }
+      await store.saveApplicationSettings(assistant.applicationInstanceId, {
+        connection: body.connection,
+        system: body.agent?.system
+      }, body.revision);
+      // Adopt the application binding after an explicit frontend save, retaining the old choice.
+      const ai = getSetting('ai') || {};
+      setSetting('ai', {
+        ...ai,
+        ...(ai.agentId && ai.agentId !== assistant.id ? { legacyAgentSelection: { agentId: ai.agentId, agentVersion: ai.agentVersion || null } } : {}),
+        agentId: assistant.id, agentVersion: 'draft'
+      });
       sendJson(res, 200, snapshot());
       return;
     }
@@ -43,6 +58,7 @@ export async function handleSettingsApi(req, res, method, pathname = '/api/setti
     return;
   }
   if (method === 'PUT') {
+    requireApplicationManager();
     const body = await readJson(req);
     let savedAi = getSetting('ai') || {};
     let savedAuth = authSummary();

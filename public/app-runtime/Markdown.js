@@ -1,3 +1,4 @@
+import { appUrl } from '../common/application-base.js';
 export function renderMarkdown(text) {
   let html = stripLegacyMarkdownStyles(text);
   html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -18,7 +19,7 @@ export function renderMarkdown(text) {
   html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   const markdownUrl = '((?:https?:\\/\\/|\\/uploads\\/)[^\\s)"\\\']+)';
   html = html.replace(new RegExp(`!\\[([^\\]]*)\\]\\(${markdownUrl}\\)`, 'g'), (_, alt, url) =>
-    `<img src="${url}" alt="${escapeMarkdownAttribute(alt)}" loading="lazy">`
+    `<img src="${appUrl(url)}" alt="${escapeMarkdownAttribute(alt)}" loading="lazy">`
   );
   html = html.replace(new RegExp(`\\[([^\\]]+)\\]\\(${markdownUrl}\\)`, 'g'), (_, label, url) =>
     renderMarkdownLink(label, url)
@@ -45,12 +46,12 @@ const BROWSER_PREVIEW_EXTENSIONS = new Set([
 ]);
 
 function renderMarkdownLink(label, url) {
-  if (!url.startsWith('/uploads/')) return `<a href="${url}" target="_blank" rel="noreferrer">${label}</a>`;
+  if (!url.startsWith('/uploads/')) return `<a href="${appUrl(url)}" target="_blank" rel="noreferrer">${label}</a>`;
   const extension = url.split(/[?#]/)[0].split('.').pop()?.toLowerCase() || '';
   if (BROWSER_PREVIEW_EXTENSIONS.has(extension)) {
-    return `<a href="${url}" target="_blank" rel="noreferrer">${label}</a>`;
+    return `<a href="${appUrl(url)}" target="_blank" rel="noreferrer">${label}</a>`;
   }
-  return `<a href="${url}" download="${escapeMarkdownAttribute(label)}">${label}</a>`;
+  return `<a href="${appUrl(url)}" download="${escapeMarkdownAttribute(label)}">${label}</a>`;
 }
 
 export function stripLegacyMarkdownStyles(text) {
