@@ -1,3 +1,4 @@
+import { workspaceContext, appVisible, isBuilder } from '../enterprise/context.js';
 import { applicationRunOwner } from '@xiaoya/agent-platform/hosting/context';
 import { getDb } from '../storage/db.js';
 import { createId } from '../core/ids.js';
@@ -18,7 +19,7 @@ export function createAiSession({ appId = null, status = 'idle', currentPlan = n
 
 export function getAiSession(id) {
   const row = getDb().prepare('SELECT * FROM ai_sessions WHERE id = ? AND owner = ?').get(id, applicationRunOwner());
-  if (!row) return null;
+  if (!row || workspaceContext() && row.appId && !appVisible(row.appId)) return null;
   return {
     id: row.id,
     appId: row.appId,
@@ -62,7 +63,7 @@ export function listAiSessions({ appId = null, limit = 20 } = {}) {
     : database
         .prepare("SELECT * FROM ai_sessions WHERE type = 'create' AND owner = ? ORDER BY updatedAt DESC LIMIT ?")
         .all(applicationRunOwner(), limit);
-  return rows.map((row) => {
+  return rows.filter(row=>!workspaceContext() || (row.appId ? appVisible(row.appId) : isBuilder())).map((row) => {
     const message = database
       .prepare('SELECT content, role FROM ai_messages WHERE sessionId = ? AND role = ? ORDER BY createdAt ASC LIMIT 1')
       .get(row.id, 'user');

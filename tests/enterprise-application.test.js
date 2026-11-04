@@ -25,7 +25,7 @@ test('mounted enterprise Luban uses central identity, restricts management and i
  assert.equal((await fetch(suite.url+'/luban/app.js',{headers:{cookie:aliceCookie}})).status,200);
  assert.equal((await fetch(suite.url+'/luban/admin/models/basic',{headers:{cookie:aliceCookie}})).status,403);
  const saved=await fetch(suite.url+'/luban/api/settings/platform',{method:'PUT',headers:{cookie:aliceCookie,'content-type':'application/json'},body:'{}'});assert.equal(saved.status,403);
- const adminState=await(await fetch(suite.url+'/luban/api/settings/platform',{headers:{cookie:adminCookie}})).json();assert.equal(adminState.applicationAssistantId,'luban-app-builder');assert.equal(adminState.consoleUrl,'/luban/admin/models/basic');
+ const adminState=await(await fetch(suite.url+'/luban/api/builder/settings/platform',{headers:{cookie:adminCookie}})).json();assert.equal(adminState.applicationAssistantId,'luban-app-builder');assert.equal(adminState.consoleUrl,'/luban/admin/models/basic');
  const session=withApplicationIdentity(alice,'luban',()=>{const value=createAiSession();addAiMessage(value.id,'user','Alice private session');return value;});
  assert.equal((await fetch(suite.url+'/luban/api/ai/sessions/'+session.id,{headers:{cookie:aliceCookie}})).status,200);
  assert.equal((await fetch(suite.url+'/luban/api/ai/sessions/'+session.id,{headers:{cookie:bobCookie}})).status,404);

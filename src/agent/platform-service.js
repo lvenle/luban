@@ -69,7 +69,7 @@ export function ensurePlatformService(options) {
       let legacy;
       try { legacy = getSetting('ai'); } catch { /* DB may not be initialized in SDK-only hosts */ }
       try {
-        if (legacy?.apiKey && !runtime.service.store.snapshot().connections.length) {
+        if (!runtime.service.store.modelsManaged && legacy?.apiKey && !runtime.service.store.snapshot().connections.length) {
           await runtime.service.store.saveConnection({
             id: 'luban-model', name: '鲁班模型', provider: legacy.provider || 'openai-compatible',
             baseUrl: legacy.baseUrl || 'https://api.openai.com/v1', model: legacy.model || 'gpt-4.1-mini',

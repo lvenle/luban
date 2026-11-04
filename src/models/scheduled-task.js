@@ -138,9 +138,11 @@ export function runScheduledTaskNow(appId, taskId) {
 }
 
 export function runDueScheduledTasks(referenceDate = new Date()) {
+  const enterprise=getDb().prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='enterprise_projects'").get();
+  const scope=enterprise?"AND appId IN (SELECT runtimeId FROM enterprise_projects WHERE status='published' AND releaseNumber>0)":'';
   const rows = getDb().prepare(`
     SELECT * FROM scheduled_tasks
-    WHERE enabled = 1 AND nextRunAt IS NOT NULL AND nextRunAt <= ?
+    WHERE enabled = 1 AND nextRunAt IS NOT NULL AND nextRunAt <= ? ${scope}
     ORDER BY nextRunAt ASC
     LIMIT 50
   `).all(referenceDate.toISOString());

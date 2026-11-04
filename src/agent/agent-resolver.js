@@ -41,3 +41,13 @@ export async function resolveLubanAgent({ settings = {}, instanceDirectory, stor
 }
 
 export { LUBAN_AGENT_ID, LUBAN_AGENT_NAME };
+
+export async function resolveLubanBusinessAgent({store}={}) {
+  store ||= (await ensurePlatformService()).service.store;
+  await store.ensureApplicationAssistant({id:'luban-business',appType:'luban',name:'应用业务助手',agent:{
+    id:'luban-business-assistant',name:'应用业务助手',description:'使用已发布应用的业务数据和动作',
+    system:'你是企业业务助手。仅在当前用户获授权的已发布应用中查询和处理业务记录。禁止创建应用、修改表字段、页面、规则和系统配置。',
+    tools:['luban.records.query','luban.records.create','luban.records.update','luban.records.delete'],skills:[],knowledge:[],maxTurns:20,timeoutMs:240000
+  }});
+  return {...store.getApplicationAssistant('luban-business'),store};
+}

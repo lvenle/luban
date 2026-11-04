@@ -1,3 +1,4 @@
+import { enterpriseUi, canDesign } from '../common/workspace.js';
 import { h, svgIcon, svgPath, svgLine } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
@@ -29,11 +30,16 @@ export async function openApp(appId, options = {}) {
       h('span', { text: '正在打开软件…' })
     ])
   ]);
-  document.body.append(loadingOverlay);
+  const loadingTimer = setTimeout(() => document.body.append(loadingOverlay), 200);
 
-  await measureAsync('runtime.registerPageRenderers', registerPageRenderers);
-  const body = await measureAsync('runtime.fetchApp', () => api(`/api/apps/${appId}`), { meta: { appId } });
-  loadingOverlay.remove();
+  let body;
+  try {
+    await measureAsync('runtime.registerPageRenderers', registerPageRenderers);
+    body = await measureAsync('runtime.fetchApp', () => api(`/api/apps/${appId}`), { meta: { appId } });
+  } finally {
+    clearTimeout(loadingTimer);
+    loadingOverlay.remove();
+  }
 
   state.currentApp = body.app;
   state.currentPageId = options.pageId && body.app.ui.pages.some((p) => p.id === options.pageId) ? options.pageId : body.app.ui.pages[0]?.id;
@@ -123,8 +129,8 @@ export function renderRuntime() {
         root.append(h('div', { class: 'shell desktop-runtime-shell' }, [
           topbar(),
           h('main', { class: `runtime ${state.sidebarCollapsed ? 'sidebar-collapsed' : ''}`, style: `--sidebar-width:${state.sidebarWidth}px;--sidebar-collapsed-width:${state.sidebarCollapsedWidth}px` }, [
-            h('aside', { class: 'sidebar' }, renderSidebarContent(app, page)),
-            h('div', { class: 'sidebar-resizer', title: state.sidebarCollapsed ? '拖动调整折叠列表宽度，双击展开' : '拖动调整页面列表宽度，双击折叠', onpointerdown: startSidebarResize, ondblclick: toggleSidebarCollapsed }),
+            ...((enterpriseUi() && !canDesign()) ? [] : [h('aside', { class: 'sidebar' }, renderSidebarContent(app, page)),
+            h('div', { class: 'sidebar-resizer', title: state.sidebarCollapsed ? '拖动调整折叠列表宽度，双击展开' : '拖动调整页面列表宽度，双击折叠', onpointerdown: startSidebarResize, ondblclick: toggleSidebarCollapsed })]),
             h('section', { class: 'workspace' }, [renderPage(page)])
           ])
         ]));
@@ -142,6 +148,7 @@ export function renderRuntime() {
     } else {
       removeAssistantDrawer();
     }
+    document.dispatchEvent(new CustomEvent('luban-runtime-rendered'));
     // Preserve workspace height to reduce re-render flicker
     if (savedWorkspaceHeight > 0) {
       const ws = root.querySelector('.workspace');
@@ -247,6 +254,7 @@ export function packageFromCurrentApp() {
 }
 
 export async function saveCurrentPackage(mutator) {
+  if(!canDesign()) {toast('请在构建后台修改应用');return;}
   const pkg = packageFromCurrentApp();
   mutator(pkg);
   const body = await api(`/api/apps/${state.currentApp.id}/package`, { method: 'PUT', body: JSON.stringify({ package: pkg, expectedUpdatedAt: state.currentApp.updatedAt }) });

@@ -1,3 +1,5 @@
+import { withWorkspace, canBuild } from './enterprise/context.js';
+import { enterpriseHttp } from './enterprise/http.js';
 import { normalizeWebBase, documentWithBase } from '@xiaoya/agent-platform/hosting/web-base';
 import { renderWorkbenchNavigation } from '@xiaoya/agent-platform/hosting/navigation';
 import { requireApplicationManager } from '@xiaoya/agent-platform/hosting/context';
@@ -101,18 +103,22 @@ function logRequest(method, pathname, status, duration, userAgent) {
   console.log(JSON.stringify(entry));
 }
 
-export function createAppServer({ publicBasePath = '/', workbenchNavigation = null, adminRuntime = null } = {}) {
+export function createAppServer({ publicBasePath = '/', workbenchNavigation = null, adminRuntime = null, enterprise = false } = {}) {
   normalizeWebBase(publicBasePath);
   const renderHtml = html => {
     html = html.replace(/(src|href)="\/(?!\/)/g, (_, attribute) => `${attribute}="${publicBasePath}`);
     html = documentWithBase(html, publicBasePath);
+    if(enterprise) html=html.replace('</head>',`<meta name="luban-enterprise" content="true"><link rel="stylesheet" href="${publicBasePath}builder/workspace.css"></head>`);
     if (workbenchNavigation) {
       const css = readFileSync(fileURLToPath(import.meta.resolve('@xiaoya/agent-platform/ui/workbench-navigation.css')), 'utf8');
       html = html.replace('</head>', `<style>${css}</style></head>`).replace(/<body>/, '<body>' + renderWorkbenchNavigation({ ...workbenchNavigation, active: 'luban' }));
     }
     return html;
   };
-  return createServer(async (req, res) => {
+  return createServer((req, res) => {
+    const pathname=new URL(req.url,'http://local').pathname;
+    const builder = pathname.startsWith('/api/builder/') || /^\/builder(?:\/(?:app\/[^/]+(?:\/page\/[^/]+)?|settings(?:\/(?:assistant|system))?))?\/?$/.test(pathname);
+    return (enterprise ? callback => withWorkspace({mode:builder?'builder':'runtime',creationAuthorized:req.method==='POST' && ['/api/builder/apps/import','/api/builder/samples/import'].includes(pathname)},callback) : callback => callback())(async () => {
     const start = Date.now();
     let status = 200;
     let logged = false;
@@ -124,11 +130,17 @@ export function createAppServer({ publicBasePath = '/', workbenchNavigation = nu
     };
 
     try {
+      if (enterprise && builder) {
+        if (!canBuild()) throw new HttpError(403,'没有构建后台访问权限');
+        if(req.url.startsWith('/api/builder/')) req.url=req.url.replace('/api/builder/','/api/');
+      }
       const url = new URL(req.url, `http://${req.headers.host}`);
+      if(enterprise && await enterpriseHttp(req,res,url)) return;
 
       if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) {
         if (!adminRuntime) throw new HttpError(404, '后台未启用');
         requireApplicationManager();
+        if(adminRuntime.service.store.modelsManaged){res.writeHead(302,{location:'/platform/models/basic'});res.end();return;}
         if (url.pathname === '/admin') { res.writeHead(308, { location: publicBasePath + 'admin/' }); res.end(); return; }
         req.url = url.pathname.slice('/admin'.length) + url.search;
         adminRuntime.server.emit('request', req, res); return;
@@ -188,6 +200,7 @@ export function createAppServer({ publicBasePath = '/', workbenchNavigation = nu
       if (res.statusCode && res.statusCode !== 200) status = res.statusCode;
       logLater();
     }
+    });
   });
 }
 

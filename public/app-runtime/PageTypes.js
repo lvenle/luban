@@ -1,3 +1,4 @@
+import { canDesign } from '../common/workspace.js';
 import { h } from '../common/dom.js';
 import { clamp } from '../common/storage.js';
 import { state, entityFor, entityById, entityDisplayName, recordsFor, formatFieldValue, dateKey } from '../app-context.js';
@@ -111,6 +112,7 @@ export function renderPageCard(page, card, index) {
   // Free-position drag via pointer events (listeners added only during drag)
   let dragState = null;
   cardEl.addEventListener('pointerdown', (event) => {
+    if(!canDesign()) return;
     if (event.target.closest('.page-card-close, .page-card-resize')) return;
     event.preventDefault();
     const origLeft = parseInt(cardEl.style.left, 10) || 0;

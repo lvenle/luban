@@ -1,3 +1,4 @@
+import { canDesign } from '../common/workspace.js';
 import { appUrl, applicationPath } from '../common/application-base.js';
 import { h } from '../common/dom.js';
 import { toast } from '../common/toast.js';
@@ -361,7 +362,7 @@ export function renderHtmlPage(page) {
         status
       ]),
       h('div', { class: 'markdown-file-mode-switch markdown-mode-switch html-file-controls', role: 'group', 'aria-label': '网页显示模式' }, [
-        editButton,
+        canDesign()?editButton:null,
         previewButton,
         openWindowButton,
         fullscreenButton,

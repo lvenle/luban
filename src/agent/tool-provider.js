@@ -1,3 +1,4 @@
+import { requireTool, isBuilder } from '../enterprise/context.js';
 import { LUBAN_TOOL_NAMES } from './runtime-adapter.js';
 import { getTools } from '../ai/registry.js';
 
@@ -32,7 +33,7 @@ export class LubanToolProvider {
         source: 'business',
         provider: 'luban',
         label: tool.schema?.function?.description || tool.description,
-        description: tool.description,
+        description: isBuilder()&&tool.name==='create_app'?'根据需求提出应用名称、数据表和字段建议，等待用户在界面确认；不会直接创建应用。':tool.description,
         inputSchema: structuredClone(tool.schema?.function?.parameters || { type: 'object', properties: {} }),
         risk: platformRisk(tool.risk),
         idempotent: false,
@@ -41,6 +42,7 @@ export class LubanToolProvider {
           if (this.requireContext) throw new Error('鲁班业务工具只能在鲁班会话中执行');
           const args = { ...input };
           if (this.appId) args.appId = this.appId;
+          requireTool(tool.name, args);
           if (this.pageId && !args.pageId) args.pageId = this.pageId;
           if (tool.risk === 'high') {
             const allowed = await this.requestApproval({ callId, name, input: args, signal });
@@ -48,6 +50,7 @@ export class LubanToolProvider {
           }
           this.onExecution({ callId, name, legacyName: tool.name, status: 'running', input: args });
           try {
+            requireTool(tool.name, args);
             const output = await tool.handler(args, { signal, callId });
             this.onExecution({ callId, name, legacyName: tool.name, status: 'success', output });
             return output;

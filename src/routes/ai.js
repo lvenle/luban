@@ -10,7 +10,8 @@ discoverTools();
 export { buildToolDisplayInfo, mergeBatchableToolCalls } from '../services/ai/tool-display.js';
 
 export async function handleAiApi(req, res, method, parts, url) {
-  if (handleSessionsApi(res, method, parts, url)) return;
+  if(method==='POST'&&parts[2]==='chat'&&parts[3]==='stop'){await handlePlatformChat(req,res,method,['api','ai','platform-chat','stop']);return;}
+  if (await handleSessionsApi(res, method, parts, url)) return;
   if (await handleGenerateOptions(req, res, method, parts)) return;
   if (await handlePlatformChat(req, res, method, parts)) return;
   if (await handleChat(req, res, method, parts)) return;

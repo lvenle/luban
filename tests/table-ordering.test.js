@@ -47,7 +47,8 @@ test('column drag and freeze interactions are wired to the table header and view
   const dataTable = readFileSync(new URL('../public/app-runtime/DataTable.js', import.meta.url), 'utf8');
   const cellSelection = readFileSync(new URL('../public/app-runtime/CellSelection.js', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
-  assert.match(header, /draggable: 'true'/);
+  assert.match(header, /draggable: canDesign\(\)\?'true':'false'/);
+  assert.match(header, /if\(canDesign\(\)\) bindHeaderColumnDrag/);
   assert.match(header, /冻结到此列/);
   assert.match(header, /frozenFieldId/);
   assert.match(viewBar, /bindViewTabDrag/);

@@ -1,3 +1,5 @@
+import { enterpriseUi, builderUi } from '../common/workspace.js';
+import { renderEnterpriseHome } from '../builder/workspace.js';
 import { appUrl } from '../common/application-base.js';
 import { h } from '../common/dom.js';
 import { api } from '../common/api.js';
@@ -12,6 +14,7 @@ import { configureHomeActions } from './home-actions.js';
 configureHomeActions({ loadApps, openApp: (appId) => import('../app-runtime/index.js').then((runtime) => runtime.openApp(appId)) });
 
 export function renderHome() {
+  if(enterpriseUi()) return renderEnterpriseHome();
   setAssistantMode({ mode: 'create' });
   root.innerHTML = '';
   const brand = getBrandSettings();
@@ -133,6 +136,6 @@ export function goHome() {
   state.records = [];
   state.inlineEditId = null;
   setAssistantMode({ mode: 'create' });
-  window.history.pushState(null, '', appUrl('/'));
+  window.history.pushState(null, '', appUrl(builderUi()?'/builder/':'/'));
   loadApps();
 }

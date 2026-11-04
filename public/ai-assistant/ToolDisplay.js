@@ -46,6 +46,7 @@ export default class ToolDisplay {
     if (business && data.display?.detail) business.textContent = data.display.detail;
     const name = header.querySelector('.tool-card-name');
     if (name && data.display?.title) name.textContent = data.display.title;
+    if(data.output?.requiresConfirmation && name) {name.textContent='应用创建建议（待确认）';if(spinner)spinner.textContent='待确认';}
     existing.card.classList.remove('tool-pending');
     existing.card.classList.add(`tool-${data.status}`);
     if (data.status === 'error') appendToolError(existing.card, data.output);
@@ -74,7 +75,7 @@ export default class ToolDisplay {
     const card = h('div', { class: `tool-card tool-${status} tool-done tool-history` }, [
       h('div', { class: 'tool-card-header' }, [
         h('span', { class: 'tool-card-icon', text: '🔧' }),
-        h('span', { class: 'tool-card-name', text: titles[log.toolName] || log.toolName }),
+        h('span', { class: 'tool-card-name', text: log.output?.requiresConfirmation?'应用创建建议（待确认）':titles[log.toolName] || log.toolName }),
         h('span', { class: 'tool-card-business', text: detail }),
         h('span', { class: 'tool-card-spinner', text: statusIcon })
       ])
@@ -295,6 +296,7 @@ export function historyBusinessDetail(log = {}) {
  * This shows users exactly what was created/modified/deleted by each tool.
  */
 function appendOperationDetails(card, output, input, toolName) {
+  if(output?.requiresConfirmation) {card.append(h('div',{class:'tool-card-operation-list'},[h('p',{text:'建议已生成，尚未创建应用。请确认名称、数据表和字段。'}),h('button',{class:'primary',text:'查看并确认方案',onclick:()=>document.dispatchEvent(new CustomEvent('luban-creation-proposal',{detail:output}))})]));return;}
   if (!output || !toolName) return;
 
   if (['create_rule', 'update_rule'].includes(toolName) && output.success) {

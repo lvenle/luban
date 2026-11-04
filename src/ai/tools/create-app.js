@@ -1,3 +1,5 @@
+import { isBuilder } from '../../enterprise/context.js';
+import { suggestCreationPlan } from '../../enterprise/plans.js';
 import { register } from '../registry.js';
 import { generatePackageFromPrompt } from '../service.js';
 import { createAppFromPackage } from '../../models/app.js';
@@ -22,6 +24,7 @@ register({
     }
   },
   handler: async (args) => {
+    if(isBuilder()) return suggestCreationPlan({prompt:args.description});
     const settings = getSetting('ai') || {};
     let pkg;
     try {

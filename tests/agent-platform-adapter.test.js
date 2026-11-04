@@ -213,3 +213,18 @@ test('local edition disallows custom assistants while enterprise edition allows 
     } finally { await runtime.close(); await rm(directory, { recursive: true, force: true }); }
   }
 });
+
+test('Luban explicit continuation reuses confirmed writes and keeps the product session bound',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'luban-continue-'));let writes=0,turn=0;
+ const runtime=await createLubanPlatformService({edition:'local',directory,workspaceRoot:directory,tools:[]});
+ t.after(async()=>{await runtime.close();await rm(directory,{recursive:true,force:true})});
+ const store=runtime.service.store;await store.saveConnection({id:'test',provider:'openai-compatible',model:'test',apiKey:'test-key'},store.snapshot().revision);
+ await resolveLubanAgent({store});const agent=store.snapshot().agents.find(item=>item.id==='luban-app-builder');await store.saveAgent({...agent,...agent.draft,tools:[LUBAN_TOOL_NAMES.add_field]},store.snapshot().revision);
+ const tools=[legacyTool({name:'add_field',risk:'medium',handler:async()=>{writes++;return {fieldId:'saved-field'}}})];
+ const provider={async *stream(){turn++;if(turn===1||turn===3){yield {type:'tool_call_delta',index:0,id:'write-'+turn,name:LUBAN_TOOL_NAMES.add_field,arguments_delta:JSON.stringify({appId:'app-current',value:'field'})};return}if(turn===2)throw Error('after write failure');yield {type:'text_delta',delta:'继续完成'}}};
+ const request={sessionId:'product-session',requestId:'request',appId:'app-current',source:'luban-chat'};
+ const run=()=>runLubanPlatformSession({request,settings:{},messages:[{role:'user',content:'添加字段'}],system:'test',tools,provider,runtime,requestApproval:async()=>true});
+ await assert.rejects(run(),/after write failure/);const original=runtime.service.runs.history('local')[0];
+ request.continue=true;const result=await run();assert.equal(result.output,'继续完成');assert.equal(writes,1);
+ assert.equal(runtime.service.runs.getRun(result.runId).parentRunId,original.runId);
+});

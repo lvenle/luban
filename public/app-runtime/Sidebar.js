@@ -1,3 +1,4 @@
+import { canDesign, enterpriseUi, builderUi, switchWorkspace } from '../common/workspace.js';
 import { h, svgIcon, svgPath, svgLine, buttonLabel } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
@@ -118,14 +119,14 @@ export function renderMobileSidebar(app, page) {
   return [
     drawerHead,
     pageList,
-    h('div', { class: 'mobile-drawer-actions' }, [
+    canDesign()?h('div', { class: 'mobile-drawer-actions' }, [
       h('button', { class: 'secondary', text: '+ 新建表格', onclick: () => { state.mobileDrawerOpen = false; openCreateTableModal(); } }),
       h('button', { class: 'secondary', text: '+ 新建视图', onclick: () => { state.mobileDrawerOpen = false; openCreatePageModal(page); } }),
       h('button', { class: 'secondary', text: '+ 新建文档', onclick: () => { state.mobileDrawerOpen = false; openAddMarkdownFile(); } }),
       h('button', { class: 'secondary', text: '+ 新建看板', onclick: () => { state.mobileDrawerOpen = false; openCreateDashboardModal(); } }),
       h('button', { class: 'secondary', text: '+ 新建网页', onclick: () => { state.mobileDrawerOpen = false; openAddHtmlPage(); } }),
       h('button', { class: 'secondary', text: '+ 新建外链', onclick: () => { state.mobileDrawerOpen = false; openCreateLinkModal(); } })
-    ])
+    ]):null
   ];
 }
 
@@ -197,9 +198,9 @@ export function renderSidebarContent(app, page) {
     text,
     onclick: (event) => openSidebarCreateMenu(event, page)
   });
-  const createMenu = createTrigger('sidebar-create-trigger', '+', '打开新建菜单');
+  const createMenu = canDesign()?createTrigger('sidebar-create-trigger', '+', '打开新建菜单'):null;
   const footer = h('div', { class: 'sidebar-footer' }, [
-    createTrigger('sidebar-footer-create', '+ 新建', '打开新建菜单')
+    canDesign()?createTrigger('sidebar-footer-create', '+ 新建', '打开新建菜单'):null
   ]);
   if (state.sidebarCollapsed) {
     return [
@@ -280,7 +281,7 @@ export function renderPageNavItem(app, activePage, item) {
   });
   row = h('div', {
     class: `page-nav-item ${item.id === activePage?.id ? 'active' : ''}`,
-    draggable: 'true',
+    draggable: canDesign()?'true':'false',
     ondragstart: (event) => {
       state.pageDragId = item.id;
       row.classList.add('is-dragging');

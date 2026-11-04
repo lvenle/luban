@@ -1,3 +1,4 @@
+import { enterpriseUi, builderUi } from '../common/workspace.js';
 import { appUrl } from '../common/application-base.js';
 import h from './dom.js';
 import SSEClient from './SSEClient.js';
@@ -41,7 +42,7 @@ async function loadSessions({ selectLatestModify = false, forceLatest = false } 
 export function init() {
   refreshAiChatEndpoint();
   chatView = new ChatView({
-    onSend: handleSend,
+    onSend: handleSend,onStop:handleStop,onContinue:()=>handleSend('继续处理',{continue:true}),
     mode: currentMode
   });
 
@@ -73,6 +74,7 @@ export function init() {
           toast('会话记录不存在');
           return;
         }
+        chatView.setCanContinue(['run_cancelled','run_failed','interrupted'].includes(body.session.runtime?.status));
         currentSessionId = sessionId;
         sessionManager.setCurrent(sessionId);
         chatView.clear();
@@ -158,6 +160,7 @@ function registerSSEHandlers() {
       currentSessionId = data.sessionId;
       sessionManager.setCurrent(data.sessionId);
     })
+    .on('run_status',data=>{if(data.status==='stopping')chatView.setStopping();})
     .on('content_delta', (data) => {
       streamRenderer.appendToken(data.content);
     })
@@ -167,6 +170,7 @@ function registerSSEHandlers() {
       if (card) chatView.addElement(card);
     })
     .on('tool_result', (data) => {
+      if(data.output?.requiresConfirmation && enterpriseUi() && builderUi())document.dispatchEvent(new CustomEvent('luban-creation-proposal',{detail:data.output}));
       const card = toolDisplay.showToolResult(data);
       if (card && !card.isConnected) chatView.addElement(card);
     })
@@ -190,7 +194,7 @@ function registerSSEHandlers() {
     })
     .on('error', (data) => {
       streamRenderer.finishMessage(`错误: ${data.message}`);
-      chatView.setStreaming(false);
+      chatView.setStreaming(false);chatView.setCanContinue(true);
     })
     .on('stream_end', () => {
       if (chatView.streaming) {
@@ -201,6 +205,8 @@ function registerSSEHandlers() {
 }
 
 function startNewSession() {
+  if(chatView?.streaming)return toast('请先停止当前运行');
+  chatView.setCanContinue(false);
   currentSessionId = '';
   sessionManager.setCurrent('');
   chatView.clear();
@@ -219,6 +225,7 @@ export function setAssistantMode({ mode = 'create', appId = '', appName = '', co
   const nextMode = mode === 'modify' && appId ? 'modify' : 'create';
   const nextAppId = nextMode === 'modify' ? appId : '';
   const scopeChanged = nextMode !== currentMode || nextAppId !== currentAppId;
+  if(scopeChanged&&chatView?.streaming){toast('请先停止当前运行');return;}
   currentMode = nextMode;
   currentAppId = nextAppId;
   currentAppName = nextMode === 'modify' ? appName : '';
@@ -235,7 +242,8 @@ export function setAssistantMode({ mode = 'create', appId = '', appName = '', co
   updateAssistantModeLabels();
 }
 
-async function handleSend(text) {
+async function handleStop(){if(!currentSessionId)return;chatView.setStopping();try{const response=await fetch(appUrl('/api/ai/chat/stop'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sessionId:currentSessionId})});if(!response.ok)throw Error('停止请求失败')}catch(error){toast(error.message)}}
+async function handleSend(text,options={}) {
   if (!text.trim()) return;
   chatView.setStreaming(true);
   chatView.addMessage('user', text);
@@ -244,6 +252,7 @@ async function handleSend(text) {
     streamRenderer.startNewMessage();
     await refreshAiChatEndpoint();
     await sseClient.connect(chatEndpoint, {
+      continue:options.continue===true,
       appId: currentAppId,
       sessionId: currentSessionId || undefined,
       message: text,
@@ -311,9 +320,9 @@ export function removeAssistantDrawer() {
 }
 
 function updateAssistantModeLabels() {
-  const title = currentMode === 'modify' ? '软件修改助理' : '应用创建助理';
+  const title = enterpriseUi()&&!builderUi()?'业务助手':currentMode === 'modify' ? '软件修改助理' : '应用创建助理';
   const tip = currentMode === 'modify'
-    ? `正在修改${currentAppName ? `：${currentAppName}` : '当前软件'}`
+    ? `${enterpriseUi()&&!builderUi()?'正在使用':'正在修改'}${currentAppName ? `：${currentAppName}` : '当前软件'}`
     : '描述你的需求，创建新的业务软件';
   const titleElement = document.querySelector('.assistant-mode-title');
   const tipElement = document.querySelector('.assistant-mode-tip');

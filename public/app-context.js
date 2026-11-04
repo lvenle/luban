@@ -1,3 +1,4 @@
+import { enterpriseUi, builderUi, canDesign, switchWorkspace, openSettingsPage } from './common/workspace.js';
 import { appUrl, applicationPath } from './common/application-base.js';
 import { h, uiIcon, buttonLabel, svgIcon, svgPath, svgLine } from './common/dom.js';
 import { api } from './common/api.js';
@@ -20,6 +21,7 @@ export const state = {
   sidebarCollapsed: false, sidebarWidth: initialRuntimeSettings.sidebarWidth, sidebarCollapsedWidth: initialRuntimeSettings.sidebarCollapsedWidth, recordPagination: {}, loadingRecordPages: {},
   isMobile: window.innerWidth < 768, mobileDrawerOpen: false,
   runtimeSettings: initialRuntimeSettings, activeRecordLoadToken: '',
+  workspace: null,
   auth: { required: false, authenticated: true, username: '' }
 };
 
@@ -74,7 +76,7 @@ export function uniquePageId(title, entityId = 'page') {
 
 export function currentRoute() {
   const params = new URLSearchParams(location.search);
-  const parts = applicationPath().split('/').filter(Boolean);
+  const parts = applicationPath().replace(/^\/builder(?=\/|$)/,'').split('/').filter(Boolean);
   let appId = '', pageId = '';
   if (parts[0] === 'app' && parts[1]) { appId = parts[1]; if (parts[2] === 'page' && parts[3]) pageId = parts[3]; }
   return { appId: appId || params.get('app') || '', pageId: pageId || params.get('page') || '', viewId: params.get('view') || '' };
@@ -82,11 +84,12 @@ export function currentRoute() {
 
 export function writeRoute(appId, pageId, replace = false, viewId = state.currentViewId) {
   const params = viewId ? `?view=${encodeURIComponent(viewId)}` : '';
-  const next = `${appId ? `/app/${appId}${pageId ? `/page/${pageId}` : ''}` : '/'}${params}`;
+  const next = `${builderUi()?'/builder':''}${appId ? `/app/${appId}${pageId ? `/page/${pageId}` : ''}` : '/'}${params}`;
   if (replace) history.replaceState(null, '', appUrl(next)); else history.pushState(null, '', appUrl(next));
 }
 
 export function topbar() {
+  if(enterpriseUi()) return enterpriseContextBar();
   const inRuntime = Boolean(state.currentApp);
   const brand = getBrandSettings();
   return h('header', { class: `topbar ${state.isMobile ? 'mobile-topbar' : ''}` }, [
@@ -119,7 +122,7 @@ export function topbar() {
       }, [
         h('img', { class: 'brand-logo', src: '/images/logo.png', alt: brand.systemName }),
         h('div', { class: 'brand-title-group' }, [
-          editableBrandText(h, {
+          enterpriseUi()?h('span',{class:'brand-system-name',text:'应用中心'}):editableBrandText(h, {
             value: brand.systemName,
             className: 'brand-system-name',
             title: '双击编辑系统名称',
@@ -135,11 +138,11 @@ export function topbar() {
       inRuntime ? renderTopbarAppInfo(state.currentApp) : null
     ]),
     h('div', { class: 'top-actions' }, [
-      h('button', {
+      enterpriseUi() && !inRuntime && !builderUi() ? null : h('button', {
         class: `secondary icon-label-button assistant-topbar-button ${state.assistantOpen ? 'active' : ''}`,
         onclick: () => { state.assistantOpen = !state.assistantOpen; if (state.currentApp) shellActions.renderRuntime(); else shellActions.renderHome(); }
-      }, buttonLabel('assistant', '鲁班助手')),
-      inRuntime
+      }, buttonLabel('assistant', enterpriseUi()?(builderUi()?'构建助手':'业务助手'):'鲁班助手')),
+      inRuntime && canDesign() && !enterpriseUi()
         ? h('button', {
             class: 'secondary icon-label-button scheduled-tasks-button',
             title: '定时任务',
@@ -149,12 +152,34 @@ export function topbar() {
             }
           }, buttonLabel('schedule', '定时任务'))
         : null,
-      h('button', { class: 'secondary icon-label-button assistant-settings-button', title: '助手设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal('', 'platform')) }, buttonLabel('settings', '助手设置')),
-      inRuntime
+      !enterpriseUi() ? h('button', { class: 'secondary icon-label-button assistant-settings-button', title: '助手设置', onclick: () => openSettingsPage('assistant') }, buttonLabel('settings', '助手设置')) : null,
+      !enterpriseUi() ? (inRuntime
         ? h('button', { class: 'secondary icon-label-button app-settings-button', title: '应用设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal(state.currentApp.id, 'rules')) }, buttonLabel('settings', '应用设置'))
-        : h('button', { class: 'secondary icon-label-button system-settings-button', title: '系统设置', onclick: () => import('./app-runtime/SettingsModal.js').then(m => m.openSettingsModal()) }, buttonLabel('settings', '系统设置')),
-      inRuntime ? renderReminderBell(state.currentApp) : null,
-      state.auth?.authenticated && state.auth?.username ? renderUserMenu() : null
+        : h('button', { class: 'secondary icon-label-button system-settings-button', title: '系统设置', onclick: () => openSettingsPage('system') }, buttonLabel('settings', '系统设置'))) : null,
+      enterpriseUi() && !builderUi() && state.workspace?.canBuild ? h('button',{class:'secondary',text:'构建后台',onclick:()=>switchWorkspace(true)}) : null,
+      inRuntime && !enterpriseUi() ? renderReminderBell(state.currentApp) : null,
+      !enterpriseUi() && state.auth?.authenticated && state.auth?.username ? renderUserMenu() : null
+    ])
+  ]);
+}
+
+
+function enterpriseContextBar() {
+  const app=state.currentApp;
+  if(!app)return null;
+  const builder=builderUi();
+  const toggleAssistant=()=>{state.assistantOpen=!state.assistantOpen;shellActions.renderRuntime();};
+  return h('div',{class:'enterprise-context-bar'},[
+    h('nav',{class:'enterprise-breadcrumb','aria-label':'当前位置'},[
+      state.isMobile&&builder?h('button',{class:'hamburger ghost',title:'页面列表',text:'☰',onclick:toggleMobileDrawer}):null,
+      h('button',{class:'enterprise-back-link',text:builder?'应用管理':'业务应用',onclick:()=>shellActions.goHome()}),
+      h('span',{class:'enterprise-breadcrumb-separator','aria-hidden':'true',text:'/'}),
+      h('strong',{class:'enterprise-current-title',text:app.name}),
+      builder?h('span',{class:'enterprise-draft-badge',text:'草稿预览',title:'测试数据与正式业务数据隔离'}):null
+    ]),
+    h('div',{class:'enterprise-context-actions'},[
+      h('button',{class:`secondary assistant-topbar-button ${state.assistantOpen?'active':''}`,text:builder?'构建助手':'业务助手',onclick:toggleAssistant}),
+      null
     ])
   ]);
 }
@@ -418,6 +443,7 @@ async function acknowledgeScheduledReminder(appId, reminderId) {
 }
 
 function renderTopbarAppInfo(app) {
+  if(enterpriseUi()&&!builderUi())return h('div',{class:'topbar-app-info'},[h('strong',{text:app.name})]);
   return h('div', { class: 'topbar-app-info' }, [
     h('div', { class: 'topbar-app-heading' }, [
       inlineEditableText({ className: 'topbar-app-name', value: app.name, title: '双击编辑软件名称', onSave: (v) => saveAppMetadata(v, appCategory(app)) }),

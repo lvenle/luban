@@ -1,3 +1,4 @@
+import { appVisible, requireBuilder, registerDraft, workspaceContext, projectFor } from '../enterprise/context.js';
 import { getDb, rowToApp, withTransaction, triggerBackup } from '../storage/db.js';
 import { preparePackage } from '../core/packageProtocol.js';
 import { createId, slugify } from '../core/ids.js';
@@ -23,6 +24,8 @@ export function uniqueSlug(baseSlug) {
 }
 
 export function createAppFromPackage(pkg, options = {}) {
+  requireBuilder();
+  if(workspaceContext()?.mode==='builder'&&!workspaceContext().creationAuthorized) {const error=new Error('请先确认应用名称、数据表和字段，再创建应用草稿');error.status=409;throw error;}
   const database = getDb();
   const clean = preparePackage(pkg);
   const id = createId('app');
@@ -52,11 +55,13 @@ export function createAppFromPackage(pkg, options = {}) {
     createdAt,
     createdAt
   );
+  registerDraft(id);
   triggerBackup();
   return getApp(id);
 }
 
 export function updateAppPackage(appId, pkg, options = {}) {
+  requireBuilder();
   const database = getDb();
   const existing = getApp(appId);
   if (!existing) throw notFound('找不到应用。');
@@ -119,6 +124,7 @@ function validateFormulaDependencyChanges(existing, nextPackage) {
 }
 
 export function updateAppMetadata(appId, metadata = {}) {
+  requireBuilder();
   const app = getApp(appId);
   if (!app) return null;
   const pkg = { manifest: app.manifest, schema: app.schema, ui: app.ui, actions: app.actions, prompts: app.prompts || {} };
@@ -139,8 +145,15 @@ export function updateAppMetadata(appId, metadata = {}) {
       throw error;
     }
     const updatedAt = hasPackageChanges ? nextApp.updatedAt : nextTimestamp(app.updatedAt);
-    getDb().prepare('UPDATE apps SET enabled = ?, updatedAt = ? WHERE id = ?')
-      .run(metadata.enabled ? 1 : 0, updatedAt, appId);
+    const enabled = metadata.enabled ? 1 : 0;
+    const database = getDb();
+    const project = workspaceContext()?.mode === 'builder' ? projectFor(appId) : null;
+    withTransaction(() => {
+      database.prepare('UPDATE apps SET enabled = ?, updatedAt = ? WHERE id = ?').run(enabled, updatedAt, appId);
+      if (project?.draftId === appId && project.runtimeId && project.runtimeId !== appId) {
+        database.prepare('UPDATE apps SET enabled = ?, updatedAt = ? WHERE id = ?').run(enabled, updatedAt, project.runtimeId);
+      }
+    });
     triggerBackup();
     nextApp = getApp(appId);
   }
@@ -151,10 +164,18 @@ export function listApps() {
   return getDb()
     .prepare('SELECT * FROM apps ORDER BY enabled DESC, sortOrder ASC, updatedAt DESC')
     .all()
-    .map(rowToApp);
+    .map(rowToApp).filter(app => {
+      if (workspaceContext()?.mode === 'runtime' && app.enabled === false) return false;
+      return appVisible(app.id);
+    }).map(app => {
+      if (!workspaceContext()) return app;
+      const project = projectFor(app.id);
+      return project ? { ...app, publicationStatus: project.status === 'published' ? 'published' : project.releaseNumber ? 'unpublished' : 'draft', releaseNumber: project.releaseNumber } : app;
+    });
 }
 
 export function moveApp(appId, targetId, position = 'before') {
+  requireBuilder();
   const database = getDb();
   const source = getApp(appId);
   const target = getApp(targetId);
@@ -165,7 +186,7 @@ export function moveApp(appId, targetId, position = 'before') {
     throw error;
   }
   const apps = database.prepare('SELECT id FROM apps WHERE enabled = ? ORDER BY sortOrder ASC, updatedAt DESC')
-    .all(source.enabled ? 1 : 0);
+    .all(source.enabled ? 1 : 0).filter(app=>appVisible(app.id));
   const ids = apps.map((item) => item.id).filter((id) => id !== appId);
   let targetIndex = ids.indexOf(targetId);
   if (targetIndex < 0) throw notFound('找不到目标应用。');
@@ -180,9 +201,15 @@ export function moveApp(appId, targetId, position = 'before') {
 }
 
 export function getApp(id) {
-  return rowToApp(getDb().prepare('SELECT * FROM apps WHERE id = ?').get(id));
+  if (!appVisible(id)) return null;
+  const app=rowToApp(getDb().prepare('SELECT * FROM apps WHERE id = ?').get(id));
+  if(app && workspaceContext()?.mode==='runtime') app.releaseNumber=projectFor(id)?.releaseNumber;
+  return app;
 }
 
 export function deleteApp(id) {
+  requireBuilder();
+  if (!appVisible(id)) throw notFound('找不到应用。');
+  if(workspaceContext() && projectFor(id)?.runtimeId) {const error=new Error('已有正式业务数据的应用请使用下架，不能直接删除');error.status=409;throw error;}
   return getDb().prepare('DELETE FROM apps WHERE id = ?').run(id).changes > 0;
 }

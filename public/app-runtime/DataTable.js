@@ -1,3 +1,4 @@
+import { canDesign } from '../common/workspace.js';
 import { h, buttonLabel } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
@@ -318,10 +319,10 @@ function renderListPageContent(page) {
           h('button', { class: `secondary icon-label-button${(listConfig.sorts || []).length ? ' active' : ''}`, onclick: () => openSortModal(entity) }, buttonLabel('sort', '排序')),
           h('button', { class: `secondary icon-label-button${listConfig.group?.field ? ' active' : ''}`, onclick: () => openGroupModal(entity) }, buttonLabel('group', '分组'))
         ]),
-        h('div', { class: 'toolbar-action-group structure-config-group' }, [
+        canDesign()?h('div', { class: 'toolbar-action-group structure-config-group' }, [
           h('button', { class: 'secondary icon-label-button', onclick: () => openListConfigModal(entity) }, buttonLabel('fields', '表格设置')),
           h('button', { class: 'secondary icon-label-button', onclick: () => openFormLayoutModal(entity) }, buttonLabel('form', '表单视图'))
-        ])
+        ]):null
       ]),
       h('div', { class: 'quick-searches' }, [
         h('div', { class: 'compact-field global-search' }, [h('label', { text: '搜索' }), globalSearch]),

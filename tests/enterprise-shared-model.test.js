@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {InstanceStore} from '@xiaoya/agent-platform/settings/instance-store';
+import {serveApplicationSuite} from '@xiaoya/agent-platform/hosting/suite';
+import {createLocalEnterpriseIdentity} from '@xiaoya/agent-platform/hosting/identity';
+import {createEnterpriseLubanApplication} from '../src/hosting/enterprise-application.js';
+process.env.KNOWLEDGE_EMBEDDING_MODE='keyword';
+
+test('enterprise Luban uses central models and exposes only assistant prompt configuration',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'luban-shared-model-'));const source=await new InstanceStore(dir).prepare();
+ await source.saveConnection({id:'central',name:'统一模型',provider:'openai-compatible',model:'central-model',apiKey:'central-test-secret',isDefault:true},source.snapshot().revision);
+ let product;const suite=await serveApplicationSuite({port:0,identityService:createLocalEnterpriseIdentity(),applications:[{id:'luban',mount:'/luban',create:async()=>product=await createEnterpriseLubanApplication({modelSource:source,startBackgroundServices:false})}]});
+ t.after(async()=>{await suite.close();await rm(dir,{recursive:true,force:true});});
+ const request=(path,body)=>fetch(suite.url+'/luban'+path,{method:body?'PUT':'GET',headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined,redirect:'manual'});
+ const initial=await(await request('/api/builder/settings/platform')).json();
+ assert.equal(initial.modelsManaged,true);assert.equal(initial.defaultConnectionId,'central');assert.doesNotMatch(JSON.stringify(initial),/central-test-secret/);
+ assert.equal(product.runtime.service.store.resolveConnection('old-local-id').model,'central-model');
+ assert.equal((await request('/api/builder/settings/platform',{revision:initial.revision,connection:{model:'private-model'}})).status,400);
+ assert.equal((await request('/api/builder/settings',{ai:{model:'private-model'}})).status,400);
+ const rootRevision=source.snapshot().revision;
+ const saved=await request('/api/builder/settings/platform',{revision:initial.revision,agent:{id:initial.applicationAssistantId,system:'只处理已确认的业务需求'}});assert.equal(saved.status,200);
+ assert.equal(source.snapshot().revision,rootRevision);assert.equal(product.runtime.service.store.getApplicationAssistant('luban').system,'只处理已确认的业务需求');
+ await source.saveConnection({id:'next',provider:'openai-compatible',model:'next-model',apiKey:'another-test-secret',isDefault:true},source.snapshot().revision);
+ assert.equal(product.runtime.service.store.resolveConnection().model,'next-model');
+ assert.equal((await(await request('/api/builder/settings/business')).json()).defaultConnectionId,'next');
+ const redirect=await request('/admin/models/basic');assert.equal(redirect.status,302);assert.equal(redirect.headers.get('location'),'/platform/models/basic');
+});

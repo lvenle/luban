@@ -1,3 +1,4 @@
+import { appVisible } from '../enterprise/context.js';
 import { getDb, rowToApp, withTransaction, triggerBackup } from '../storage/db.js';
 import { getApp } from './app.js';
 import { createId } from '../core/ids.js';
@@ -12,6 +13,7 @@ function now() {
 }
 
 export function listRecords(appId, options = {}) {
+  if(!appVisible(appId)) throw notFound('找不到应用');
   const conditions = ['appId = ?'];
   const params = [appId];
   const app = getApp(appId);
@@ -131,7 +133,7 @@ export function createRecord(appId, entityId, data, customCreatedAt, options = {
 
 export function getRecord(id) {
   const row = getDb().prepare('SELECT * FROM records WHERE id = ?').get(id);
-  if (!row) return null;
+  if (!row || !appVisible(row.appId)) return null;
   return {
     id: row.id,
     appId: row.appId,

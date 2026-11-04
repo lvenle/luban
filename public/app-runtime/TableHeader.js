@@ -1,3 +1,4 @@
+import { canDesign } from '../common/workspace.js';
 import { h } from '../common/dom.js';
 import { fieldIcon } from './FieldIcons.js';
 import { toast } from '../common/toast.js';
@@ -26,7 +27,7 @@ export function renderResizableHeader(entity, field, nextField, listConfig, visi
     {
       class: `resizable-column column-drag-target ${frozenFieldClass(listConfig, visibleFields, fieldIndex)}`.trim(),
       style: `${columnWidthStyle(listConfig, field)};${frozenFieldStyle(listConfig, visibleFields, fieldIndex)}`,
-      draggable: 'true',
+      draggable: canDesign()?'true':'false',
       'data-field-id': field.id,
       onclick: (event) => {
         if (event.target?.classList?.contains('resize-edge')) return;
@@ -35,17 +36,17 @@ export function renderResizableHeader(entity, field, nextField, listConfig, visi
       ondblclick: (event) => {
         event.preventDefault();
         event.stopPropagation();
-        openFieldEditModal(entity, field);
+        if(canDesign()) openFieldEditModal(entity, field);
       },
       oncontextmenu: (event) => {
         event.preventDefault();
         event.stopPropagation();
-        openHeaderContextMenu(event, entity, field, listConfig);
+        if(canDesign()) openHeaderContextMenu(event, entity, field, listConfig);
       }
     },
     children
   );
-  bindHeaderColumnDrag(header, entity, field, listConfig);
+  if(canDesign()) bindHeaderColumnDrag(header, entity, field, listConfig);
   const handle = header.querySelector('.resize-edge');
   if (!handle) return header;
   handle.addEventListener('click', (event) => event.stopPropagation());

@@ -7,7 +7,7 @@ import { appCategory as resolveAppCategory } from '../common/app-metadata.js';
 import { startInlineRename } from '../common/inline-rename.js';
 import { loadApps, openApp } from './home-actions.js';
 
-export function appCard(app) {
+export function appCard(app, { readOnly = false, showPublication = !readOnly } = {}) {
   const title = h('h3', { text: app.name });
   const categoryPill = h('span', { class: 'category-pill', text: appCategory(app) });
   const menu = bindFloatingMenu(h('details', {
@@ -84,7 +84,7 @@ export function appCard(app) {
   const card = h('article', {
     class: `card app-card clickable-card ${app.enabled === false ? 'is-disabled' : ''}`,
     tabindex: '0',
-    draggable: 'true',
+    draggable: readOnly ? 'false' : 'true',
     'data-app-id': app.id,
     onclick: () => {
       if (Date.now() < suppressCardOpenUntil) return;
@@ -140,11 +140,14 @@ export function appCard(app) {
         title,
         categoryPill
       ]),
-      menu
+      readOnly ? null : menu
     ]),
     h('p', { class: 'muted app-card-description', text: app.description || '无描述' }),
     h('div', { class: 'app-card-footer' }, [
-      h('span', { class: `app-status ${app.enabled === false ? 'disabled' : 'enabled'}`, text: app.enabled === false ? '已禁用' : '已启用' }),
+      h('div', { class: 'app-card-statuses' }, [
+        showPublication && app.publicationStatus ? h('span', { class: `app-status ${app.publicationStatus}`, text: ({draft:'未发布',published:'已发布',unpublished:'已下架'}[app.publicationStatus] + (app.publicationStatus === 'published' ? ` · V${app.releaseNumber}` : '')) }) : null,
+        !readOnly ? h('span', { class: `app-status ${app.enabled === false ? 'disabled' : 'enabled'}`, text: app.enabled === false ? '已禁用' : '已启用' }) : null
+      ]),
       h('small', { class: 'muted', text: `更新于 ${new Date(app.updatedAt).toLocaleString()}` })
     ])
   ]);

@@ -1,3 +1,4 @@
+import { canDesign } from '../common/workspace.js';
 import { h, buttonLabel } from '../common/dom.js';
 import { api } from '../common/api.js';
 import { toast } from '../common/toast.js';
@@ -180,7 +181,7 @@ export function renderViewBar(entity, currentView) {
           event.preventDefault();
           event.stopPropagation();
           state.currentViewId = view.id;
-          startViewNameEdit(event.currentTarget, entity, view);
+          if(canDesign()) startViewNameEdit(event.currentTarget, entity, view);
         },
         onclick: () => {
           state.currentViewId = view.id;
@@ -195,15 +196,15 @@ export function renderViewBar(entity, currentView) {
           renderRuntime();
         }
       }, [h('span', { class: 'view-tab-name', text: view.name })]);
-      const shell = h('div', { class: 'view-tab-shell', draggable: 'true', 'data-view-id': view.id }, [
+      const shell = h('div', { class: 'view-tab-shell', draggable: canDesign()?'true':'false', 'data-view-id': view.id }, [
         tab,
-        view.id === currentView.id ? renderViewMenu(entity) : null
+        canDesign() && view.id === currentView.id ? renderViewMenu(entity) : null
       ]);
-      bindViewTabDrag(shell, entity, view, views);
+      if(canDesign()) bindViewTabDrag(shell, entity, view, views);
       return shell;
     })),
     h('div', { class: 'row' }, [
-      h('button', { class: 'secondary icon-label-button', onclick: () => openCreateViewModal(entity) }, buttonLabel('add', '新建视图'))
+      canDesign()?h('button', { class: 'secondary icon-label-button', onclick: () => openCreateViewModal(entity) }, buttonLabel('add', '新建视图')):null
     ])
   ]);
 }
@@ -479,6 +480,7 @@ function currentViewPage(entity) {
 
 let persistTimer = null;
 function persistViews(legacyKey = '') {
+  if(!canDesign()) return;
   clearTimeout(persistTimer);
   persistTimer = setTimeout(async () => {
     try {

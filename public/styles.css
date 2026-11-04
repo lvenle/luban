@@ -6956,3 +6956,19 @@ button.assistant-send {
 .view-tab-shell:has(.view-menu-trigger) .view-tab {
   padding-right: 36px;
 }
+
+/* Settings are document pages; only per-app rule editing uses the dialog. */
+.settings-page { width: 100%; max-width: 1120px; margin: 0 auto; padding: 32px 28px 64px; }
+.settings-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.settings-page-heading h1 { font-size: 26px; margin: 0 0 8px; }
+.settings-page-heading p { margin: 0; }
+.settings-page-panel { background: var(--panel, #fff); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.settings-page-panel .settings-tabs { flex-wrap: wrap; }
+.settings-page-panel .settings-modal-content { max-height: none; min-height: 0; overflow: visible; padding: 28px; }
+.settings-page-panel > [role="alert"] { margin: 24px; }
+.settings-page-panel .platform-settings-panel textarea { min-height: 260px; }
+@media (max-width: 767px) {
+  .settings-page { padding: 20px 14px 40px; }
+  .settings-page-heading { align-items: flex-start; gap: 12px; }
+  .settings-page-panel .settings-modal-content { padding: 18px; }
+}

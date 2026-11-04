@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname, join, relative, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -5,7 +6,7 @@ import { AppError, notFound, badRequest } from '../core/errors.js';
 
 export { notFound, badRequest } from '../core/errors.js';
 
-const PUBLIC_DIR = process.env.LUBAN_PUBLIC_DIR || join(process.cwd(), 'public');
+const PUBLIC_DIR = process.env.LUBAN_PUBLIC_DIR || fileURLToPath(new URL('../../public/',import.meta.url));
 const DATA_DIR = process.env.LUBAN_DATA_DIR || join(process.cwd(), 'data');
 const UPLOAD_DIR = join(DATA_DIR, 'uploads');
 const JSON_LIMIT = 2 * 1024 * 1024;
@@ -175,7 +176,8 @@ export function serveStatic(res, pathname, renderHtml = html => html) {
     || pathname === '/rules/ai-config'
     || pathname === '/rules/ai-config/'
     || /^\/rules\/[^/.]+\/?$/.test(pathname);
-  if (pathname.startsWith('/app/') || isRuleSpaRoute) {
+  const isSettingsPage = /^\/(?:builder\/)?settings\/(?:assistant|system)\/?$/.test(pathname);
+  if (isSettingsPage || pathname.startsWith('/app/') || /^\/builder(?:\/(?:app\/[^/]+(?:\/page\/[^/]+)?|settings))?\/?$/.test(pathname) || isRuleSpaRoute) {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(renderHtml(readFileSync(join(PUBLIC_DIR, 'index.html'), 'utf8')));
     return;

@@ -1,3 +1,5 @@
+import { workspaceContext, isBuilder, appVisible, BUSINESS_TOOLS } from '../../enterprise/context.js';
+import { AppError } from '../../core/errors.js';
 import { randomUUID } from 'node:crypto';
 import { getApp } from '../../models/app.js';
 import {
@@ -16,22 +18,33 @@ const legacyByPlatformName = Object.fromEntries(
   Object.entries(LUBAN_TOOL_NAMES).map(([legacy, platform]) => [platform, legacy])
 );
 
+const activeChats=new Map();
 function sseEvent(res, event, data) {
   if (res.writableEnded || res.destroyed) return;
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
 export async function handlePlatformChat(req, res, method, parts) {
-  if (method !== 'POST' || parts.length !== 3 || parts[2] !== 'platform-chat') return false;
+  if (method !== 'POST' || ![3,4].includes(parts.length) || parts[2] !== 'platform-chat') return false;
+  if(parts.length===4&&parts[3]!=='stop')return false;
   const body = await readJson(req);
+  if(parts[3]==='stop'){const session=getAiSession(body.sessionId);if(!session)throw notFound('找不到 AI 会话');activeChats.get(session.id)?.abort(Error('用户停止'));res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({status:activeChats.has(session.id)?'stopping':session.status}));return true}
+  if(workspaceContext() && !isBuilder() && (!body.appId || !appVisible(body.appId))) throw new AppError(403,'请先选择有权使用的已发布应用');
   const settings = getSetting('ai') || {};
   let app = body.appId ? getApp(body.appId) : null;
+  if(body.appId && !app) throw notFound('找不到应用');
   if (body.sessionId && !getAiSession(body.sessionId)) throw notFound('找不到 AI 会话。');
   const session = (body.sessionId && getAiSession(body.sessionId)) || createAiSession({
     appId: app?.id || null, status: 'idle', type: app ? 'modify' : 'create'
   });
+  if(workspaceContext() && session.appId && !appVisible(session.appId)) throw notFound('找不到此视角的会话');
+  if(workspaceContext() && session.appId && body.appId && session.appId!==body.appId) throw new AppError(403,'会话不能跨应用执行');
+  if(activeChats.has(session.id))throw Error('请等待当前运行停止');
+  if(body.continue && body.appId && body.appId!==session.appId)throw Error('继续处理时不能切换应用');
+  if(body.continue)app=session.appId?getApp(session.appId):null;
   const built = buildMessages(getAiSession(session.id), body.message, body.context, app);
-  const system = built[0]?.role === 'system' ? built.shift().content : '';
+  const productSystem = built[0]?.role === 'system' ? built.shift().content : '';
+  const system = workspaceContext()&&!isBuilder()?JSON.stringify({appId:app.id,name:app.name,schema:app.schema,actions:app.actions}):productSystem;
   updateAiSession(session.id, { appId: app?.id || session.appId || null, status: 'running' });
   addAiMessage(session.id, 'user', body.message || '');
 
@@ -42,6 +55,7 @@ export async function handlePlatformChat(req, res, method, parts) {
   sseEvent(res, 'session_id', { sessionId: session.id, runtime: 'agent-platform' });
 
   const controller = new AbortController();
+  activeChats.set(session.id,controller);
   let finished = false;
   res.on('close', () => {
     if (!finished) controller.abort(new Error('客户端已断开'));
@@ -49,10 +63,11 @@ export async function handlePlatformChat(req, res, method, parts) {
   });
   let content = '';
   try {
-    const tools = getTools();
+    const tools = getTools().filter(tool=>!workspaceContext() || isBuilder() || BUSINESS_TOOLS.has(tool.name));
     if (!tools.length) throw new Error('鲁班工具尚未完成注册');
     const result = await runLubanPlatformSession({
       request: {
+        continue:body.continue===true,
         requestId: `req_${randomUUID()}`,
         sessionId: session.id,
         runId: `run_${randomUUID()}`,
@@ -80,6 +95,8 @@ export async function handlePlatformChat(req, res, method, parts) {
         { toolName: event.name, input: event.input, output: event.output, error: event.error }
       ),
       onEvent: (event) => {
+        if(event.type==='run_started')sseEvent(res,'runtime',{runId:event.run_id,status:'running'});
+        if(event.type==='run_stopping')sseEvent(res,'run_status',{runId:event.run_id,status:'stopping'});
         if (event.type === 'text_delta') {
           content += event.payload.delta;
           sseEvent(res, 'content_delta', { content: event.payload.delta });
@@ -91,6 +108,7 @@ export async function handlePlatformChat(req, res, method, parts) {
             display: buildToolDisplayInfo(legacyName, event.payload.input, app)
           });
         } else if (event.type === 'tool_completed') {
+          if(event.payload.output?.appId){const created=getApp(event.payload.output.appId);if(created){app=created;updateAiSession(session.id,{appId:created.id})}}
           sseEvent(res, 'tool_result', {
             id: event.payload.call_id,
             status: event.payload.error ? 'error' : 'success',
@@ -112,8 +130,9 @@ export async function handlePlatformChat(req, res, method, parts) {
     if (content) addAiMessage(session.id, 'assistant', content);
     updateAiSession(session.id, { status: controller.signal.aborted ? 'cancelled' : 'failed' });
     addAiExecutionLog(session.id, '统一 Runtime 对话出错', 'failed', { error: error.message });
-    sseEvent(res, 'error', { message: error.message, runtime: 'agent-platform' });
+    sseEvent(res, 'error', { stopped:controller.signal.aborted, message: error.message, runtime: 'agent-platform' });
   } finally {
+    activeChats.delete(session.id);
     finished = true;
     rejectPendingConfirmsForSession(session.id);
     try { res.end(); } catch {}

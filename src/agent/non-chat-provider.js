@@ -12,7 +12,7 @@ export async function completeWithLubanProvider(settings, {
   runtime ||= await ensurePlatformService();
   const agent = await resolveLubanAgent({ settings, store: runtime.service.store });
   const handle = runtime.service.startApplicationRun(agent.applicationInstanceId, {
-    agentId: agent.id, agentVersion: agent.version, messages, source: 'luban-generation'
+    agentId: agent.id, agentVersion: agent.version, messages, source: 'luban-generation', questionPreparation:false
   }, { owner: applicationRunOwner(), toolNames: [], responseFormat, maxTokens });
   const abort = () => handle.cancel();
   signal?.addEventListener('abort', abort, { once: true });
@@ -23,7 +23,7 @@ export async function completeWithLubanProvider(settings, {
 
 export async function requireLubanModel(settings = {}) {
   const agent = await resolveLubanAgent({ settings });
-  if (!agent.connection) throw configurationError('请先在前台助手设置中配置 AI API Key 和模型连接。');
+  if (!agent.connection) throw configurationError(agent.store.modelsManaged?'请先在平台后台配置统一模型连接并设为默认。':'请先在助手设置中配置 AI API Key 和模型连接。');
   const status = agent.store.connectionStatus(agent.connection.id);
   if (!status.usable) throw configurationError(`模型连接不可用：${status.reason}`);
   return agent;

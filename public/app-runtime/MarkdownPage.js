@@ -1,3 +1,4 @@
+import { canDesign } from '../common/workspace.js';
 import { h } from '../common/dom.js';
 import { toast } from '../common/toast.js';
 import { state } from '../app-context.js';
@@ -9,6 +10,7 @@ import { createMarkdownUploadButtons } from './MarkdownUploads.js';
 import { pageTitleExists } from '../common/page-title.js';
 
 export function renderMarkdownPage(page) {
+  if(!canDesign()) {const preview=h('section',{class:'panel markdown-preview markdown-body'});preview.innerHTML=renderMarkdown(page.content||'');return preview;}
   const textarea = h('textarea', {
     class: 'markdown-editor-input markdown-file-input',
     value: stripLegacyMarkdownStyles(page.content || ''),
