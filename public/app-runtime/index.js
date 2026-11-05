@@ -140,7 +140,7 @@ export function renderRuntime() {
       root.innerHTML = '';
       root.append(h('div', { class: 'panel', style: 'padding:40px;text-align:center' }, [
         h('p', { text: '渲染出错，请刷新重试。' }),
-        h('p', { class: 'muted', style: 'font-size:13px', text: err.message })
+        h('p', { class: 'muted', style: 'font-size:14px', text: err.message })
       ]));
     }
     if (state.assistantOpen) {

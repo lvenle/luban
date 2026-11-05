@@ -84,8 +84,8 @@ test('frontend exposes required runtime configuration features', () => {
   assert.equal(existsSync(new URL('../public/favicon.ico', import.meta.url)), true);
   assert.match(css, /\.brand-logo\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px;/s);
   assert.match(brandSettingsJs, /DEFAULT_BRAND_SETTINGS/);
-  assert.match(brandSettingsJs, /systemName: '鲁班AI系统'/);
-  assert.match(brandSettingsJs, /homeSlogan: '鲁班AI 原生软件创作平台'/);
+  assert.match(brandSettingsJs, /systemName: '鲁班高级版'/);
+  assert.match(brandSettingsJs, /homeSlogan: '鲁班高级版 · AI 原生软件创作平台'/);
   assert.match(brandSettingsJs, /homeTagline: '用自然语言创建、运行和持续改造属于你的业务软件。'/);
   assert.match(brandSettingsJs, /ondblclick/);
   assert.match(brandSettingsJs, /keyEvent\.key === 'Enter'/);
