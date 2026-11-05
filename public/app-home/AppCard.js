@@ -9,7 +9,19 @@ import { loadApps, openApp } from './home-actions.js';
 
 export function appCard(app, { readOnly = false, showPublication = !readOnly } = {}) {
   const title = h('h3', { text: app.name });
-  const categoryPill = h('span', { class: 'category-pill', text: appCategory(app) });
+  const categoryPill = h(readOnly ? 'span' : 'button', {
+    class: `category-pill${readOnly ? '' : ' app-card-category-edit'}`,
+    text: appCategory(app),
+    ...(readOnly ? {} : {
+      type: 'button',
+      title: '点击修改应用分类',
+      'aria-label': `修改应用分类：${appCategory(app)}`,
+      onclick: (event) => {
+        event.stopPropagation();
+        startCategoryInlineEdit(categoryPill, app);
+      }
+    })
+  });
   const menu = bindFloatingMenu(h('details', {
     class: 'card-menu',
     onclick: (event) => event.stopPropagation(),

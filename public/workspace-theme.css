@@ -1,4 +1,5 @@
-/* Shared workspace foundation: keep these tokens identical across the three hosts. */
+/* Shared visual foundation. Keep this file presentational: application navigation,
+   page hierarchy and runtime structure stay owned by their existing components. */
 :root {
   color-scheme: light;
   --ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -22,59 +23,171 @@
   --brand: var(--ui-primary);
   --green: var(--ui-primary);
   --workbench-nav-height: var(--ui-header);
+  --workspace-rail-width: var(--ui-sidebar);
+  --surface-radius: var(--ui-radius);
+  --shadow: var(--ui-shadow);
+  font-family: var(--ui-font);
 }
-body { font-family: var(--ui-font); font-size: 15px; line-height: 1.6; color: var(--ui-text); background: var(--ui-bg); }
+
+body {
+  font-family: var(--ui-font);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ui-text);
+  background: var(--ui-bg);
+}
+
 button, input, select, textarea { font-family: inherit; }
-button, input:not([type=checkbox]):not([type=radio]), select { font-size: 15px; }
-h1 { font-size: 24px; line-height: 1.35; letter-spacing: -.4px; }
+button, input:not([type="checkbox"]):not([type="radio"]), select { font-size: 15px; }
+h1 { font-size: 24px; line-height: 1.35; letter-spacing: -.35px; }
 h2 { font-size: 18px; line-height: 1.45; }
 h3 { font-size: 16px; line-height: 1.5; }
 small { font-size: 14px; }
-:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 3px; }
-.workbench-topbar { --workbench-nav-height: 60px; min-height: 60px; height: 60px; padding: 10px 20px; gap: 24px; border-color: var(--ui-line); font-size: 15px; }
-.workbench-topbar .workbench-brand { font-size: 18px; letter-spacing: -.3px; }
-.workbench-topbar .workbench-link, .workbench-topbar .workbench-admin { min-height: 38px; border-radius: 8px; padding: 8px 14px; }
-.workbench-topbar .workbench-link.active { background: var(--ui-primary-soft); color: #1d4ed8; font-weight: 600; }
-@media (max-width: 650px) {
-  :root { --workbench-nav-height: 112px; }
-  .workbench-topbar { height: auto; min-height: 112px; gap: 8px; padding: 10px 12px; }
+:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 3px;
 }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+/* The cell already draws its editing outline; suppress the focused input's
+   second outline so the active border remains a single, clear line. */
+.cell-editing :is(input, select, textarea):focus-visible {
+  outline: 0;
+  outline-offset: 0;
+}
 
-/* App center and runtime share the platform's rail and content rhythm. */
-:root { --menu-font-size: 14px; --menu-trigger-size: 32px; --surface-radius: 10px; --shadow: var(--ui-shadow); --workspace-rail-width: var(--ui-sidebar); }
-body.enterprise-hosted { --workspace-rail-width: var(--ui-sidebar); --muted: var(--ui-muted); --line: var(--ui-line); --bg: var(--ui-bg); font-family: var(--ui-font); font-size: 15px; }
+/* Existing top-level workbench navigation keeps its current links and order. */
+.workbench-topbar {
+  --workbench-nav-height: var(--ui-header);
+  min-height: var(--ui-header);
+  height: var(--ui-header);
+  padding: 10px 20px;
+  gap: 24px;
+  border-color: var(--ui-line);
+  font-size: 15px;
+}
+.workbench-topbar .workbench-brand { font-size: 18px; letter-spacing: -.3px; }
+.workbench-topbar .workbench-link,
+.workbench-topbar .workbench-admin {
+  min-height: 38px;
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+.workbench-topbar .workbench-link.active {
+  background: var(--ui-primary-soft);
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+/* Align the existing builder rail with the platform admin rail dimensions and
+   interaction styling. The current menu groups and their order are untouched. */
+body.enterprise-hosted .builder-shell { padding-left: var(--ui-sidebar); }
+body.enterprise-hosted .builder-rail {
+  top: var(--workbench-nav-height);
+  bottom: 0;
+  left: 0;
+  width: var(--ui-sidebar);
+  margin: 0;
+  padding: 18px 12px 14px;
+  gap: 4px;
+  overflow: auto;
+  border: 0;
+  border-right: 1px solid var(--ui-line);
+  border-radius: 0;
+  background: #f8faff;
+  box-shadow: none;
+}
+body.enterprise-hosted .builder-rail-brand {
+  padding: 0 10px 18px;
+  color: var(--ui-text);
+  font-size: 20px;
+  font-weight: 650;
+}
+body.enterprise-hosted .builder-nav-section {
+  padding: 14px 12px 6px;
+  color: var(--ui-muted);
+  font-size: 14px;
+}
+body.enterprise-hosted .builder-nav-item {
+  height: 42px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: #33425f;
+  font-size: 15px;
+}
+body.enterprise-hosted .builder-nav-item:hover { color: #173c89; background: #eaf0fb; }
+body.enterprise-hosted .builder-nav-item.active {
+  color: #173c89;
+  background: var(--ui-primary-soft);
+  font-weight: 600;
+}
+body.enterprise-hosted .builder-rail-bottom { border-color: var(--ui-line); }
+body.enterprise-hosted .builder-profile-avatar { background: var(--ui-primary-soft); color: var(--ui-primary); }
+body.enterprise-hosted .enterprise-list-panel {
+  min-height: 0;
+  padding: 16px;
+  border-color: var(--ui-line);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
+}
+
+/* Preserve existing page composition while applying the shared blue-white
+   surfaces, readable type and compact spacing to current content. */
+body.enterprise-hosted {
+  --bg: var(--ui-bg);
+  --line: var(--ui-line);
+  --muted: var(--ui-muted);
+  --brand: var(--ui-primary);
+  --brand-dark: #1d4ed8;
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+  font-size: 15px;
+}
 body .topbar { min-height: 56px; padding: 10px 20px; gap: 12px; }
 body .container { width: auto; max-width: none; margin: 0; padding: 18px 20px; }
 body .hero { padding: 16px; gap: 8px; }
 body .hero h1 { font-size: 24px; }
-body .grid { grid-template-columns: repeat(auto-fill,minmax(min(100%,280px),1fr)); gap: 12px; }
-body .card { border-radius: 10px; border-color: var(--ui-line); box-shadow: var(--ui-shadow); }
+body .grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+body .card { border: 1px solid var(--ui-line); border-radius: var(--ui-radius); box-shadow: var(--ui-shadow); }
 body .app-card { padding: 16px; gap: 12px; }
 body .app-card-title h3 { font-size: 18px; }
 body .app-card-description { font-size: 15px; line-height: 1.65; }
 body .app-card:hover { border-color: #aac3f5; background: #fbfdff; box-shadow: 0 4px 14px rgb(25 42 70 / 7%); }
 body .enterprise-app-center { max-width: none; width: 100%; padding: 20px; }
-body.enterprise-hosted .builder-shell { padding-left: var(--ui-sidebar); }
-body.enterprise-hosted .builder-rail { width: var(--ui-sidebar); left: 0; margin: 0; border-radius: 0; padding: 18px 12px; background: #f8faff; box-shadow: none; border-right: 1px solid var(--ui-line); }
-body.enterprise-hosted .builder-rail-brand { padding: 0 10px 18px; font-size: 20px; }
-body.enterprise-hosted .builder-nav-item { height: 42px; min-height: 42px; font-size: 15px; border-radius: 8px; }
-body .builder-nav-section { font-size: 14px; color: var(--ui-muted); padding: 14px 12px 6px; }
-body.enterprise-hosted .enterprise-hero { padding: 20px 20px 14px; margin: 0; gap: 12px; }
-body .enterprise-hero h1 { font-size: 24px; margin: 0 0 6px; }
+body.enterprise-hosted .enterprise-hero { padding: 20px; margin: 0; gap: 12px; }
+body .enterprise-hero h1 { margin: 0 0 6px; font-size: 24px; }
 body.enterprise-hosted .builder-page-content { padding: 0 20px 18px; }
 body .enterprise-list-heading { gap: 12px; margin-bottom: 14px; }
 body .enterprise-list-heading h2 { font-size: 18px; }
-body .enterprise-empty { padding: 32px 20px; min-height: 0; }
+body .enterprise-empty { min-height: 0; padding: 32px 20px; border-color: var(--ui-line); border-radius: 10px; }
 body .page-button { min-height: 40px; font-size: 15px; }
 body th, body td { font-size: 14px; line-height: 1.6; }
 body .ai-assistant { font-size: 15px; }
 body .ai-message-content { font-size: 16px; line-height: 1.75; }
-@media(max-width:767px) { body.enterprise-hosted .builder-shell { padding-left: 0; } body.enterprise-hosted .builder-rail { position: relative; width: 100%; top: auto; padding: 10px 12px; } body .enterprise-app-center { padding: 14px 12px; } body.enterprise-hosted .enterprise-hero { padding: 14px 12px; } body.enterprise-hosted .builder-page-content { padding: 0 12px 12px; } }
-/* Override hosted-shell dimensions as well as standalone defaults. */
-body.enterprise-hosted .builder-rail { top: var(--workbench-nav-height); bottom: 0; border-top: 0; }
-body.enterprise-hosted .enterprise-list-panel { min-height: 0; padding: 16px; border-radius: 10px; box-shadow: var(--ui-shadow); }
-body.enterprise-hosted .enterprise-empty { padding: 28px 16px; min-height: 0; border-radius: 8px; }
-body.enterprise-hosted .enterprise-list-panel .app-card { padding: 16px; border-radius: 10px; }
-body.enterprise-hosted .enterprise-list-panel .grid { gap: 12px; grid-template-columns: repeat(auto-fill,minmax(min(280px,100%),1fr)); }
-@media(max-width:767px) { body.enterprise-hosted .builder-rail { top: auto; bottom: auto; } }
+
+@media (max-width: 1100px) {
+  body.enterprise-hosted .builder-shell { padding-left: 208px; }
+  body.enterprise-hosted .builder-rail { width: 208px; }
+}
+@media (max-width: 767px) {
+  :root { --workbench-nav-height: 112px; }
+  .workbench-topbar { height: auto; min-height: 112px; gap: 8px; padding: 10px 12px; }
+  body.enterprise-hosted .builder-shell { padding-left: 0; }
+  body.enterprise-hosted .builder-rail {
+    position: relative;
+    top: auto;
+    bottom: auto;
+    left: auto;
+    width: auto;
+    margin: 10px 12px 0;
+    padding: 10px 12px;
+    border: 1px solid var(--ui-line);
+    border-radius: 10px;
+    background: #fff;
+  }
+  body.enterprise-hosted .enterprise-hero { padding: 14px 12px; }
+  body.enterprise-hosted .builder-page-content { padding: 0 12px 12px; }
+  body .enterprise-app-center { padding: 14px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

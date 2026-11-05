@@ -1066,6 +1066,32 @@ textarea {
   padding: 2px 7px;
 }
 
+.app-card-category-edit {
+  gap: 5px;
+  border: 1px solid #c8d8ff;
+  cursor: pointer;
+  line-height: 1.35;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.app-card-category-edit::after {
+  content: "✎";
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.app-card-category-edit:hover {
+  border-color: #8eaff7;
+  background: #dce8ff;
+  color: #1747a6;
+}
+
+.app-card-category-edit:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
 .card-menu {
   position: relative;
   z-index: 1;
