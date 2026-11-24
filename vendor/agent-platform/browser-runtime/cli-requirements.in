@@ -1,0 +1,6 @@
+# Browser CLI imports; Agent Platform owns the LLM loop, so Python agent/model SDKs are unnecessary.
+browser-harness==0.1.13
+python-dotenv==1.2.2
+pydantic==2.13.4
+pydantic-settings==2.14.0
+psutil==7.2.2

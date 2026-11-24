@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "request_id",
+    "sequence",
+    "timestamp",
+    "type",
+    "payload"
+  ],
+  "properties": {
+    "protocol_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T.*Z$"
+    },
+    "type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "not": {
+              "const": "ready"
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "run_id"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "text_delta"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "delta"
+            ],
+            "properties": {
+              "delta": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "run_failed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_request",
+                  "unsupported_protocol",
+                  "configuration_conflict",
+                  "agent_not_found",
+                  "credential_unavailable",
+                  "permission_denied",
+                  "tool_failed",
+                  "MODEL_UNAVAILABLE",
+                  "timeout",
+                  "cancelled",
+                  "storage_unavailable",
+                  "runtime_internal"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "native_call"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "call_id",
+              "name"
+            ],
+            "properties": {
+              "call_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

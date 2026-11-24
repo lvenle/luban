@@ -1,0 +1,255 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "request_id",
+    "type",
+    "payload"
+  ],
+  "properties": {
+    "protocol_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "enum": [
+        "start_run",
+        "cancel_run",
+        "approval_response",
+        "native_result",
+        "get_run",
+        "health_check",
+        "shutdown"
+      ]
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "start_run"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "agent",
+              "product",
+              "messages",
+              "context"
+            ],
+            "properties": {
+              "agent": {
+                "type": "object",
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "version": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "product": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "version"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "version": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "messages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "role",
+                    "content"
+                  ],
+                  "properties": {
+                    "role": {
+                      "enum": [
+                        "user",
+                        "assistant",
+                        "system",
+                        "tool"
+                      ]
+                    },
+                    "content": {
+                      "type": [
+                        "string",
+                        "array"
+                      ]
+                    }
+                  }
+                }
+              },
+              "context": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "approval_response"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "confirmation_id",
+              "decision"
+            ],
+            "properties": {
+              "confirmation_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "decision": {
+                "enum": [
+                  "once",
+                  "session",
+                  "deny"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "native_result"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": [
+              "call_id"
+            ],
+            "properties": {
+              "call_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "start_run",
+              "cancel_run",
+              "approval_response",
+              "native_result",
+              "get_run"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "run_id"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "native_result"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "oneOf": [
+              {
+                "required": [
+                  "result"
+                ],
+                "not": {
+                  "required": [
+                    "error"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "error"
+                ],
+                "not": {
+                  "required": [
+                    "result"
+                  ]
+                }
+              }
+            ],
+            "properties": {
+              "error": {
+                "type": "object",
+                "required": [
+                  "code",
+                  "message"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

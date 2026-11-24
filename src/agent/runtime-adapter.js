@@ -33,7 +33,7 @@ export const LUBAN_TOOL_PERMISSIONS = Object.freeze(Object.values(LUBAN_TOOL_NAM
 export function buildLubanRuntimeConfig(settings, {
   agentId = 'luban-app-builder',
   packagePath = 'agents/luban-app-builder',
-  productVersion = '2026.10.13',
+  productVersion = '2026.11.24',
   instanceId = 'local',
   enabledSkills = [],
   deniedTools = []

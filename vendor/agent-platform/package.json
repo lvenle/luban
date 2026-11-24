@@ -1,0 +1,155 @@
+{
+  "name": "@xiaoya/agent-platform",
+  "version": "0.1.0",
+  "private": true,
+  "main": "desktop/main.js",
+  "type": "module",
+  "exports": {
+    "./protocol": "./src/protocol/index.js",
+    "./config": "./src/config/runtime-config.js",
+    "./channels": "./src/channels/registry.js",
+    "./channels/media-tools": "./src/channels/media-tools.js",
+    "./settings": "./src/settings/agent-settings-page.js",
+    "./settings/live": "./src/settings/live-page.js",
+    "./settings/service": "./src/settings/local-service.js",
+    "./settings/serve": "./src/settings/serve.js",
+    "./settings/platform": "./src/settings/platform-service.js",
+    "./settings/instance-store": "./src/settings/instance-store.js",
+    "./settings/instance-database": "./src/settings/instance-database.js",
+    "./settings/storage-migrations": "./src/settings/storage-migrations.js",
+    "./settings/console": "./src/settings/console-page.js",
+    "./knowledge": "./src/knowledge/wiki.js",
+    "./browser": "./src/browser/adapter.js",
+    "./bridge": "./src/bridge/native.js",
+    "./context": "./src/context/index.js",
+    "./execution": "./src/system/execution.js",
+    "./files": "./src/files/task-files.js",
+    "./memory": "./src/memory/store.js",
+    "./model": "./src/model/index.js",
+    "./observability": "./src/observability/index.js",
+    "./license": "./src/security/license.js",
+    "./tools": "./src/tools/index.js",
+    "./runtime": "./src/runtime/index.js",
+    "./scheduler": "./src/scheduler/index.js",
+    "./skills": "./src/skills/store.js",
+    "./settings/runtime-storage": "./src/settings/instance-runtime-storage.js",
+    "./context/conversation": "./src/context/conversation.js",
+    "./context/summary": "./src/context/conversation-summary.js",
+    "./model/timeout": "./src/model/timeout.js",
+    "./tools/schema": "./src/tools/schema.js",
+    "./knowledge/document-extractor": "./src/knowledge/document-extractor.js",
+    "./knowledge/html-to-text": "./src/knowledge/html-to-text.js",
+    "./knowledge/article-markdown": "./src/knowledge/article-markdown.js",
+    "./knowledge/link-content": "./src/knowledge/link-content.js",
+    "./knowledge/ask": "./src/settings/knowledge-workspace.js",
+    "./content/fetch-article": "./src/content/fetch-article.js",
+    "./knowledge/library-store": "./src/knowledge/library-store.js",
+    "./media/persist-references": "./src/media/persist-references.js",
+    "./scheduler/sqlite-store": "./src/scheduler/sqlite-store.js",
+    "./runtime/run-service": "./src/runtime/run-service.js",
+    "./runtime/question-preparation": "./src/runtime/question-preparation.js",
+    "./tools/registry": "./src/tools/registry.js",
+    "./mcp/manager": "./src/mcp/manager.js",
+    "./settings/instance-guard": "./src/settings/instance-guard.js",
+    "./hosting/web-base": "./src/hosting/web-base.js",
+    "./hosting/workbench-navigation": "./src/hosting/workbench-navigation.js",
+    "./ui/workbench-navigation.css": "./src/hosting/workbench-navigation.css",
+    "./ui/knowledge-graph": "./ui-vue/src/components/KnowledgeGraph.vue",
+    "./connector/device-gateway": "./src/connector/device-gateway.js",
+    "./runtime/core": "./src/runtime/core.js",
+    "./host/local": "./src/hosting/local-agent-host.js",
+    "./hosting/context": "./src/hosting/request-context.js",
+    "./hosting/navigation": "./src/hosting/workbench-navigation.js",
+    "./hosting/suite": "./src/hosting/application-suite.js",
+    "./hosting/identity": "./src/hosting/enterprise-identity.js",
+    "./hosting/knowledge-capability": "./src/hosting/knowledge-capability.js",
+    "./content/shared-links": "./src/content/shared-links.js",
+    "./content/shared-media": "./src/content/shared-media.js",
+    "./channels/macos-media-runtime": "./src/channels/macos-media-runtime.js"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "serve": "node src/settings/serve.js",
+    "ui:build": "vite build --config ui-vue/vite.config.js",
+    "ui:dev": "vite --config ui-vue/vite.config.js",
+    "test": "node --import ./test-support/embedding-env.js --test",
+    "check": "node --check src/protocol/index.js && npm test",
+    "ui:build:admin": "vite build --config ui-vue/vite.admin.config.js",
+    "knowledge:model:prepare": "node scripts/prepare-embedding.js",
+    "serve:all": "node scripts/serve-all.mjs",
+    "device-gateway:start": "node bin/device-gateway.mjs",
+    "device-gateway:admin": "node bin/device-gateway-admin.mjs",
+    "desktop": "electron .",
+    "desktop:dir": "node scripts/desktop-icon.mjs && npm run ui:build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir --arm64",
+    "desktop:dmg": "node scripts/desktop-release.mjs mac",
+    "desktop:win": "node scripts/desktop-release.mjs win",
+    "runtime:prepare": "node scripts/prepare-local-runtime.mjs"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^1.0.0",
+    "@huggingface/transformers": "^4.3.1",
+    "@jose.espana/docstream": "^0.1.3",
+    "ajv": "^8.20.0",
+    "cron-parser": "^5.4.0",
+    "electron-updater": "^6.6.2",
+    "element-plus": "^2.14.7",
+    "officeparser": "^8.1.0",
+    "sqlite-vec": "^0.1.9",
+    "vue": "^3.5.43",
+    "vue-router": "^4.6.4",
+    "word-extractor": "^1.0.4",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.9",
+    "electron": "43.0.0",
+    "electron-builder": "26.15.3",
+    "vite": "^8.3.2"
+  },
+  "build": {
+    "appId": "ai.xiaoya.agent-platform",
+    "productName": "AI 工作台",
+    "asar": true,
+    "electronDist": "node_modules/electron/dist",
+    "electronVersion": "43.0.0",
+    "files": [
+      "desktop/**/*",
+      "src/**/*",
+      "ui-vue/dist/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release/desktop"
+    },
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  }
+}

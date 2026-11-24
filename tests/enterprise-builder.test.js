@@ -14,7 +14,7 @@ import { withWorkspace } from '../src/enterprise/context.js';
 import { withApplicationIdentity } from '@xiaoya/agent-platform/hosting/context';
 process.env.KNOWLEDGE_EMBEDDING_MODE='keyword';
 
-test('enterprise builder publishes isolated drafts and enforces app and tool boundaries',async t=>{
+test('enterprise builder publishes drafts with shared records and enforces app and tool boundaries',async t=>{
  const directory=await mkdtemp(join(tmpdir(),'luban-builder-'));
  const identity=await createEnterpriseIdentity({database:join(directory,'identity.sqlite'),bootstrapUser:'admin',bootstrapPassword:'test-password'});
  const alice=await identity.createUser({username:'alice',password:'alice-password',grants:['luban:use']});
@@ -82,13 +82,13 @@ test('enterprise builder publishes isolated drafts and enforces app and tool bou
  const preview=await request(`/api/builder/apps/${draft.id}/records`,{method:'POST',body:{entityId:entity.id,data:{}}});assert.equal(preview.status,201);
  const published=await request('/api/builder/projects/'+draft.id+'/publish',{method:'POST',body:{revision:p.revision,releaseNumber:0}});assert.equal(published.status,200);const {runtimeId}=await published.json();assert.notEqual(runtimeId,draft.id);
  const listedPublished=(await(await request('/api/builder/apps')).json()).apps.find(app=>app.id===draft.id);assert.equal(listedPublished.publicationStatus,'published');assert.equal(listedPublished.releaseNumber,1);
- assert.equal((await (await request(`/api/apps/${runtimeId}/records`)).json()).records.length,0);
+ const previewRows=(await(await request(`/api/apps/${runtimeId}/records`)).json()).records;assert.equal(previewRows.length,1);assert.equal(previewRows[0].id,(await(await request(`/api/builder/apps/${draft.id}/records`)).json()).records[0].id);
  assert.equal((await request(`/api/builder/apps/${runtimeId}`)).status,404);
  assert.equal((await request(`/api/apps/${runtimeId}`,{cookie:member})).status,403);
  await request(`/api/builder/projects/${draft.id}/members`,{method:'PUT',body:{members:[{userId:alice.userId,role:'user'}]}});
  assert.equal((await request(`/api/apps/${runtimeId}`,{cookie:member})).status,200);
- const prod=await request(`/api/apps/${runtimeId}/records`,{cookie:member,method:'POST',body:{entityId:entity.id,data:{}}});assert.equal(prod.status,201);
- assert.equal((await (await request(`/api/builder/apps/${draft.id}/records`)).json()).records.length,1);
+ const prod=await request(`/api/apps/${runtimeId}/records`,{cookie:member,method:'POST',body:{entityId:entity.id,data:{}}});assert.equal(prod.status,201);const prodRecord=(await prod.json()).record;
+ assert.equal((await (await request(`/api/builder/apps/${draft.id}/records`)).json()).records.length,2);
  assert.equal((await request(`/api/apps/${runtimeId}/export`,{cookie:member})).status,403);
  assert.equal((await request(`/api/apps/${runtimeId}/rules/execute`,{cookie:member,method:'POST',body:{}})).status,403);
  assert.equal((await request('/api/ai/chat',{cookie:member,method:'POST',body:{message:'创建应用'}})).status,403);
@@ -97,12 +97,25 @@ test('enterprise builder publishes isolated drafts and enforces app and tool bou
  p=await(await request('/api/builder/projects/'+draft.id)).json();
  assert.equal((await request(`/api/builder/projects/${draft.id}/publish`,{method:'POST',body:{revision:p.revision,releaseNumber:p.releaseNumber}})).status,200);
  assert.equal((await (await request(`/api/apps/${runtimeId}`,{cookie:member})).json()).app.name,'待发布新名称');
- assert.equal((await (await request(`/api/apps/${runtimeId}/records`,{cookie:member})).json()).records.length,1);
+ assert.equal((await (await request(`/api/apps/${runtimeId}/records`,{cookie:member})).json()).records.length,2);
  const staleWrite=await request(`/api/apps/${runtimeId}/records`,{cookie:member,method:'POST',headers:{'x-luban-release':'1'},body:{entityId:entity.id,data:{}}});assert.equal(staleWrite.status,409);
  const changed=structuredClone(pkg);changed.schema.entities[0].fields.push({id:'new_field',type:'text',label:'新字段'});
+ changed.schema.entities[0].fields[0].label='修改显示名称';
  assert.equal((await request(`/api/builder/apps/${draft.id}/package`,{method:'PUT',body:{package:changed}})).status,200);
+ assert.equal((await request(`/api/builder/apps/${draft.id}/records`,{method:'POST',body:{entityId:entity.id,data:{new_field:'发布前不可写'}}})).status,409);
  p=await(await request('/api/builder/projects/'+draft.id)).json();
- assert.equal((await request(`/api/builder/projects/${draft.id}/publish`,{method:'POST',body:{revision:p.revision,releaseNumber:p.releaseNumber}})).status,409);
+ const additivePublish=await request(`/api/builder/projects/${draft.id}/publish`,{method:'POST',body:{revision:p.revision,releaseNumber:p.releaseNumber}});assert.equal(additivePublish.status,200,await additivePublish.clone().text());
+ const runtimeAfterAdd=(await(await request(`/api/apps/${runtimeId}`)).json()).app;
+ assert.ok(runtimeAfterAdd.schema.entities.find(item=>item.id===entity.id).fields.some(field=>field.id==='new_field'));
+ const backendAddedResponse=await request(`/api/builder/apps/${draft.id}/records`,{method:'POST',body:{entityId:entity.id,data:{new_field:'前后台同一条'}}});assert.equal(backendAddedResponse.status,201);const backendAdded=await backendAddedResponse.json();
+ const recordsAfterAdd=(await(await request(`/api/apps/${runtimeId}/records`,{cookie:member})).json()).records;
+ assert.equal(recordsAfterAdd.length,3);assert.ok(recordsAfterAdd.some(record=>record.id===prodRecord.id));assert.deepEqual(recordsAfterAdd.find(record=>record.id===prodRecord.id).data,prodRecord.data);
+ assert.equal(recordsAfterAdd.find(record=>record.id===backendAdded.record.id).data.new_field,'前后台同一条');
+ const backendRecords=(await(await request(`/api/builder/apps/${draft.id}/records`)).json()).records;assert.deepEqual(new Set(backendRecords.map(record=>record.id)),new Set(recordsAfterAdd.map(record=>record.id)));
+ const incompatible=structuredClone(changed);incompatible.schema.entities[0].fields.find(field=>field.id===entity.fields[0].id).type='number';
+ assert.equal((await request(`/api/builder/apps/${draft.id}/package`,{method:'PUT',body:{package:incompatible}})).status,200);
+ p=await(await request('/api/builder/projects/'+draft.id)).json();
+ const incompatiblePublish=await request(`/api/builder/projects/${draft.id}/publish`,{method:'POST',body:{revision:p.revision,releaseNumber:p.releaseNumber}});assert.equal(incompatiblePublish.status,409);assert.match((await incompatiblePublish.json()).error,/字段.*类型或数据定义已变化/);
  let called=false;
  const tools=new LubanToolProvider({tools:[{name:'add_field',handler:()=>{called=true;},schema:{function:{parameters:{type:'object'}}}}]}).listTools();
  await withApplicationIdentity(alice,'luban',()=>withWorkspace({mode:'runtime'},async()=>assert.rejects(tools[0].execute({appId:runtimeId},{signal:new AbortController().signal}),/业务助手/)));

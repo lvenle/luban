@@ -22,7 +22,7 @@ import { startScheduledTaskRunner, stopScheduledTaskRunner } from './services/sc
 import { ensurePlatformService, closePlatformService } from './agent/platform-service.js';
 import { resolveLubanAgent } from './agent/agent-resolver.js';
 
-const APP_VERSION = '2026.10.13';
+const APP_VERSION = '2026.11.24';
 const PORT = Number(process.env.PORT || 5173);
 const DESKTOP_TOKEN = process.env.LUBAN_DESKTOP_TOKEN || '';
 

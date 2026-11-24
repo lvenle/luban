@@ -1,12 +1,13 @@
 {
   "name": "luban-ai-mvp",
-  "version": "2026.10.13",
+  "version": "2026.11.24",
   "private": true,
   "description": "Luban AI System MVP: AI-generated structured personal apps with a SQLite-backed runtime.",
   "license": "AGPL-3.0-only",
   "type": "module",
   "main": "desktop/main.js",
   "scripts": {
+    "postinstall": "npm --prefix vendor/agent-platform install --omit=dev",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "desktop": "electron .",
@@ -87,6 +88,6 @@
     }
   },
   "dependencies": {
-    "@xiaoya/agent-platform": "file:../ai-agent-platform"
+    "@xiaoya/agent-platform": "file:vendor/agent-platform"
   }
 }

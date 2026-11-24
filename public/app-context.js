@@ -26,7 +26,7 @@ export const state = {
 };
 
 export const root = document.querySelector('#app');
-export const APP_VERSION = '2026.10.13';
+export const APP_VERSION = '2026.11.24';
 
 const shellActions = {
   goHome: () => {},

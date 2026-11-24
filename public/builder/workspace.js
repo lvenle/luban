@@ -119,7 +119,7 @@ export async function releaseDialog(app) {
   const project=await api(`/api/projects/${app.id}`);
   const {backdrop,content}=dialog('发布管理');
   content.append(h('p',{text:`${app.name} · ${project.releaseNumber?'线上 V'+project.releaseNumber:'尚未发布'} · ${project.hasChanges?'有待发布修改':'草稿与已发布版本一致'}`}),
-    h('p',{class:'muted',text:'仅发布应用定义和规则；测试记录不会进入正式环境。当前只支持保持数据结构不变的升级。'}));
+    h('p',{class:'muted',text:'发布应用定义和规则。首次发布会保留已有记录；发布后，前后台直接使用同一份记录。草稿数据结构改动发布前暂不能写正式记录；删除字段、修改字段类型或删除已有选项会被拦截，以保护已有数据。'}));
   const status=h('p',{role:'status'});content.append(status);
   if(project.canPublish){
     const publish=h('button',{class:'primary',text:project.releaseNumber?'发布新版本':'首次发布',onclick:async()=>{

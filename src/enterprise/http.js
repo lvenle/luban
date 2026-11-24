@@ -1,9 +1,10 @@
 import { suggestCreationPlan, confirmCreationPlan } from './plans.js';
 import { AppError } from '../core/errors.js';
-import { workspaceContext, canBuild, requireBuilder, appVisible, principal, isAdmin, projectFor } from './context.js';
+import { workspaceContext, canBuild, requireBuilder, appVisible, principal, isAdmin, projectFor, withWorkspace } from './context.js';
 import { describeProject, publishProject, updateMembers } from './projects.js';
 import { readJson, sendJson, serveUpload } from '../routes/_helpers.js';
 import { getRuntimeSettings } from '../models/runtime-settings.js';
+import { getApp } from '../models/app.js';
 
 export async function enterpriseHttp(req,res,url) {
   if (!workspaceContext()) return false;
@@ -38,6 +39,19 @@ export async function enterpriseHttp(req,res,url) {
       serveUpload(res,'/uploads/'+suffix);return true;
     }
     if(path.includes('/scheduled-tasks') || path.includes('/rules/execute')) throw new AppError(409,'预览环境暂不支持执行定时任务或手动规则模拟');
+    const dataMatch=path.match(/^\/api\/apps\/([^/]+)\/(records(?:\/.*)?|tables\/[^/]+\/records(?:\/.*)?)$/);
+    if(dataMatch) {
+      const project=projectFor(decodeURIComponent(dataMatch[1]));
+      if(project?.draftId===decodeURIComponent(dataMatch[1])&&project.runtimeId&&project.releaseNumber>0) {
+        if(method!=='GET') {
+          const [draft,runtime]=withWorkspace({mode:'system'},()=>[getApp(project.draftId),getApp(project.runtimeId)]);
+          if(JSON.stringify(draft.schema)!==JSON.stringify(runtime.schema))throw new AppError(409,'草稿数据结构尚未发布，请先发布后再编辑正式记录，避免新字段值无法保存');
+        }
+        workspaceContext().sharedDataAppId=project.runtimeId;
+        const from=`/api/apps/${dataMatch[1]}/`,to=`/api/apps/${encodeURIComponent(project.runtimeId)}/`;
+        req.url=req.url.replace(from,to);url.pathname=url.pathname.replace(from,to);
+      }
+    }
     return false;
   }
   if(path==='/api/settings' && method==='GET'){sendJson(res,200,{runtime:getRuntimeSettings()});return true;}

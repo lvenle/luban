@@ -1,10 +1,23 @@
 import { randomUUID, createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { getDb, withTransaction, triggerBackup, getPackageFromApp } from '../storage/db.js';
 import { createAppFromPackage, getApp, updateAppPackage, listApps } from '../models/app.js';
 import { createRule, listRules, getRule, updateRuleDefinition, updateRuleStatus, deleteRule } from '../models/rule.js';
 import { AppError } from '../core/errors.js';
 import { withWorkspace, projectFor, principal, canAccess, requireBuilder, isAdmin } from './context.js';
 const system = callback => withWorkspace({mode:'system'},callback);
+
+function shareProjectRecords(database,project) {
+  database.prepare('UPDATE records SET appId=? WHERE appId=?').run(project.runtimeId,project.draftId);
+  database.prepare('UPDATE record_relations SET appId=? WHERE appId=?').run(project.runtimeId,project.draftId);
+  database.prepare('UPDATE rule_runs SET appId=? WHERE appId=?').run(project.runtimeId,project.draftId);
+  database.prepare('UPDATE rule_record_states SET appId=? WHERE appId=?').run(project.runtimeId,project.draftId);
+  const sequences=database.prepare('SELECT entityId,fieldId,nextValue FROM auto_number_sequences WHERE appId=?').all(project.draftId);
+  const upsert=database.prepare(`INSERT INTO auto_number_sequences(appId,entityId,fieldId,nextValue) VALUES(?,?,?,?)
+    ON CONFLICT(appId,entityId,fieldId) DO UPDATE SET nextValue=MAX(nextValue,excluded.nextValue)`);
+  for(const sequence of sequences)upsert.run(project.runtimeId,sequence.entityId,sequence.fieldId,sequence.nextValue);
+  database.prepare('DELETE FROM auto_number_sequences WHERE appId=?').run(project.draftId);
+}
 
 export function initializeProjects() {
   const database=getDb();
@@ -15,7 +28,8 @@ export function initializeProjects() {
   getDb().exec(`CREATE TABLE IF NOT EXISTS enterprise_projects(
     id TEXT PRIMARY KEY,draftId TEXT NOT NULL UNIQUE REFERENCES apps(id) ON DELETE CASCADE,
     runtimeId TEXT UNIQUE REFERENCES apps(id) ON DELETE SET NULL,ownerId TEXT,scopeId TEXT NOT NULL DEFAULT 'enterprise',
-    status TEXT NOT NULL DEFAULT 'draft',releaseNumber INTEGER NOT NULL DEFAULT 0,publishedRevision TEXT);
+    status TEXT NOT NULL DEFAULT 'draft',releaseNumber INTEGER NOT NULL DEFAULT 0,publishedRevision TEXT,
+    sharedData INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS enterprise_releases(
       id TEXT PRIMARY KEY,projectId TEXT NOT NULL REFERENCES enterprise_projects(id) ON DELETE CASCADE,
       number INTEGER NOT NULL,revision TEXT NOT NULL,definition TEXT NOT NULL,createdBy TEXT NOT NULL,createdAt TEXT NOT NULL,
@@ -24,6 +38,8 @@ export function initializeProjects() {
     CREATE TABLE IF NOT EXISTS enterprise_members(
       projectId TEXT NOT NULL REFERENCES enterprise_projects(id) ON DELETE CASCADE,userId TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('user','builder','publisher')),PRIMARY KEY(projectId,userId));`);
+  const projectColumns=new Set(database.prepare('PRAGMA table_info(enterprise_projects)').all().map(column=>column.name));
+  if(!projectColumns.has('sharedData'))database.exec('ALTER TABLE enterprise_projects ADD COLUMN sharedData INTEGER NOT NULL DEFAULT 0');
   // Existing local apps remain private until an administrator explicitly publishes them.
   system(()=>withTransaction(()=>{
     for (const app of listApps()) {
@@ -33,6 +49,22 @@ export function initializeProjects() {
       for(const rule of listRules(app.id)) {const copied=createRule({...rule,appId:draft.id});getDb().prepare('INSERT INTO enterprise_rule_bindings VALUES(?,?,?)').run(app.id,copied.id,rule.id);}
     }
   }));
+  // Earlier releases stored preview and foreground records under separate app IDs.
+  // Merge once by moving preview rows to the published app; record IDs and relations stay intact.
+  const splitProjects=database.prepare('SELECT id,draftId,runtimeId FROM enterprise_projects WHERE runtimeId IS NOT NULL AND sharedData=0 AND draftId<>runtimeId').all();
+  if(splitProjects.length) {
+    const file=database.prepare('PRAGMA database_list').get().file;
+    if(file)database.prepare('VACUUM INTO ?').run(file+'.before-shared-records-'+Date.now()+'.bak');
+    system(()=>withTransaction(()=>{
+      for(const project of splitProjects) {
+        shareProjectRecords(database,project);
+        database.prepare('UPDATE enterprise_projects SET sharedData=1 WHERE id=?').run(project.id);
+      }
+    }));
+    triggerBackup();
+  } else {
+    system(()=>withTransaction(()=>database.prepare('UPDATE enterprise_projects SET sharedData=1 WHERE runtimeId=draftId AND sharedData=0').run()));
+  }
   // Draft enablement controls foreground availability for the paired published app.
   // Align existing pairs created before this rule on startup.
   system(()=>{
@@ -55,8 +87,29 @@ export function describeProject(appId) {
     members:getDb().prepare('SELECT userId,role FROM enterprise_members WHERE projectId=?').all(p.id)};
 }
 function compatible(previous,next) {
-  // Initial release supports unchanged schemas. Data migrations arrive in a subsequent phase.
-  if (JSON.stringify(previous.schema)!==JSON.stringify(next.schema)) throw new AppError(409,'线上应用的数据结构已变化，首版暂不支持结构迁移；请保留原结构或创建新应用');
+  const previousSchema=previous.schema||{}, nextSchema=next.schema||{};
+  const previousEntities=previousSchema.entities||[], nextEntities=nextSchema.entities||[];
+  let reason='';
+  for(const previousEntity of previousEntities) {
+    const nextEntity=nextEntities.find(entity=>entity.id===previousEntity.id);
+    if(!nextEntity) {reason=`数据表「${previousEntity.name||previousEntity.id}」已删除或更换`;break;}
+    const previousFields=previousEntity.fields||[], nextFields=nextEntity.fields||[];
+    for(const previousField of previousFields) {
+      const nextField=nextFields.find(field=>field.id===previousField.id);
+      if(!nextField) {reason=`字段「${previousField.label||previousField.id}」已删除`;break;}
+      // Presentation changes are safe. Keep the stored type, relation target,
+      // formula, and choice values stable so existing records remain readable.
+      const stableKeys=['type','targetEntity','multiple','formula','autoNumber'];
+      if(stableKeys.some(key=>!isDeepStrictEqual(previousField[key],nextField[key]))) {reason=`字段「${previousField.label||previousField.id}」的类型或数据定义已变化`;break;}
+      if(['select','multiSelect'].includes(previousField.type)) for(const option of previousField.options||[]) {
+        const nextOption=(nextField.options||[]).find(item=>item.id===option.id);
+        if(!nextOption||!isDeepStrictEqual(option,nextOption)) {reason=`字段「${previousField.label||previousField.id}」的已有选项已删除或修改`;break;}
+      }
+      if(reason) break;
+    }
+    if(reason) break;
+  }
+  if(reason) throw new AppError(409,`线上应用结构与草稿不兼容：${reason}。请恢复该数据定义后发布；字段显示名称和表单布局等界面调整可以直接发布。`);
 }
 export function publishProject(appId,input) {
   requireBuilder();
@@ -71,6 +124,7 @@ export function publishProject(appId,input) {
       let runtime=p.runtimeId?getApp(p.runtimeId):null;
       if(runtime) { compatible(runtime,draft); runtime=updateAppPackage(runtime.id,definition); }
       else runtime=createAppFromPackage(definition);
+      if(!p.sharedData) shareProjectRecords(getDb(),{draftId:draft.id,runtimeId:runtime.id});
       const bindings=getDb().prepare('SELECT * FROM enterprise_rule_bindings WHERE projectId=?').all(p.id);
       for(const rule of rules) {
         const binding=bindings.find(item=>item.draftRuleId===rule.id);
@@ -85,7 +139,7 @@ export function publishProject(appId,input) {
       for(const binding of bindings)if(!rules.some(rule=>rule.id===binding.draftRuleId)) {deleteRule(runtime.id,binding.runtimeRuleId);getDb().prepare('DELETE FROM enterprise_rule_bindings WHERE projectId=? AND draftRuleId=?').run(p.id,binding.draftRuleId);}
       const number=p.releaseNumber+1;
       getDb().prepare('INSERT INTO enterprise_releases VALUES(?,?,?,?,?,?,?)').run(randomUUID(),p.id,number,p.revision,JSON.stringify({definition,rules}),user.userId,new Date().toISOString());
-      getDb().prepare("UPDATE enterprise_projects SET runtimeId=?,status='published',releaseNumber=?,publishedRevision=? WHERE id=?").run(runtime.id,number,p.revision,p.id);
+      getDb().prepare("UPDATE enterprise_projects SET runtimeId=?,status='published',releaseNumber=?,publishedRevision=?,sharedData=1 WHERE id=?").run(runtime.id,number,p.revision,p.id);
       triggerBackup();
       return {runtimeId:runtime.id,number};
     });

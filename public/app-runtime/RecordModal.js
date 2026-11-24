@@ -9,10 +9,11 @@ import { getCurrentView, getListConfig, updateCurrentView } from './ViewBar.js';
 import { loadCurrentPageRecords, renderRuntime } from './runtime-actions.js';
 import { pushUndo } from '../common/UndoStack.js';
 import { notifyRuleResults } from './RuleFeedback.js';
+import { canDesign } from '../common/workspace.js';
 
 export async function openRecordModal(entity, record = null, options = {}) {
   const tableName = entityDisplayName(entity);
-  if (!record && !Object.prototype.hasOwnProperty.call(options, 'ruleDependencyFieldIds')) {
+  if (!record && canDesign() && !Object.prototype.hasOwnProperty.call(options, 'ruleDependencyFieldIds')) {
     try {
       const rulesBody = await api(`/api/apps/${state.currentApp.id}/rules`);
       options = { ...options, ruleDependencyFieldIds: createdRuleDependencyFieldIds(rulesBody.rules || [], entity.id) };

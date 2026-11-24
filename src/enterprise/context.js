@@ -39,7 +39,7 @@ export function appVisible(appId) {
     current.releases.set(appId,project.releaseNumber);
   }
   return Boolean(project && (isBuilder()
-    ? project.draftId===appId && canBuild() && canAccess(project,'build')
+    ? (project.draftId===appId || workspaceContext().sharedDataAppId===appId && project.runtimeId===appId) && canBuild() && canAccess(project,'build')
     : project.runtimeId===appId && project.releaseNumber>0 && project.status==='published' && Boolean(getDb().prepare('SELECT 1 FROM apps WHERE id=? AND enabled=1').get(appId)) && canAccess(project)));
 }
 export function registerDraft(appId) {
